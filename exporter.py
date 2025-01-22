@@ -1143,30 +1143,20 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
                     if obj.parent == arm:
                         utils.unhide(obj)
                         if obj not in objects:
+                            utils.log_info(f"   Found Character Object: {obj.name}")
                             objects.append(obj)
 
             child_objects = utils.get_child_objects(arm)
             for obj in child_objects:
                 if utils.object_exists_is_mesh(obj):
-                    # exclude rigid body colliders (parented to armature)
-                    if collider_collection and obj.name in collider_collection.objects:
-                        utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
-                        continue
-                    # exclude collider proxies
-                    if chr_cache.is_collision_object(obj):
-                        utils.log_info(f"   Excluding Collider Proxy Object: {obj.name}")
-                        continue
-                    # exclude sculpt objects
-                    if chr_cache.is_sculpt_object(obj):
-                        utils.log_info(f"   Excluding Sculpt Object: {obj.name}")
-                        continue
                     # add child mesh objects
                     if obj not in objects:
-                        utils.log_info(f"   Including Child Mesh Object: {obj.name}")
+                        utils.log_info(f"   Found Child Mesh Object: {obj.name}")
                         objects.append(obj)
                 elif utils.object_exists_is_empty(obj):
-                    utils.log_info(f"   Including Child Empty Transform: {obj.name}")
+                    utils.log_info(f"   Found Child Empty Transform: {obj.name}")
                     objects.append(obj)
+
     else:
         arm = utils.get_armature_from_objects(objects)
         if arm:
@@ -1178,14 +1168,10 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
             for obj in child_objects:
                 if utils.object_exists_is_mesh(obj):
                     if obj not in objects:
-                        # exclude rigid body colliders (parented to armature)
-                        if collider_collection and obj.name in collider_collection.objects:
-                            utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
-                            continue
-                        utils.log_info(f"   Including Child Object: {obj.name}")
+                        utils.log_info(f"   Found Child Object: {obj.name}")
                         objects.append(obj)
                 elif utils.object_exists_is_empty(obj):
-                    utils.log_info(f"   Including Child Empty Transform: {obj.name}")
+                    utils.log_info(f"   Found Child Empty Transform: {obj.name}")
                     objects.append(obj)
 
     # include selected objects last
@@ -1193,6 +1179,27 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
         for obj in selected:
             if obj not in objects:
                 objects.append(obj)
+
+    # exclude non-exportable objects
+    to_remove = []
+    for obj in objects:
+        # exclude rigid body colliders (parented to armature)
+        if collider_collection and obj.name in collider_collection.objects:
+            utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
+            to_remove.append(obj)
+            continue
+        # exclude collider proxies
+        if chr_cache and chr_cache.is_collision_object(obj):
+            utils.log_info(f"   Excluding Collider Proxy Object: {obj.name}")
+            to_remove.append(obj)
+            continue
+        # exclude sculpt objects
+        if chr_cache and chr_cache.is_sculpt_object(obj):
+            utils.log_info(f"   Excluding Sculpt Object: {obj.name}")
+            to_remove.append(obj)
+            continue
+    for o in to_remove:
+        objects.remove(o)
 
     # make sure all export objects are valid
     clean_objects = [ obj for obj in objects
@@ -1775,6 +1782,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
 
     # store mode state
     mode_selection_state = utils.store_mode_selection_state()
+    rv_state = utils.store_render_visibility_state()
 
     utils.log_info("Export to: " + file_path)
     utils.log_info("Exporting as: " + ext)
@@ -1885,6 +1893,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
 
     # restore mode state
     utils.restore_mode_selection_state(mode_selection_state)
+    utils.restore_render_visibility_state(rv_state)
 
     utils.log_recess()
     utils.log_timer("Done Character Export.")
@@ -1911,6 +1920,7 @@ def export_non_standard(self, context, file_path, include_selected):
 
     # store mode state
     mode_selection_state = utils.store_mode_selection_state()
+    rv_state = utils.store_render_visibility_state()
 
     # export objects
     objects = get_export_objects(None, include_selected)
@@ -1969,6 +1979,7 @@ def export_non_standard(self, context, file_path, include_selected):
 
     # restore mode state
     utils.restore_mode_selection_state(mode_selection_state)
+    utils.restore_render_visibility_state(rv_state)
 
     utils.log_recess()
     if arp_export:
@@ -2004,6 +2015,7 @@ def export_to_unity(self, context, chr_cache, export_anim, file_path, include_se
 
     # store mode state
     mode_selection_state = utils.store_mode_selection_state()
+    rv_state = utils.store_render_visibility_state()
 
     utils.log_info("Export to: " + file_path)
     utils.log_info("Exporting as: " + ext)
@@ -2117,6 +2129,7 @@ def export_to_unity(self, context, chr_cache, export_anim, file_path, include_se
         bones.restore_armature_settings(arm, armature_settings, include_pose=True)
         # restore mode state
         utils.restore_mode_selection_state(mode_selection_state)
+        utils.restore_render_visibility_state(rv_state)
 
     utils.log_recess()
     utils.log_timer("Done Character Export.")
@@ -2220,6 +2233,7 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
 
     # store mode state
     mode_selection_state = utils.store_mode_selection_state()
+    rv_state = utils.store_render_visibility_state()
 
     utils.log_info("Export to: " + file_path)
     utils.log_info("Exporting as: " + ext)
@@ -2337,6 +2351,7 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
 
     # restore mode state
     utils.restore_mode_selection_state(mode_selection_state)
+    utils.restore_render_visibility_state(rv_state)
 
     utils.log_recess()
     utils.log_timer("Done Rigify Export.")
@@ -2603,7 +2618,9 @@ class CC3Export(bpy.types.Operator):
         require_valid_export = (self.param == "EXPORT_CC3" or
                                 self.param == "EXPORT_NON_STANDARD")
         if require_export_check:
+            rv_state = utils.store_render_visibility_state()
             objects = get_export_objects(chr_cache, self.include_selected)
+            utils.restore_render_visibility_state(rv_state)
             if export_format == "fbx":
                 self.check_valid, self.check_warn, self.check_report = check_valid_export_fbx(chr_cache, objects)
             if require_valid_export:

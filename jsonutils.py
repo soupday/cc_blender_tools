@@ -435,7 +435,7 @@ def set_pbr_var(mat_json, var_name, paths, value):
                 mat_json["Textures"][var_name][paths[2]] = value
             else:
                 # metallic and roughness don't have controllable strength settings, so always set to max
-                if var_name == "Metallic" or var_name != "Roughness":
+                if var_name == "Metallic" or var_name == "Roughness":
                     value = 1.0
                 mat_json["Textures"][var_name]["Strength"] = value * 100.0
         except:
@@ -484,16 +484,16 @@ def get_shader_var_color(mat_json, var_name):
         return None
 
 
-def get_json(json_data, path: str):
+def get_json(json_data, path: str, default=None):
     if json_data:
         keys = path.split("/")
         for key in keys:
             if key in json_data:
                 json_data = json_data[key]
             else:
-                return None
+                return default
         return json_data
-    return None
+    return default
 
 
 def set_json(json_data, path: str, value):
@@ -634,3 +634,11 @@ def get_meshes_images(meshes_json, filter=None):
                         images.add(os.path.normpath(tex_path))
     return images
 
+
+def get_displacement_data(mat_json):
+    texture_path = get_json(mat_json, "Textures/Displacement/Texture Path", "")
+    strength = get_json(mat_json, "Textures/Displacement/Strength", 0.0)
+    level = int(get_json(mat_json, "Textures/Displacement/Tessellation Level", 0))
+    multiplier = get_json(mat_json, "Textures/Displacement/Multiplier", 1.0)
+    base = get_json(mat_json, "Textures/Displacement/Gray-scale Base Value", 0.0)
+    return texture_path, strength, level, multiplier, base

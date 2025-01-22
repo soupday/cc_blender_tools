@@ -311,13 +311,31 @@ def add_tearline_modifiers(obj):
     utils.log_info("Tearline Displacement modifiers applied to: " + obj.name)
 
 
-def add_decimate_modifier(obj, ratio):
-    mod : bpy.types.DecimateModifier
-    mod = get_object_modifier(obj, "DECIMATE", "Decimate_Collision_Body")
+def add_decimate_modifier(obj, ratio, name):
+    mod: bpy.types.DecimateModifier
+    mod = get_object_modifier(obj, "DECIMATE", name)
     if not mod:
-        mod = obj.modifiers.new(utils.unique_name("Decimate_Collision_Body"), "DECIMATE")
+        mod = obj.modifiers.new(utils.unique_name(name), "DECIMATE")
     mod.decimate_type = 'COLLAPSE'
     mod.ratio = ratio
+    return mod
+
+
+def add_subdivision(obj: bpy.types.Object, level, name, max_level=3, view_level=1):
+    mod: bpy.types.SubsurfModifier
+    mod = get_object_modifier(obj, "SUBSURF", name)
+    if not mod:
+        mod = obj.modifiers.new(utils.unique_name(name), "SUBSURF")
+    level = min(max_level, level)
+    view_level = min(view_level, level)
+    mod.render_levels = level
+    mod.levels = view_level
+    mod.subdivision_type = "CATMULL_CLARK"
+    mod.show_only_control_edges = True
+    mod.uv_smooth = 'PRESERVE_BOUNDARIES'
+    mod.boundary_smooth = 'PRESERVE_CORNERS'
+    mod.use_creases = True
+    mod.use_custom_normals = True
     return mod
 
 

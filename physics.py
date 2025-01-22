@@ -515,7 +515,9 @@ def create_collision_proxy(chr_cache, obj_cache, obj):
         utils.object_mode_to(collision_proxy)
         if obj_cache.collision_proxy_decimate < 1.0:
             # add decimate modifier
-            mod = modifiers.add_decimate_modifier(collision_proxy, obj_cache.collision_proxy_decimate)
+            mod = modifiers.add_decimate_modifier(collision_proxy,
+                                                  obj_cache.collision_proxy_decimate,
+                                                  "Decimate_Collision_Body")
             modifiers.move_mod_first(collision_proxy, mod)
             # apply decimate modifier
             bpy.ops.object.modifier_apply(modifier=mod.name)
