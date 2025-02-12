@@ -33,6 +33,10 @@ Links
 
 ## Changelog
 
+### 2.2.5 (In Progress)
+- Fix to Blender 4.1 material refraction setting.
+- Rigify setup defaults rig to zero IK stretch.
+
 ### 2.2.4
 - Rigify face rig fallback to envelope weights if auto weights fail.
 - DataLink Import motion will optionally (confirmation dialog) import motion to active character if no matching character.
