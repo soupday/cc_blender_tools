@@ -971,11 +971,13 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         row.prop(props, "physics_mode", toggle=True, text="Build Physics")
         row.prop(props, "wrinkle_mode", toggle=True, text="Wrinkles")
         row = column.row(align=True)
-        row.prop(chr_cache if chr_cache else props, "setup_mode", expand=True)
-        row = column.row(align=True)
-        row.prop(PREFS, "render_target", expand=True)
-        row = column.row(align=True)
-        row.prop(PREFS, "refractive_eyes", expand=True)
+        var = chr_cache if chr_cache else props
+        row.prop(var, "setup_mode", expand=True)
+        if var.setup_mode == "ADVANCED":
+            row = column.row(align=True)
+            row.prop(PREFS, "render_target", expand=True)
+            row = column.row(align=True)
+            row.prop(PREFS, "refractive_eyes", expand=True)
 
         # ACES Prefs
         if colorspace.is_aces():
@@ -1234,6 +1236,10 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             row.enabled = False
 
         if rigging.is_surface_heat_voxel_skinning_installed():
+            # bpy.data.scenes["Scene"].voxel_resolution
+            # bpy.data.scenes["Scene"].voxel_falloff
+            layout.prop(bpy.context.scene, "voxel_resolution", slider=True)
+            layout.prop(bpy.context.scene, "voxel_falloff", slider=True)
             row = layout.row()
             row.scale_y = 1.5
             row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Diffuse Skinning").param = "VOXEL_HEAT_SKINNING"
@@ -1795,7 +1801,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                     col_1.label(text="Tongue Roughness")
                     col_2.prop(basic_params, "tongue_roughness", text="", slider=True)
 
-                    column.box().label(text= "Hair", icon="OUTLINER_OB_HAIR")
+                    column.box().label(text= "Hair", icon=utils.check_icon("OUTLINER_OB_HAIR"))
                     split = column.split(factor=0.5)
                     col_1 = split.column()
                     col_2 = split.column()

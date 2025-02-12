@@ -709,7 +709,7 @@ def determine_material_alpha(obj_cache, mat_cache, mat_json):
 
 def set_material_alpha(mat, method, shadows=True, refraction=False, depth=0.0):
 
-    if utils.B410():
+    if utils.B420():
         mat.use_raytrace_refraction = refraction
     else:
         mat.use_screen_refraction = refraction

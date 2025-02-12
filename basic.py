@@ -257,6 +257,8 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
             nodeutils.advance_cursor(1.5)
             nodeutils.drop_cursor(0.75)
             mix_node = nodeutils.make_mixrgb_node(nodes, "MULTIPLY")
+            mix_node.name = utils.unique_name("AO_Mix")
+            mix_node.label = "AO Mix"
             nodeutils.link_nodes(links, diffuse_node, "Color", mix_node, "Color1")
             nodeutils.link_nodes(links, ao_node, "Color", mix_node, "Color2")
             nodeutils.link_nodes(links, fac_node, "Value", mix_node, "Fac")
@@ -319,6 +321,8 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
         mask_node = nodeutils.make_image_node(nodes, mask_image, "(SPECMASK)")
         nodeutils.advance_cursor()
         mult_node = nodeutils.make_math_node(nodes, "MULTIPLY")
+        mult_node.name = utils.unique_name("(Specular_Mult)")
+        mult_node.label = "Apply Specular Mask"
         if specular_node.type == "VALUE":
             nodeutils.link_nodes(links, specular_node, "Value", mult_node, 0)
         else:
@@ -358,6 +362,7 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
             nodeutils.advance_cursor()
             rmult_node = nodeutils.make_math_node(nodes, "MULTIPLY", 1, roughness)
             rmult_node.name = utils.unique_name(prop)
+            rmult_node.label = "Roughness Remap"
             nodeutils.link_nodes(links, roughness_node, "Color", rmult_node, 0)
             nodeutils.link_nodes(links, rmult_node, "Value", bsdf_node, roughness_socket)
         else:
