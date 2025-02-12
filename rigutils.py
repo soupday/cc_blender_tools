@@ -1442,6 +1442,17 @@ DISABLE_TWEAK_STRETCH_FOR = [
 ]
 
 
+def set_ik_stretch_control(rigify_rig, enabled):
+    """Set the default state of the IK Stretch controls"""
+
+    control_bone_names = [ "upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.L", "thigh_parent.R" ]
+    for bone_name in control_bone_names:
+        control_bone = bones.get_pose_bone(rigify_rig, bone_name)
+        if control_bone:
+            if "IK_Stretch" in control_bone:
+                control_bone["IK_Stretch"] = enabled
+
+
 def disable_ik_stretch(rigify_rig, bone_names=None):
     con_store = {}
     for pose_bone in rigify_rig.pose.bones:
