@@ -3687,7 +3687,7 @@ class CC3Rigifier(bpy.types.Operator):
                     adjust_rigify_constraints(chr_cache, self.rigify_rig)
                     rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
                     clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig, remove_meta = False) #not advanced_mode)
-                    rigutils.set_ik_stretch_control(self.rigify_rig, False)
+                    rigutils.set_ik_stretch_control(self.rigify_rig, 0.0)
                     utils.hide(self.cc3_rig)
                     utils.hide(self.meta_rig)
                     #self.restore_rigify_rigid_body_systems(chr_cache)
@@ -3757,7 +3757,7 @@ class CC3Rigifier(bpy.types.Operator):
                     rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                     add_shape_key_drivers(chr_cache, self.rigify_rig)
                     adjust_rigify_constraints(chr_cache, self.rigify_rig)
-                    rigutils.set_ik_stretch_control(self.rigify_rig, False)
+                    rigutils.set_ik_stretch_control(self.rigify_rig, 0.0)
                     utils.hide(self.cc3_rig)
                     utils.hide(self.meta_rig)
 
