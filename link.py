@@ -1897,6 +1897,7 @@ class LinkService():
                 return
             # Export Morph Obj
             self.send_notify(f"Exporting: {actor.name}")
+            is_remote = LINK_SERVICE.is_remote()
             state = utils.store_mode_selection_state()
             bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
             # Send Remote Files First
@@ -1914,7 +1915,7 @@ class LinkService():
                 "morph_path": "Some/Path",
             })
             utils.restore_mode_selection_state(state)
-            if os.path.exists(export_path):
+            if is_remote or os.path.exists(export_path):
                 self.send(OpCodes.MORPH, export_data)
                 update_link_status(f"Sent: {actor.name}")
                 return True
