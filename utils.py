@@ -1729,6 +1729,13 @@ def get_region_3d(context=None):
     return None, None
 
 
+def get_3d_regions(context=None):
+    spaces = get_view_3d_spaces(context)
+    if spaces:
+        return [ s.region_3d for s in spaces ]
+    return []
+
+
 def get_view_3d_space(context=None) -> bpy.types.Space:
     try:
         if not context:
@@ -1744,6 +1751,16 @@ def get_view_3d_space(context=None) -> bpy.types.Space:
     except: ...
     log_warn("Unable to get view 3d space!")
     return None
+
+
+def get_view_3d_spaces(context=None) -> bpy.types.Space:
+    try:
+        areas = get_view_3d_areas(context)
+        if areas:
+            return [ area.spaces.active for area in areas ]
+    except: ...
+    log_warn("Unable to get view 3d spaces!")
+    return []
 
 
 def get_view_3d_shading(context=None) -> bpy.types.View3DShading:
@@ -1783,6 +1800,19 @@ def get_view_3d_area(context=None) -> bpy.types.Area:
                 return area
     except: ...
     return None
+
+
+def get_view_3d_areas(context=None) -> bpy.types.Area:
+    areas = []
+    try:
+        if not context:
+            context = bpy.context
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                areas.append(area)
+    except:
+        areas = []
+    return areas
 
 
 def align_object_to_view(obj, context):
