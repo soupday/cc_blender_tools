@@ -245,6 +245,7 @@ NO_SIZE = 64
 DEFAULT_SIZE = 1024
 
 BAKE_TARGETS = [
+    ("NONE", "None", "Don't bake anything"),
     ("BLENDER","Blender", "Bake textures for Blender. The baked textures should be more performant than the complex node materials"),
     ("RL","Reallusion", "Bake textures for iClone / Character Creator"),
     ("SKETCHFAB","Sketchfab", "Bake and name the textures for Sketchfab. Uploading the baked textures with the .blend file to Sketchfab should auto connect the textures to the materials"),

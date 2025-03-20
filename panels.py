@@ -2705,11 +2705,14 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     chr_cache = props.get_context_character_cache(context)
     if chr_cache: # and bpy.context.scene.render.engine == 'CYCLES':
         box = layout.box()
-        box.label(text="Cycles", icon="SHADING_RENDERED")
+        box.label(text="Renderer", icon="SHADING_RENDERED")
         column = layout.column()
         row = column.row()
         row.scale_y = 2.0
         row.operator("cc3.scene", icon="PLAY", text="Cycles Setup").param = "CYCLES_SETUP"
+        row = column.row()
+        row.scale_y = 2.0
+        row.operator("cc3.scene", icon="PLAY", text="Eevee Setup").param = "EEVEE_SETUP"
         column.separator()
 
     cache_timeline_physics_ui(chr_cache, layout)
@@ -2732,6 +2735,18 @@ class CC3CreateScenePanel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        scene_panel_draw(self, context)
+
+
+class CCICLinkScenePanel(bpy.types.Panel):
+    bl_idname = "CCIC_PT_LinkScene_Panel"
+    bl_label = "Scene Tools"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = LINK_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -3442,18 +3457,23 @@ class CCICDataLinkPanel(bpy.types.Panel):
         connected = link_service and link_service.is_connected
         listening = link_service and link_service.is_listening
         connecting = link_service and link_service.is_connecting
+        working_folder = link_service.local_path if link_service else ""
         is_cc = link_props.remote_app == "Character Creator"
         is_iclone = link_props.remote_app == "iClone"
 
         layout = self.layout
 
         column = layout.column()
-        column.prop(link_props, "link_host", text="Host")
-        column.prop(link_props, "link_target", text="Target")
+        if prefs.datalink_bad_hostname:
+            column.alert=True
+        column.prop(prefs, "datalink_target", text="Target")
+        if prefs.datalink_target == "REMOTE":
+            column.prop(prefs, "datalink_host", text="Host")
+        if prefs.datalink_bad_hostname:
+            column.label(text="Bad Hostname")
         if listening or connected:
             column.enabled = False
 
-        layout.separator()
         row = layout.row()
         row.prop(link_props, "link_status", text="")
         row.enabled = False
@@ -3466,7 +3486,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
         param = "START"
         if connected:
             row.alert = True
-            text = "Linked"
+            text = "Linked (Local)" if link_service.is_local() else "Linked (Remote)"
             param = "DISCONNECT"
         elif connecting:
             row.alert = False
@@ -3505,6 +3525,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(prefs, "datalink_confirm_mismatch", text="")
             col_1.label(text="Confirm Replace")
             col_2.prop(prefs, "datalink_confirm_replace", text="")
+            box.prop(prefs, "temp_folder")
             box.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_DATALINK"
 
         if True:
@@ -3519,8 +3540,12 @@ class CCICDataLinkPanel(bpy.types.Panel):
                 text = "Not connected..."
             if (is_cc or is_iclone) and not connected:
                 text += " (Disconnected)"
-            row.label(text=text)
-            row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_PROJECT_FILES"
+            if connected and working_folder:
+                row.label(text=text)
+                row.label(text=f" {working_folder}")
+                row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_PROJECT_FILES"
+            else:
+                row.label(text=text)
 
             col = layout.column(align=True)
             split = col.split(factor=0.5, align=True)
@@ -3940,8 +3965,22 @@ class CCICBakePanel(bpy.types.Panel):
         if addon_updater_ops.updater.update_ready == True:
             addon_updater_ops.update_notice_box_ui(self, context)
 
-        box = layout.box()
-        box.label(text=f"Export Bake Settings", icon="TOOL_SETTINGS")
+        obj = context.object
+        mat = utils.get_context_material(context)
+        chr_cache = props.get_character_cache(obj, mat)
+        bake_cache = bake.get_export_bake_cache(mat)
+
+        if chr_cache and (chr_cache.render_target != "EEVEE" or
+                          chr_cache.is_wrinkle_active()):
+            box = layout.box()
+            box.alert = True
+            box.label(text="Warning:", icon="ERROR")
+            box.label(text="Character should be built")
+            box.label(text="without wrinkle maps and")
+            box.label(text="with Eevee materials!")
+            box.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild For Eevee").param ="REBUILD_BAKE"
+
+        layout.box().label(text=f"Export Bake Settings", icon="TOOL_SETTINGS")
 
         bake_maps = vars.get_bake_target_maps(bake_props.target_mode)
 
@@ -3988,10 +4027,6 @@ class CCICBakePanel(bpy.types.Panel):
         col_1.label(text="Max Sizes By Type")
         col_2.prop(bake_props, "custom_sizes", text="")
 
-        obj = context.object
-        mat = utils.get_context_material(context)
-        chr_cache = props.get_character_cache(obj, mat)
-        bake_cache = bake.get_export_bake_cache(mat)
         disable_on_linked(layout, chr_cache)
 
         if bake_props.custom_sizes:
@@ -4050,13 +4085,12 @@ class CCICBakePanel(bpy.types.Panel):
         row.scale_y = 2
         if chr_cache and chr_cache.render_target != "EEVEE":
             row.alert = True
-            box = col.box()
-            box.alert = True
-            box.label(text="Warning:", icon="ERROR")
-            box.label(text="Character should be built")
-            box.label(text="with Eevee materials!")
-            box.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild For Eevee").param ="REBUILD_BAKE"
+
+        # Bake Button
         row.operator("ccic.baker", icon="PLAY", text="Bake").param = "BAKE"
+        if bake_props.target_mode == "NONE":
+            row.enabled = False
+
         if not valid_bake_path:
             row.enabled = False
             box = col.box()
@@ -4064,6 +4098,17 @@ class CCICBakePanel(bpy.types.Panel):
             box.label(text="Warning:", icon="ERROR")
             box.label(text="SAVE Blend file before baking")
             box.label(text="or use absolute bake path!")
+
+        if chr_cache:
+            if chr_cache.baked_target_mode == "GLTF":
+                col = layout.column(align=True)
+                col.label(text="Baked as GLTF")
+                row = col.row(align=True)
+                row.scale_y = 1.5
+                row.operator("cc3.exporter", icon="EXPORT", text="Export GLB").param = "EXPORT_BAKED_GLB"
+                row = col.row(align=True)
+                row.scale_y = 1.5
+                row.operator("cc3.exporter", icon="EXPORT", text="Export GLTF").param = "EXPORT_BAKED_GLTF"
 
         layout.separator()
 

@@ -2,7 +2,7 @@ import bpy #, bpy_extras
 #import bpy_extras.view3d_utils as v3d
 import atexit
 from enum import IntEnum
-import os, socket, time, select, struct, json, copy
+import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix
 from . import (importer, exporter, bones, geom, colorspace,
@@ -10,9 +10,8 @@ from . import (importer, exporter, bones, geom, colorspace,
                jsonutils, utils, vars)
 import textwrap
 
-BLENDER_PORT = 9334
-UNITY_PORT = 9335
-RL_PORT = 9333
+BLENDER_PORT = 9333
+UNITY_PORT = 9334
 HANDSHAKE_TIMEOUT_S = 60
 KEEPALIVE_TIMEOUT_S = 300
 PING_INTERVAL_S = 120
@@ -35,6 +34,7 @@ class OpCodes(IntEnum):
     DEBUG = 15
     NOTIFY = 50
     SAVE = 60
+    FILE = 75
     MORPH = 90
     MORPH_UPDATE = 91
     REPLACE_MESH = 95
@@ -368,10 +368,6 @@ class LinkActor():
 
 
 class LinkData():
-    link_host: str = "localhost"
-    link_host_ip: str = "127.0.0.1"
-    link_target: str = "BLENDER"
-    link_port: int = 9333
     actors: list = []
     # Sequence/Pose Props
     sequence_current_frame: int = 0
@@ -462,13 +458,60 @@ def unpack_string(buffer, offset=0):
     return offset, string.decode(encoding="utf-8")
 
 
+def get_datalink_temp_local_folder():
+    prefs = vars.prefs()
+    link_props = vars.link_props()
+    # prefs.temp_folder is the user definable temp folder
+    # link_props.temp_folder is the temp folder that was used to generate the current link_props.temp_files folder
+    # if prefs.temp_folder is changed, generate a new link_props.temp_files and store the new temp_folder
+    if prefs.temp_folder != link_props.temp_folder:
+        link_props.temp_files = ""
+    if not link_props.temp_files:
+        parent_dir = prefs.temp_folder if prefs.temp_folder else None
+        link_props.temp_files = tempfile.mkdtemp(dir=parent_dir)
+        link_props.temp_folder = prefs.temp_folder
+    return link_props.temp_files
+
+
 def get_local_data_path():
+    prefs = vars.prefs()
+    link_props = vars.link_props()
     local_path = utils.local_path()
     blend_file_name = utils.blend_file_name()
     data_path = ""
+    # if blend file is saved and has a local path, always use this as the parent folder to save local files
     if local_path and blend_file_name:
         data_path = local_path
+    # otherwise, if not saved yet, determine a temp folder location
+    else:
+        # if connected locally and we have CC/iClone's datalink path, use that for our local files
+        if (LINK_SERVICE and
+            LINK_SERVICE.is_local() and
+            LINK_SERVICE.remote_path and
+            not link_props.temp_files):
+            link_props.temp_files = tempfile.mkdtemp(dir=LINK_SERVICE.remote_path)
+            data_path = link_props.temp_files
+        # otherwise generate a temp folder in either the system temp files or in the user temp folder
+        #                                  or regenerate a new one if the user temp folder has changed
+        elif not link_props.temp_files or prefs.temp_folder != link_props.temp_folder:
+            data_path = get_datalink_temp_local_folder()
+        else:
+            data_path = link_props.temp_files
     return data_path
+
+
+def get_remote_tar_file_path(remote_id):
+    data_path = get_local_data_path()
+    remote_import_path = utils.make_sub_folder(data_path, "imports")
+    remote_file_path = os.path.join(remote_import_path, f"{remote_id}.tar")
+    return remote_file_path
+
+
+def get_unpacked_tar_file_folder(remote_id):
+    data_path = get_local_data_path()
+    remote_import_path = utils.make_sub_folder(data_path, "imports")
+    remote_files_folder = os.path.join(data_path, "imports", remote_id)
+    return remote_files_folder
 
 
 def find_rig_pivot_bone(rig, parent):
@@ -1072,6 +1115,7 @@ class LinkService():
     remote_exe: str = None
     plugin_version: str = None
     link_data: LinkData = None
+    remote_is_local: bool = True
 
     def __init__(self):
         global LINK_DATA
@@ -1166,6 +1210,7 @@ class LinkService():
                 self.client_port = port
                 self.keepalive_timer = KEEPALIVE_TIMEOUT_S
                 self.ping_timer = PING_INTERVAL_S
+                self.remote_is_local = True if self.client_ip == "127.0.0.1" else False
                 utils.log_info(f"connecting with data link server on {host}:{port}")
                 self.send_hello()
                 self.connecting.emit()
@@ -1184,6 +1229,7 @@ class LinkService():
             return True
 
     def send_hello(self):
+        prefs = vars.prefs()
         self.local_app = "Blender"
         self.local_version = bpy.app.version_string
         self.local_path = get_local_data_path()
@@ -1192,6 +1238,7 @@ class LinkService():
             "Version": self.local_version,
             "Path": self.local_path,
             "Addon": vars.VERSION_STRING[1:],
+            "Local": self.remote_is_local,
         }
         utils.log_info(f"Send Hello: {self.local_path}")
         self.send(OpCodes.HELLO, encode_from_json(json_data))
@@ -1264,6 +1311,22 @@ class LinkService():
                                 return
                             data.extend(chunk)
                             size -= len(chunk)
+                    if op_code == OpCodes.FILE:
+                        remote_id = data.decode(encoding="utf-8")
+                        chunk = self.client_sock.recv(4)
+                        size = struct.unpack("!I", chunk)[0]
+                        tar_file_path = get_remote_tar_file_path(remote_id)
+                        with open(tar_file_path, 'wb') as file:
+                            while size > 0:
+                                chunk_size = min(size, MAX_CHUNK_SIZE)
+                                try:
+                                    chunk = self.client_sock.recv(chunk_size)
+                                    file.write(chunk)
+                                except Exception as e:
+                                    utils.log_error("Client socket recv:recv file chunk failed!", e)
+                                    self.client_lost()
+                                    return
+                                size -= len(chunk)
                     self.parse(op_code, data)
                     self.received.emit(op_code, data)
                     count += 1
@@ -1381,6 +1444,9 @@ class LinkService():
         elif op_code == OpCodes.SAVE:
             self.receive_save(data)
 
+        elif op_code == OpCodes.FILE:
+            self.receive_remote_file(data)
+
         elif op_code == OpCodes.TEMPLATE:
             self.receive_character_template(data)
 
@@ -1485,6 +1551,12 @@ class LinkService():
             self.stop_timer()
         self.stop_client()
 
+    def is_remote(self):
+        return not self.remote_is_local
+
+    def is_local(self):
+        return self.remote_is_local
+
     def check_service(self):
         global LINK_SERVICE
         global LINK_DATA
@@ -1580,7 +1652,29 @@ class LinkService():
                     return
                 self.ping_timer = PING_INTERVAL_S
                 self.sent.emit()
+        except Exception as e:
+            utils.log_error("LinkService send failed!", e)
 
+    def send_file(self, tar_id, tar_file):
+        try:
+            utils.log_info(f"Sending Remote files: {tar_file}")
+            if self.client_sock and (self.is_connected or self.is_connecting):
+                file_size = os.path.getsize(tar_file)
+                id_data = pack_string(tar_id)
+                data = bytearray()
+                data.extend(struct.pack("!I", OpCodes.FILE))
+                data.extend(id_data)
+                data.extend(struct.pack("!I", file_size))
+                self.client_sock.send(data)
+                remaining_size = file_size
+                with open(tar_file, 'rb') as file:
+                    while remaining_size > 0:
+                        chunk_size = min(MAX_CHUNK_SIZE, remaining_size)
+                        byte_array = bytearray(file.read(chunk_size))
+                        remaining_size -= MAX_CHUNK_SIZE
+                        self.client_sock.send(byte_array)
+                self.ping_timer = PING_INTERVAL_S
+                self.sent.emit()
         except Exception as e:
             utils.log_error("LinkService send failed!", e)
 
@@ -1624,6 +1718,16 @@ class LinkService():
             utils.log_info("Saving Mainfile")
             bpy.ops.wm.save_mainfile()
 
+    def receive_remote_file(self, data: bytearray):
+        remote_id = data.decode(encoding="utf-8")
+        tar_file_path = get_remote_tar_file_path(remote_id)
+        parent_path = os.path.dirname(tar_file_path)
+        unpack_folder = utils.make_sub_folder(parent_path, remote_id)
+        utils.log_info(f"Receive Remote Files: {remote_id} / {unpack_folder}")
+        shutil.unpack_archive(tar_file_path, unpack_folder, "tar")
+        os.remove(tar_file_path)
+        #utils.show_system_file_browser(unpack_folder)
+
     def receive_debug(self, data):
         debug_json = None
         if data:
@@ -1636,21 +1740,48 @@ class LinkService():
         key_path = os.path.normpath(os.path.join(dir, name + key_ext))
         return key_path
 
-    def get_export_path(self, folder_name, file_name, reuse_folder=False, reuse_file=False):
+    def get_export_folder(self, folder_name, reuse=False):
         remote_path = self.remote_path
         local_path = self.local_path
-
         if not local_path:
             local_path = get_local_data_path()
-
         if local_path:
             export_folder = utils.make_sub_folder(local_path, "exports")
         else:
             export_folder = utils.make_sub_folder(remote_path, "exports")
+        character_export_folder = utils.get_unique_folder_path(export_folder, folder_name, create=True, reuse=reuse)
+        return character_export_folder
 
-        character_export_folder = utils.get_unique_folder_path(export_folder, folder_name, create=True, reuse=reuse_folder)
+    def get_export_path(self, folder_name, file_name, reuse_folder=False, reuse_file=False):
+        character_export_folder = self.get_export_folder(folder_name, reuse=reuse_folder)
         export_path = utils.get_unique_file_path(character_export_folder, file_name, reuse=reuse_file)
         return export_path
+
+    def send_remote_files(self, export_folder):
+        link_service: LinkService = LINK_SERVICE
+        remote_id = ""
+        if link_service.is_remote():
+            parent_folder = os.path.dirname(export_folder)
+            remote_id = str(time.time_ns())
+            cwd = os.getcwd()
+            tar_file_name = remote_id
+            os.chdir(parent_folder)
+            utils.log_info(f"Packing Remote files: {tar_file_name}")
+            update_link_status("Packing Remote files")
+            shutil.make_archive(tar_file_name, "tar", export_folder)
+            os.chdir(cwd)
+            tar_file_path = os.path.join(parent_folder, f"{tar_file_name}.tar")
+            if os.path.exists(tar_file_path):
+                update_link_status("Sending Remote files")
+                link_service.send_file(remote_id, tar_file_path)
+                update_link_status("Files Sent")
+            if os.path.exists(tar_file_path):
+                utils.log_info(f"Cleaning up remote export package: {tar_file_path}")
+                os.remove(tar_file_path)
+            if os.path.exists(export_folder):
+                utils.log_info(f"Cleaning up remote export folder: {export_folder}")
+                shutil.rmtree(export_folder)
+        return remote_id
 
     def get_actor_from_object(self, obj):
         global LINK_DATA
@@ -1722,20 +1853,31 @@ class LinkService():
             if self.is_cc() and not actor.can_go_cc(): continue
             if self.is_iclone() and not actor.can_go_ic(): continue
             self.send_notify(f"Blender Exporting: {actor.name}...")
-            export_path = self.get_export_path(actor.name, actor.name + ".fbx")
+            # Determine export path
+            export_folder = self.get_export_folder(actor.name)
+            export_file = actor.name + ".fbx"
+            export_path = os.path.join(export_folder, export_file)
+            print(f"EXPORT PATH: {export_path}")
+            if not export_path: continue
+            # Export Actor Fbx
             self.send_notify(f"Exporting: {actor.name}")
+            is_remote = LINK_SERVICE.is_remote()
             if actor.get_type() == "PROP":
-                bpy.ops.cc3.exporter(param="EXPORT_CC3", link_id_override=actor.get_link_id(), filepath=export_path)
+                bpy.ops.cc3.exporter(param="EXPORT_CC3", link_id_override=actor.get_link_id(), filepath=export_path, include_textures=is_remote)
             elif actor.get_type() == "AVATAR":
-                bpy.ops.cc3.exporter(param="EXPORT_CC3", link_id_override=actor.get_link_id(), filepath=export_path)
+                bpy.ops.cc3.exporter(param="EXPORT_CC3", link_id_override=actor.get_link_id(), filepath=export_path, include_textures=is_remote)
+            # Send Remote Files First
+            remote_id = self.send_remote_files(export_folder)
+            # Send Actor
             update_link_status(f"Sending: {actor.name}")
             export_data = encode_from_json({
                 "path": export_path,
+                "remote_id": remote_id,
                 "name": actor.name,
                 "type": actor.get_type(),
                 "link_id": actor.get_link_id(),
             })
-            if os.path.exists(export_path):
+            if is_remote or os.path.exists(export_path):
                 self.send(OpCodes.CHARACTER, export_data)
                 update_link_status(f"Sent: {actor.name}")
                 count += 1
@@ -1746,15 +1888,24 @@ class LinkService():
         actor: LinkActor = self.get_active_actor()
         if actor:
             self.send_notify(f"Blender Exporting: {actor.name}...")
-            export_path = self.get_export_path("Morphs", actor.name + "_morph.obj",
-                                            reuse_folder=True, reuse_file=False)
+            # Determine export path
+            export_folder = self.get_export_folder("Morphs", reuse=True)
+            export_file = actor.name + "_morph.obj"
+            export_path = os.path.join(export_folder, export_file)
             key_path = self.get_key_path(export_path, ".ObjKey")
+            if not export_path:
+                return
+            # Export Morph Obj
             self.send_notify(f"Exporting: {actor.name}")
             state = utils.store_mode_selection_state()
             bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
+            # Send Remote Files First
+            remote_id = self.send_remote_files(export_folder)
+            # Send Morph
             update_link_status(f"Sending: {actor.name}")
             export_data = encode_from_json({
                 "path": export_path,
+                "remote_id": remote_id,
                 "key_path": key_path,
                 "name": actor.name,
                 "type": actor.get_type(),
@@ -2561,6 +2712,8 @@ class LinkService():
         use_ibl = lights_data.get("use_ibl", False)
         if use_ibl:
             ibl_path = lights_data.get("ibl_path", "")
+            ibl_remote_id = lights_data.get("ibl_remote_id")
+            ibl_path = self.get_remote_file(ibl_remote_id, ibl_path)
             ibl_strength = lights_data.get("ibl_strength", 0.5)
             ibl_location = utils.array_to_vector(lights_data.get("ibl_location", [0,0,0])) / 100
             ibl_rotation = utils.array_to_vector(lights_data.get("ibl_rotation", [0,0,0]))
@@ -2610,7 +2763,6 @@ class LinkService():
         return t
 
     def send_camera_sync(self):
-        #
         update_link_status(f"Synchronizing View Camera")
         self.send_notify(f"Sync View Camera")
         camera_data = self.get_view_camera_data()
@@ -2973,6 +3125,13 @@ class LinkService():
         else:
             self.update_sequence(5, delta_frames)
 
+    def get_remote_file(self, remote_id, source_path):
+        if remote_id:
+            remote_files_folder = get_unpacked_tar_file_folder(remote_id)
+            source_folder, source_file = os.path.split(source_path)
+            source_path = os.path.join(remote_files_folder, source_file)
+        return source_path
+
     def receive_character_import(self, data):
         props = vars.props()
         prefs = vars.prefs()
@@ -2982,10 +3141,12 @@ class LinkService():
 
         # decode character import data
         json_data = decode_to_json(data)
-        fbx_path = json_data["path"]
-        name = json_data["name"]
-        character_type = json_data["type"]
-        link_id = json_data["link_id"]
+        fbx_path = json_data.get("path")
+        remote_id = json_data.get("remote_id")
+        fbx_path = self.get_remote_file(remote_id, fbx_path)
+        name = json_data.get("name")
+        character_type = json_data.get("type")
+        link_id = json_data.get("link_id")
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
         save_after_import = json_data.get("save_after_import", False)
@@ -3014,10 +3175,10 @@ class LinkService():
                 self.do_update_replace(name, link_id, fbx_path, character_type, True,
                                        objects_to_replace_names=None,
                                        replace_actions=True)
-            return
+        else:
+            update_link_status(f"Receving Character Import: {name}")
+            self.do_character_import(fbx_path, link_id, save_after_import)
 
-        update_link_status(f"Receving Character Import: {name}")
-        self.do_character_import(fbx_path, link_id, save_after_import)
 
     def do_character_import(self, fbx_path, link_id, save_after_import):
         try:
@@ -3051,7 +3212,9 @@ class LinkService():
 
         # decode character import data
         json_data = decode_to_json(data)
-        fbx_path = json_data["path"]
+        fbx_path = json_data.get("path")
+        remote_id = json_data.get("remote_id")
+        fbx_path = self.get_remote_file(remote_id, fbx_path)
         name = json_data["name"]
         character_type = json_data["type"]
         link_id = json_data["link_id"]
@@ -3233,7 +3396,9 @@ class LinkService():
 
         # decode receive morph
         json_data = decode_to_json(data)
-        obj_path = json_data["path"]
+        obj_path = json_data.get("path")
+        remote_id = json_data.get("remote_id")
+        obj_path = self.get_remote_file(remote_id, obj_path)
         name = json_data["name"]
         character_type = json_data["type"]
         link_id = json_data["link_id"]
@@ -3281,7 +3446,9 @@ class LinkService():
         props.validate_and_clean_up()
 
         json_data = decode_to_json(data)
-        fbx_path = json_data["path"]
+        fbx_path = json_data.get("path")
+        remote_id = json_data.get("remote_id")
+        fbx_path = self.get_remote_file(remote_id, fbx_path)
         name = json_data["name"]
         character_type = json_data["type"]
         link_id = json_data["link_id"]
@@ -3628,6 +3795,10 @@ class CCICDataLink(bpy.types.Operator):
     def execute(self, context):
         global LINK_SERVICE
 
+        if self.param == "GOB_START":
+            self.link_start(is_go_b=True)
+            return {'FINISHED'}
+
         if self.param == "START":
             self.link_start()
             return {'FINISHED'}
@@ -3751,7 +3922,7 @@ class CCICDataLink(bpy.types.Operator):
             os.makedirs(export_path, exist_ok=True)
 
     def link_start(self, is_go_b=False):
-        link_props = vars.link_props()
+        prefs = vars.prefs()
         global LINK_SERVICE
 
         self.prep_local_files()
@@ -3760,7 +3931,19 @@ class CCICDataLink(bpy.types.Operator):
             LINK_SERVICE.changed.connect(link_state_update)
 
         if LINK_SERVICE:
-            LINK_SERVICE.service_start(link_props.link_host_ip, link_props.link_port)
+            link_ip = "127.0.0.1"
+            if is_go_b:
+                # go_b only to local host
+                prefs.datalink_target = "LOCAL"
+            try:
+                if prefs.datalink_target == "REMOTE":
+                    link_ip = socket.gethostbyname(prefs.datalink_host)
+                prefs.datalink_bad_hostname = False
+            except:
+                prefs.datalink_bad_hostname = True
+                utils.log_error(f"Bad Remote DataLink Hostname! {prefs.datalink_host}")
+                return
+            LINK_SERVICE.service_start(link_ip, BLENDER_PORT)
 
     def link_stop(self):
         global LINK_SERVICE
@@ -3776,6 +3959,9 @@ class CCICDataLink(bpy.types.Operator):
 
     @classmethod
     def description(cls, context, properties):
+
+        if properties.param == "GOB_START":
+            return "Attempt to start the DataLink by connecting to the server running on CC4/iC8 to local host"
 
         if properties.param == "START":
             return "Attempt to start the DataLink by connecting to the server running on CC4/iC8"

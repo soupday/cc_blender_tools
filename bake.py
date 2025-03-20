@@ -1546,9 +1546,8 @@ def export_bake_socket_output(context, source_mat, source_mat_cache, mat,
     if from_node:
         image = None
 
-        # Copy, don't bake if the input is a texture (Color socket)
-        # TODO this never happens...
-        if from_node.type == "TEX_IMAGE" and from_socket == "Color":
+        # TODO use vars.TEX_SIZE_OVERRIDE to limit some bake sizes
+        if from_node.type == "TEX_IMAGE" and nodeutils.safe_socket_name(from_socket) == "Color":
             image = copy_target(source_mat, mat, from_node, suffix, data)
         else:
             path = get_bake_path()
@@ -1573,6 +1572,10 @@ def prep_diffuse(mat, shader_name, shader_node, separate, ao_strength):
     props = vars.bake_props()
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
+    # turn of anisotropic highlights in specular blend
+    if shader_name == "rl_hair_shader":
+        nodeutils.set_node_input_value(shader_node, "Specular Blend", 0)
+        nodeutils.set_node_input_value(shader_node, "Anisotropic Strength", 0)
     # turn off depth for cornea parallax
     parallax_tiling_node = nodeutils.find_node_by_keywords(nodes, vars.NODE_PREFIX, "(tiling_rl_cornea_shader_DIFFUSE_mapping)")
     if parallax_tiling_node:
@@ -1605,15 +1608,49 @@ def prep_sss(shader_node, bsdf_node : bpy.types.Node):
     return sss_radius
 
 
-def prep_alpha(mat, shader_node):
-    props = vars.bake_props()
+def prep_alpha(mat, shader_node, shader_name):
+    """Only some shaders should bake alpha,
+       those with alpha map inputs and
+       those with procedurally generated alpha"""
 
+    props = vars.bake_props()
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
-    return
+
+    if shader_name in ["rl_cornea_refractive_shader",
+                       "rl_eye_occlusion_shader",
+                       "rl_tearline_shader",
+                       "rl_tearline_cycles_shader",
+                       "rl_eye_occlusion_cycles_mix_shader",
+                       "rl_tearline_cycles_mix_shader"]:
+        return True
+
+    alpha_map_socket = nodeutils.input_socket(shader_node, "Alpha Map")
+    if alpha_map_socket:
+        return alpha_map_socket.is_linked
+
+    alpha_socket = nodeutils.output_socket(shader_node, "Alpha")
+    if alpha_socket:
+        return True
+
+    opacity_socket = nodeutils.output_socket(shader_node, "Opacity")
+    if opacity_socket:
+        return True
+
+    return False
 
 
-def can_bake_shader_node(shader_node, bsdf_node, bsdf_socket):
+def prep_specular(mat, shader_name, shader_node):
+    props = vars.bake_props()
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    # turn of anisotropic highlights in specular blend
+    if shader_name == "rl_hair_shader":
+        nodeutils.set_node_input_value(shader_node, "Specular Blend", 0)
+        nodeutils.set_node_input_value(shader_node, "Anisotropic Strength", 0)
+
+
+def can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
     props = vars.bake_props()
 
     if shader_node is None:
@@ -1621,6 +1658,115 @@ def can_bake_shader_node(shader_node, bsdf_node, bsdf_socket):
     if nodeutils.is_mixer_connected(bsdf_node, bsdf_socket):
         return not props.bake_mixers
     return nodeutils.get_node_connected_to_input(bsdf_node, bsdf_socket) == shader_node
+
+
+def test_unmodified_socket(shader_node, socket_name, default_value, linked_socket=None):
+    if shader_node:
+        if socket_name in shader_node.inputs:
+            socket = nodeutils.safe_node_input_socket(shader_node, socket_name)
+            if linked_socket: # if there is no corresponding linked socket, consider it not modified
+                linked_socket = nodeutils.safe_node_input_socket(shader_node, linked_socket)
+                if not linked_socket.is_linked:
+                    return True
+            socket_value = socket.default_value
+            if type(default_value) is list or type(default_value) is tuple:
+                for i in range(0, len(default_value)):
+                    if abs(default_value[i] - socket_value[i]) > 0.001:
+                        return False
+            else:
+                if abs(default_value - socket_value) > 0.001:
+                    return False
+    return True
+
+
+def does_shader_modify(shader_node, shader_name, socket_type):
+    """Test if the shader node input socket is modified by the shader node group. e.g. Roughness remap range altered."""
+
+    # TODO test for and include rebuilding without wrinkle maps before baking.
+    # default return as modified, only need to check for shaders that do not modify the inputs
+    modifies = True
+
+    if socket_type == "Diffuse":
+
+        if shader_name == "rl_sss_shader":
+            if (test_unmodified_socket(shader_node, "Diffuse Color", (1,1,1)) and
+                test_unmodified_socket(shader_node, "Hue", 0.5) and
+                test_unmodified_socket(shader_node, "Saturation", 1.0) and
+                test_unmodified_socket(shader_node, "Brightness", 1.0) and
+                test_unmodified_socket(shader_node, "Blend Multiply Strength", 0.0, "Blend Multiply")):
+                modifies = False
+
+        elif shader_name in ["rl_skin_shader", "rl_pbr_shader"]:
+            if (test_unmodified_socket(shader_node, "Diffuse Color", (1,1,1)) and
+                test_unmodified_socket(shader_node, "Diffuse Hue", 0.5) and
+                test_unmodified_socket(shader_node, "Diffuse Saturation", 1.0) and
+                test_unmodified_socket(shader_node, "Diffuse Brightness", 1.0)):
+                modifies = False
+
+    if socket_type == "AO":
+        # nothing fancy is done with the AO maps, they blend multiply into the diffuse with a strength fac,
+        # so consider them all unmodified.
+        modifies = False
+
+    if socket_type == "SSS":
+        # all the sss effects modify the input through masks, or procedurarally generate it
+        # except pbr which doesnt use SSS
+        if shader_name == "rl_pbr_shader":
+            modifies = False
+
+    if socket_type == "Metallic":
+        # nothing modifies metallic
+        modifies = False
+
+    if socket_type == "Specular":
+        if shader_name in ["rl_skin_shader", "rl_pbr_shader", "rl_sss_shader"]:
+            if (test_unmodified_socket(shader_node, "Specular Strength", 1.0) and
+                test_unmodified_socket(shader_node, "Specular Scale", 1.0)):
+                modifies = False
+
+    if socket_type == "Roughness":
+        if shader_name in ["rl_pbr_shader"]:
+            if (test_unmodified_socket(shader_node, "Roughness Power", 1) and
+                test_unmodified_socket(shader_node, "Roughness Min", 0) and
+                test_unmodified_socket(shader_node, "Roughness Max", 1)):
+                modifies = False
+        if shader_name in ["rl_hair_shader", "rl_hair_cycles_shader"]:
+            if (test_unmodified_socket(shader_node, "Roughness Strength", 1, "Roughness Map")):
+                modifies = False
+
+    if socket_type == "Emission":
+        if (test_unmodified_socket(shader_node, "Emission Strength", 1.0, "Emission Map") and
+            test_unmodified_socket(shader_node, "Emissive Color", (1,1,1), "Emission Map")):
+            modifies = False
+
+    if socket_type == "Transmission":
+        # only the rl_cornea_refractive_shader generates a transmission map
+        pass
+
+    if socket_type == "Bump":
+        pass
+
+    if socket_type == "Normal":
+        modifies = False
+        if shader_name == "rl_head_shader":
+            if not test_unmodified_socket(shader_node, "Normal Blend Strength", 0.0, "Normal Blend Map"):
+                modifies = True
+
+    if socket_type == "Alpha":
+        if shader_name in ["rl_pbr_shader", "rl_sss_shader"]:
+            if (test_unmodified_socket(shader_node, "Alpha Strength", 1.0, "Alpha Map") and
+                test_unmodified_socket(shader_node, "Opacity", 1.0, "Alpha Map")):
+                modifies = False
+        if shader_name in ["rl_hair_shader", "rl_hair_cycles_shader"]:
+            if (test_unmodified_socket(shader_node, "Alpha Strength", 1.0, "Alpha Map") and
+                test_unmodified_socket(shader_node, "Alpha Power", 1.0, "Alpha Map") and
+                test_unmodified_socket(shader_node, "Opacity", 1.0, "Alpha Map")):
+                modifies = False
+
+    #if not modifies:
+    #    utils.log_info(f"{shader_name} {socket_type} NOT MODIFIED!")
+
+    return modifies
 
 
 def bake_export_material(context, mat, source_mat, source_mat_cache):
@@ -1654,53 +1800,73 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
     diffuse_bake_node = None
     ao_bake_node = None
     ao_strength = nodeutils.get_node_input_value(shader_node, "AO Strength", 1.0)
-    base_color_socket = nodeutils.input_socket(bsdf_node, "Base Color")
-    if nodeutils.has_connected_input(bsdf_node, base_color_socket):
-        if can_bake_shader_node(shader_node, bsdf_node, base_color_socket):
-            # Note: if the shader_node does not have an "AO" output node,
-            # then the AO texture is used directly.
-            # Otherwise bake the AO output:
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Base Color")
+    shader_socket = nodeutils.output_socket(shader_node, "Base Color")
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
+        if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
             if "AO" in bake_maps:
                 ao_strength = prep_ao(mat, shader_node)
-                # note: so far, nothing has an "AO" output node.
-                if "AO" in shader_node.outputs:
-                    ao_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat,
-                                                             shader_node, "AO", "AO")
-                else:
-                    ao_node = nodeutils.find_shader_texture(nodes, "AO")
-                    if ao_node:
-                        ao_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, ao_node, "Color", "AO")
-                # disable any further AO contribution
+                ao_node, ao_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "AO Map")
+                if ao_node:
+                    utils.log_info("AO from Shader Node Input")
+                    ao_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache,
+                                                             mat, ao_node, ao_socket, "AO")
+
+                # disable any further AO contribution before diffuse baking
                 disable_ao(mat, shader_node)
+
             # eye shaders use 1/8 the AO strength
             if shader_name in ["rl_cornea_shader", "rl_eye_shader"]:
                 ao_strength /= 8
                 # use unmodified iris brightness
                 nodeutils.set_node_input_value(shader_node, "Iris Brightness", source_mat_cache.parameters.eye_iris_brightness)
+
             if "Diffuse" in bake_maps:
                 # if there is a "Diffuse" output node, bake that, otherwise bake the "Base Color" output node.
                 prep_diffuse(mat, shader_name, shader_node, "AO" in bake_maps, ao_strength)
-                if "Diffuse" in shader_node.outputs and "Transmission" not in shader_node.outputs:
+                is_unmodified = not does_shader_modify(shader_node, shader_name, "Diffuse")
+                diffuse_node, diffuse_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Diffuse Map")
+                print(diffuse_node, diffuse_socket, is_unmodified)
+                if "Transmission" in shader_node.outputs and props.target_mode == "BLENDER":
+                    utils.log_info("Diffuse from Shader Node Output (Base Color) (includes transmission)")
+                    diffuse_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Base Color", "Diffuse", False)
+                elif diffuse_node and is_unmodified:
+                    utils.log_info("Diffuse from Shader Node Input")
+                    diffuse_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, diffuse_node, diffuse_socket, "Diffuse", False)
+                elif "Diffuse" in shader_node.outputs:
+                    utils.log_info("Diffuse from Shader Node (Diffuse) Output")
                     diffuse_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Diffuse", "Diffuse", False)
                 else:
+                    utils.log_info("Diffuse from Shader Node (Base Color) Output")
                     diffuse_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Base Color", "Diffuse", False)
+
         elif bsdf_node:
+            utils.log_info("Diffuse from BSDF Node")
             # bake BSDF base color input
             diffuse_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat,
-                                                         bsdf_node, base_color_socket, "Diffuse",
+                                                         bsdf_node, bsdf_socket, "Diffuse",
                                                          data=False)
 
     # Subsurface Scattering Maps
     sss_bake_node = None
     sss_radius = 1.0
-    sss_socket = nodeutils.input_socket(bsdf_node, "Subsurface")
-    if nodeutils.has_connected_input(bsdf_node, sss_socket):
-        if "Subsurface" in bake_maps:
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Subsurface")
+    shader_socket = nodeutils.output_socket(shader_node, "Subsurface")
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
+        if shader_socket and "Subsurface" in bake_maps:
             sss_radius = prep_sss(mat, shader_node)
-            if can_bake_shader_node(shader_node, bsdf_node, sss_socket):
-                sss_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Subsurface", "Subsurface")
+            if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
+                is_unmodified = not does_shader_modify(shader_node, shader_name, "Subsurface")
+                sss_node, sss_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Subsurface")
+                if sss_node and is_unmodified:
+                    utils.log_info("Subsurface from Shader Node Input")
+                    sss_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, sss_node, sss_socket, "Subsurface")
+                else:
+                    utils.log_info("Subsurface from Shader Node Output")
+                    sss_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Subsurface", "Subsurface")
             elif bsdf_node:
-                sss_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, sss_socket, "Subsurface")
+                utils.log_info("Subsurface from BSDF Node Input")
+                sss_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, bsdf_socket, "Subsurface")
 
     # Thickness Maps (Subsurface transmission)
     # the transmission map texture is not used, but it is added to the material nodes
@@ -1709,113 +1875,161 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
         utils.log_info("Processing Thickness/Transmission")
         thickness_node = nodeutils.find_shader_texture(nodes, "TRANSMISSION")
         if thickness_node:
-            utils.log_info("thickness texture found...")
+            utils.log_info("Thickness from Transmission Texture")
             thickness_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, thickness_node, "Color", "Thickness")
 
     # Metallic Maps
     metallic_bake_node = None
-    metallic_socket = nodeutils.input_socket(bsdf_node, "Metallic")
-    if nodeutils.has_connected_input(bsdf_node, metallic_socket):
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Metallic")
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "Metallic" in bake_maps:
-            utils.log_info("Processing Metallic")
-            if can_bake_shader_node(shader_node, bsdf_node, metallic_socket):
-                metallic_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Metallic", "Metallic")
+            is_unmodified = not does_shader_modify(shader_node, shader_name, "Metallic")
+            metallic_node, metallic_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Metallic Map")
+            utils.log_info(f"Processing Metallic {metallic_node} / {is_unmodified}")
+            if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
+                if metallic_node and is_unmodified:
+                    utils.log_info("Metallic from Shader Node Input")
+                    metallic_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache,
+                                                                   mat, metallic_node, metallic_socket, "Metallic")
+                else:
+                    utils.log_info("Metallic from Shader Node Output")
+                    metallic_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache,
+                                                                   mat, shader_node, "Metallic", "Metallic")
             elif bsdf_node:
-                metallic_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, metallic_socket, "Metallic")
+                utils.log_info("Metallic from BSDF Node Input")
+                metallic_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, bsdf_socket, "Metallic")
 
     # Specular Maps
     specular_bake_node = None
-    specular_socket = nodeutils.input_socket(bsdf_node, "Specular")
-    if nodeutils.has_connected_input(bsdf_node, specular_socket):
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Specular")
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "Specular" in bake_maps:
+            prep_specular(mat, shader_name, shader_node)
+            is_unmodified = not does_shader_modify(shader_node, shader_name, "Specular")
+            specular_node, specular_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Specular Map")
             utils.log_info("Processing Specular")
-            if can_bake_shader_node(shader_node, bsdf_node, specular_socket):
-                specular_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Specular", "Specular")
+            if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
+                if specular_node and is_unmodified:
+                    utils.log_info("Specular from Shader Node Input")
+                    specular_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, specular_node, specular_socket, "Specular")
+                else:
+                    utils.log_info("Specular from Shader Node Output")
+                    specular_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Specular", "Specular")
             elif bsdf_node:
-                specular_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, specular_socket, "Specular")
+                utils.log_info("Sepcular from BSDF Node Input")
+                specular_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, bsdf_socket, "Specular")
     specular_scale = 1.0
     if shader_node:
         specular_scale = nodeutils.get_node_input_value(shader_node, "Specular Scale", specular_scale)
         specular_scale = nodeutils.get_node_input_value(shader_node, "Front Specular", specular_scale)
-    nodeutils.set_node_input_value(bsdf_node, specular_socket, 0.5 * specular_scale)
+    nodeutils.set_node_input_value(bsdf_node, bsdf_socket, 0.5 * specular_scale)
 
     # Roughness Maps
     roughnesss_bake_node = None
-    roughness_socket = nodeutils.input_socket(bsdf_node, "Roughness")
-    if nodeutils.has_connected_input(bsdf_node, roughness_socket):
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Roughness")
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "Roughness" in bake_maps:
+            is_unmodified = not does_shader_modify(shader_node, shader_name, "Roughness")
+            roughness_node, roughness_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Roughness Map")
             utils.log_info("Processing Roughness")
-            if can_bake_shader_node(shader_node, bsdf_node, roughness_socket):
-                roughnesss_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Roughness", "Roughness")
+            if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
+                if roughness_node and is_unmodified:
+                    utils.log_info("Roughness from Shader Node Input")
+                    roughnesss_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, roughness_node, roughness_socket, "Roughness")
+                else:
+                    utils.log_info("Roughness from Shader Node Output")
+                    roughnesss_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Roughness", "Roughness")
             elif bsdf_node:
-                roughnesss_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, roughness_socket, "Roughness")
+                utils.log_info("Roughness from BSDF Node Input")
+                roughnesss_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, bsdf_socket, "Roughness")
 
     # Emission Maps
     # copy emission maps directly...
     emission_bake_node = None
     emission_strength = nodeutils.get_node_input_value(shader_node, "Emission Strength", 0.0)
-    emission_socket = nodeutils.input_socket(bsdf_node, "Emission")
-    if nodeutils.has_connected_input(bsdf_node, emission_socket):
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Emission")
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "Emission" in bake_maps:
+            is_unmodified = not does_shader_modify(shader_node, shader_name, "Emission")
+            emission_node, emission_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Emission Map")
             utils.log_info("Processing Emission")
-            emission_node = nodeutils.find_shader_texture(nodes, "EMISSION")
             if emission_node:
-                if can_bake_shader_node(shader_node, bsdf_node, emission_socket):
-                    emission_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, emission_node, "Color", "Emission")
+                if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
+                    if emission_node and is_unmodified:
+                        utils.log_info("Emission from Shader Node Input")
+                        emission_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, emission_node, emission_socket, "Emission")
+                    else:
+                        utils.log_info("Emission from Shader Node Output")
+                        emission_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Emission", "Emission")
                 elif bsdf_node:
-                    emission_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, emission_socket, "Emission")
+                    utils.log_info("Emission from BSDF Node Input")
+                    emission_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, bsdf_socket, "Emission")
 
     # Alpha Maps
     alpha_bake_node = None
-    alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Alpha")
     # Opacity output is for baking only
-    if nodeutils.has_connected_input(bsdf_node, alpha_socket) or (shader_node and "Opacity" in shader_node.outputs):
-        if shader_node and ("Opacity" in shader_node.outputs or "Alpha" in shader_node.outputs) and "Alpha" in bake_maps:
-            prep_alpha(mat, shader_node)
-            if (can_bake_shader_node(shader_node, bsdf_node, alpha_socket)
-                or (shader_node and "Opacity" in shader_node.outputs)):
-                if "Opacity" in shader_node.outputs:
-                    alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Opacity", "Alpha")
-                    if utils.B430():
-                        materials.set_material_alpha(mat, "DITHERED", shadows=False)
-                    else:
-                        materials.set_material_alpha(mat, "BLEND", shadows=False)
-                else:
-                    alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Alpha", "Alpha")
-            elif bsdf_node:
-                alpha_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, alpha_socket, "Alpha")
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket) or (shader_node and "Opacity" in shader_node.outputs):
+        if "Alpha" in bake_maps:
+            if shader_node and ("Opacity" in shader_node.outputs or "Alpha" in shader_node.outputs):
+                if prep_alpha(mat, shader_node, shader_name):
+                    if (can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket)
+                            or (shader_node and "Opacity" in shader_node.outputs)):
+                        is_unmodified = not does_shader_modify(shader_node, shader_name, "Alpha")
+                        alpha_node, alpha_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Alpha Map")
+                        for alpha_socket_name in ["Opacity", "Alpha"]:
+                            if alpha_socket_name in shader_node.outputs:
+                                if alpha_node and is_unmodified:
+                                    utils.log_info("Alpha from Shader Node Input")
+                                    alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, alpha_node, alpha_socket, "Alpha")
+                                else:
+                                    utils.log_info("Alpha from Shader Node Output")
+                                    alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, alpha_socket_name, "Alpha")
+                                if utils.B430():
+                                    materials.set_material_alpha(mat, "DITHERED", shadows=False)
+                                else:
+                                    materials.set_material_alpha(mat, "BLEND", shadows=False)
+                                break
+                    elif bsdf_node:
+                        utils.log_info("Alpha from BSDF Node Input")
+                        alpha_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, bsdf_socket, "Alpha")
 
     # Transmission Maps (Refractive Transparency)
     transmission_bake_node = None
-    transmission_socket = nodeutils.input_socket(bsdf_node, "Transmission")
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Transmission")
     thickness = 0.0
-    if shader_name == "rl_cornea_shader":
+    if shader_name in ["rl_cornea_shader", "rl_cornea_refractive_shader"]:
         iris_depth = nodeutils.get_node_input_value(shader_node, "Iris Depth", 0.0)
         thickness = 0.4 * iris_depth + 0.2
-    if nodeutils.has_connected_input(bsdf_node, transmission_socket):
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "Transmission" in bake_maps:
-            if can_bake_shader_node(shader_node, bsdf_node, transmission_socket):
+            if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
+                utils.log_info("Transmission from Shader Node Output")
                 transmission_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Transmission", "Transmission")
             elif bsdf_node:
-                transmission_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, transmission_socket, "Transmission")
+                utils.log_info("Transmission from BSDF Node Input")
+                transmission_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, bsdf_socket, "Transmission")
 
     # Bump Maps
     # if shader group node has a "Bump Map" input, then copy the bump map texture directly
     bump_bake_node = None
     bump_distance = 0.01
-    normal_socket = nodeutils.input_socket(bsdf_node, "Normal")
-    if nodeutils.has_connected_input(bsdf_node, normal_socket):
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Normal")
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "Bump" in bake_maps and props.allow_bump_maps:
-            if can_bake_shader_node(shader_node, bsdf_node, normal_socket):
-                bump_node = nodeutils.find_shader_texture(nodes, "BUMP")
+            if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
+                bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, ["Height Map", "Bump Map"])
                 bump_distance = nodeutils.get_node_input_value(shader_node, "Bump Strength", 0.01)
+                # note: there is not shader node bump output, so only bake the input
                 if bump_node:
-                    bump_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, bump_node, "Color", "Bump")
+                    utils.log_info("Bump from Shader Node Input")
+                    bump_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, bump_node, bump_socket, "Bump")
             elif bsdf_node:
-                input_node = nodeutils.get_node_connected_to_input(bsdf_node, normal_socket)
+                input_node = nodeutils.get_node_connected_to_input(bsdf_node, bsdf_socket)
                 if input_node.type == "BUMP":
                     height_node = nodeutils.get_node_connected_to_input(input_node, "Height")
                     if height_node:
+                        utils.log_info("Bump from BSDF:Bump Node Input")
                         bump_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, input_node, "Height", "Bump")
                         bump_distance = nodeutils.get_node_input_value(input_node, "Distance", 1.0)
 
@@ -1826,29 +2040,35 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
     normal_bake_node = None
     normal_strength = 1.0
     bump_to_normal = False
-    if nodeutils.has_connected_input(bsdf_node, normal_socket):
+    bsdf_socket = nodeutils.input_socket(bsdf_node, "Normal")
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "Normal" in bake_maps:
             if "Bump" not in bake_maps or not props.allow_bump_maps:
                 bump_to_normal = True
-            if can_bake_shader_node(shader_node, bsdf_node, normal_socket):
+            if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
                 normal_strength = nodeutils.get_node_input_value(shader_node, "Normal Strength", 1.0)
                 if "Blend Normal" in shader_node.outputs:
+                    utils.log_info("Normal from Shader Node Output")
                     normal_strength = 1.0
                     normal_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Blend Normal", "Normal")
                 else:
-                    normal_node = nodeutils.find_shader_texture(nodes, "NORMAL")
+                    normal_node, normal_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Normal Map")
                     if normal_node:
-                        normal_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, normal_node, "Color", "Normal")
+                        utils.log_info("Normal from Shader Node Input")
+                        normal_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, normal_node, normal_socket, "Normal")
                     else:
+                        utils.log_info("Normal from BSDF Node Output")
                         normal_bake_node = export_bake_shader_normal(context, source_mat, mat)
             elif bsdf_node:
-                input_node = nodeutils.get_node_connected_to_input(bsdf_node, normal_socket)
+                input_node = nodeutils.get_node_connected_to_input(bsdf_node, bsdf_socket)
                 if input_node:
                     if input_node.type == "NORMAL_MAP":
+                        utils.log_info("Normal from BSDF:Normal Node Input")
                         # just a normal mapper, bake the entire normal input
                         normal_bake_node = export_bake_shader_normal(context, source_mat, mat)
                         normal_strength = nodeutils.get_node_input_value(input_node, "Strength", 1.0)
                     elif input_node.type == "BUMP":
+                        utils.log_info("Normal from BSDF:Bump Node Input")
                         # bump node mappers can have heightmap and normal inputs
                         normal_node = nodeutils.get_node_connected_to_input(input_node, "Normal")
                         height_node = nodeutils.get_node_connected_to_input(input_node, "Height")
@@ -1862,6 +2082,7 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
                                 normal_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, input_node, "Normal", "Normal")
                                 normal_strength = nodeutils.get_node_input_value(normal_node, "Strength", 1.0)
                     else:
+                        utils.log_info("Normal from BSDF Node Output")
                         # something is plugged into the normals, but can't tell what, so just bake the shader normals
                         normal_bake_node = export_bake_shader_normal(context, source_mat, mat)
 
@@ -1871,7 +2092,7 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
     micro_normal_strength = 1
     micro_normal_tiling = 20
     micro_normal_scale = Vector((1, 1, 1))
-    if nodeutils.has_connected_input(bsdf_node, normal_socket):
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "MicroNormal" in bake_maps:
             micro_normal_node = nodeutils.find_shader_texture(nodes, "MICRONORMAL")
             if micro_normal_node:
@@ -1888,23 +2109,26 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
                 utils.log_info(f"Tiling: {micro_normal_scale}")
                 # disconnect any tiling/mapping nodes before baking the micro normal...
                 nodeutils.unlink_node_input(links, micro_normal_node, "Vector")
+                utils.log_info("Micro-Normal from Texture")
                 micro_normal_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, micro_normal_node, "Color", "MicroNormal")
 
     # Micro Normal Mask
-    # if the shader group node as a "Normal Mask" float output, bake that,
+    # if the shader group node has a "Normal Mask" float output, bake that,
     # otherwise copy the micro normal mask directly
     micro_normal_mask_bake_node = None
     micro_normal_stength = 1.0
-    if nodeutils.has_connected_input(bsdf_node, normal_socket):
+    if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "MicroNormalMask" in bake_maps:
             if shader_node:
                 if "Normal Mask" in shader_node.outputs:
+                    utils.log_info("Micro-Normal Mask from Shader Node Output")
                     micro_normal_mask_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Normal Mask", "MicroNormalMask")
                     micro_normal_strength = 1.0
                 else:
                     micro_normal_mask_node = nodeutils.find_shader_texture(nodes, "MICRONMASK")
                     micro_normal_strength = nodeutils.get_node_input_value(shader_node, "Micro Normal Strength", 1.0)
                     if micro_normal_mask_node:
+                        utils.log_info("Micro-Normal Mask from Texture")
                         micro_normal_mask_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, micro_normal_mask_node, "Color", "MicroNormalMask")
 
     # Post processing
@@ -2518,7 +2742,7 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
         set_loc(tex_nodes["BaseMap"], (-600, 600))
         set_loc(tex_nodes["GLTF"], (-900, 0))
         set_loc(split_node, (-600, 0))
-        set_loc(gltf_settings_node, (200, 500))
+        set_loc(gltf_settings_node, (200, 700))
     else:
         set_loc(gltf_settings_node, (-600, 700))
         set_loc(tex_nodes["BaseMap"], (-1800, 600))
@@ -2570,12 +2794,16 @@ def bake_character(context, chr_cache):
     if prefs.bake_use_gpu:
         set_cycles_samples(context, samples=props.bake_samples, adaptive_samples=0.01, use_gpu=True, denoising=False)
 
+    chr_cache.baked_target_mode = "NONE"
+
     materials_done = []
     obj : bpy.types.Object
     for obj in objects:
         if obj.type == "MESH":
             bake_character_object(context, chr_cache, obj, bake_state, materials_done)
     materials_done.clear()
+
+    chr_cache.baked_target_mode = props.target_mode
 
     post_bake(context, bake_state)
 
@@ -2619,6 +2847,7 @@ def get_max_texture_size(mat, mat_cache, tex_list, input_list):
     Attempts to get the largest texture size from the given named texure nodes (CC3 materials),
     then falls back to finding the largest texture connected to the given list of inputs to the BSDF shader
     """
+
     if mat is None or mat.node_tree is None or mat.node_tree.nodes is None:
         return vars.NO_SIZE
 
