@@ -33,9 +33,15 @@ Links
 
 ## Changelog
 
-### 2.2.5 (In Progress)
+### 2.2.5
 - Fix to Blender 4.1 material refraction setting.
 - Rigify setup defaults rig to zero IK stretch.
+- Fix to drivers trying build on OBJ / Morph imports.
+- Some Bake streamlining and Baked GLTF export button.
+- Datalink remote file transfer, to and from remote CC/iClone.
+- Wrinkle Region ALL, driver update fix.
+- Scene Tools - Eevee setup button.
+- Blender 4.4 action slot fixes.
 
 ### 2.2.4
 - Rigify face rig fallback to envelope weights if auto weights fail.
