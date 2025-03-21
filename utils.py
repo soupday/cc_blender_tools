@@ -1729,6 +1729,13 @@ def get_region_3d(context=None):
     return None, None
 
 
+def get_3d_regions(context=None):
+    spaces = get_view_3d_spaces(context)
+    if spaces:
+        return [ s.region_3d for s in spaces ]
+    return []
+
+
 def get_view_3d_space(context=None) -> bpy.types.Space:
     try:
         if not context:
@@ -1744,6 +1751,16 @@ def get_view_3d_space(context=None) -> bpy.types.Space:
     except: ...
     log_warn("Unable to get view 3d space!")
     return None
+
+
+def get_view_3d_spaces(context=None) -> bpy.types.Space:
+    try:
+        areas = get_view_3d_areas(context)
+        if areas:
+            return [ area.spaces.active for area in areas ]
+    except: ...
+    log_warn("Unable to get view 3d spaces!")
+    return []
 
 
 def get_view_3d_shading(context=None) -> bpy.types.View3DShading:
@@ -1785,6 +1802,19 @@ def get_view_3d_area(context=None) -> bpy.types.Area:
     return None
 
 
+def get_view_3d_areas(context=None) -> bpy.types.Area:
+    areas = []
+    try:
+        if not context:
+            context = bpy.context
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                areas.append(area)
+    except:
+        areas = []
+    return areas
+
+
 def align_object_to_view(obj, context):
     if context is None:
         context = bpy.context
@@ -1816,6 +1846,21 @@ def copy_action(action: bpy.types.Action, new_name):
     return new_action
 
 
+def set_action_slot(obj, action):
+    """Blender 4.4+ Only:
+       Set the obj.animation_data.action_slot to the first action slot with the matching slot_type"""
+    if obj and action and B440():
+        slot_type = "OBJECT"
+        if type(obj) is bpy.types.Key:
+            slot_type = "KEY"
+        for slot in action.slots:
+            if slot.target_id_type == slot_type:
+                obj.animation_data.action_slot = slot
+                return True
+        return False
+    return True
+
+
 def safe_get_action(obj) -> bpy.types.Action:
     if obj:
         try:
@@ -1827,17 +1872,20 @@ def safe_get_action(obj) -> bpy.types.Action:
 
 
 def safe_set_action(obj, action, create=True):
+    result = False
     if obj:
         try:
             if create and not obj.animation_data:
                 obj.animation_data_create()
             if obj.animation_data:
                 obj.animation_data.action = action
-                return True
-        except:
+                set_action_slot(obj, action)
+                result = True
+        except Exception as e:
             action_name = action.name if action else "None"
-            log_warn(f"Unable to set action {action_name} to {obj.name}")
-    return False
+            log_error(f"Unable to set action {action_name} to {obj.name}", e)
+            result = False
+    return result
 
 
 def index_of_collection(item, collection):
@@ -1954,6 +2002,9 @@ def B420():
 
 def B430():
     return is_blender_version("4.3.0")
+
+def B440():
+    return is_blender_version("4.4.0")
 
 
 def is_blender_version(version: str, test = "GTE"):

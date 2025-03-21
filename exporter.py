@@ -391,6 +391,8 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
             write_physics_textures = write_textures
             mat_json = jsonutils.get_material_json(obj_json, mat)
             physics_mat_json = jsonutils.get_physics_material_json(physics_mesh_json, mat)
+            if mat_json:
+                utils.log_info(f"Found Material Json: {mat.name}")
 
             # the object and materials may have been split from it's origin,
             # so try to find the material in the source object json
@@ -772,6 +774,11 @@ def write_back_textures(context, mat_json: dict, mat, mat_cache, base_path, old_
     shader_def = params.get_shader_def(shader_name)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
     has_custom_shader = "Custom Shader" in mat_json.keys()
+    if has_custom_shader:
+        try:
+            utils.log_info(f"Custom Shader: {mat_json['Custom Shader']['Shader Name']}")
+        except:
+            utils.log_info(f"Invalid Custom Shader!")
 
     unpack_path = os.path.join(base_path, "textures", old_name, "Unpack")
     bake_path = os.path.join(base_path, "textures", old_name, "Baked")
@@ -2408,6 +2415,71 @@ def export_as_replace_mesh(file_path):
     utils.restore_mode_selection_state(state)
 
 
+
+
+def export_baked_gltf(self, context, chr_cache, file_path, use_anim, include_selected, glb=False):
+    """Exports baked character as GLTF / GLB.
+    """
+
+    props = vars.props()
+    prefs = vars.prefs()
+
+    utils.start_timer()
+
+    utils.log_info("")
+    utils.log_info("Exporting Baked GLTF / GLB:")
+    utils.log_info("-----------------------------------")
+
+    utils.object_mode()
+
+    export_anim = False
+    dir, file = os.path.split(file_path)
+    name, ext = os.path.splitext(file)
+
+    # store mode state
+    mode_selection_state = utils.store_mode_selection_state()
+    rv_state = utils.store_render_visibility_state()
+
+    # export objects
+    objects = get_export_objects(chr_cache, include_selected)
+    arm = get_export_armature(chr_cache, objects)
+
+    # store states and settings
+    armature_settings = bones.store_armature_settings(arm, include_pose=True)
+    object_state = utils.store_object_state(objects)
+
+    # restore quaternion rotation modes???
+    #rigutils.reset_rotation_modes(arm)
+    #remove_modifiers_for_export(None, objects, True)
+
+    utils.try_select_objects(objects, True)
+
+    # proceed with normal export
+    bpy.ops.export_scene.gltf(filepath=file_path,
+                              export_format="GLB" if glb else "GLTF_SEPARATE",
+                              export_texture_dir="textures",
+                              use_selection=True,
+                              export_animations=use_anim,
+                              export_animation_mode="ACTIVE_ACTIONS",
+                              export_morph_animation=True,
+                              export_force_sampling=True)
+
+    utils.log_recess()
+    utils.log_info("")
+
+    # restore states and settings
+    utils.restore_object_state(object_state)
+    bones.restore_armature_settings(arm, armature_settings, include_pose=True)
+
+    # restore mode state
+    utils.restore_mode_selection_state(mode_selection_state)
+    utils.restore_render_visibility_state(rv_state)
+
+    utils.log_recess()
+    utils.log_timer("Done Baked GLTF / GLB Export.")
+    self.report({'INFO'}, "Export Baked GLTF / GLB Done!")
+
+
 class CC3Export(bpy.types.Operator):
     """Export CC3 Character"""
     bl_idname = "cc3.exporter"
@@ -2530,6 +2602,15 @@ class CC3Export(bpy.types.Operator):
             else:
                 pass
 
+        elif self.param == "EXPORT_BAKED_GLB":
+            if chr_cache and chr_cache.baked_target_mode=="GLTF":
+                export_baked_gltf(self, context, chr_cache, self.filepath, self.include_anim, self.include_selected, glb=True)
+
+        elif self.param == "EXPORT_BAKED_GLTF":
+            if chr_cache and chr_cache.baked_target_mode=="GLTF":
+                export_baked_gltf(self, context, chr_cache, self.filepath, self.include_anim, self.include_selected, glb=False)
+
+
         return {"FINISHED"}
 
 
@@ -2578,6 +2659,10 @@ class CC3Export(bpy.types.Operator):
                 export_format = "fbx"
             else:
                 export_format = "blend"
+        elif self.param == "EXPORT_BAKED_GLTF":
+            export_format = "gltf"
+        elif self.param == "EXPORT_BAKED_GLB":
+            export_format = "glb"
         elif chr_cache:
             export_format = utils.get_file_ext(chr_cache.get_import_type())
             if export_format != "obj":

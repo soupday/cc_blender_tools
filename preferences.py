@@ -15,6 +15,8 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
+import socket
+import os, tempfile
 from mathutils import Vector
 
 from . import addon_updater_ops, colorspace, utils, vars
@@ -158,6 +160,15 @@ def set_view_transform(self, context):
     except:
         pass
 
+
+def check_datalink_host(self, context):
+    prefs = vars.prefs()
+    if prefs.datalink_host and prefs.datalink_bad_hostname:
+        try:
+            link_host_ip = socket.gethostbyname(prefs.datalink_host)
+            prefs.datalink_bad_hostname = False
+        except:
+            prefs.datalink_bad_hostname = True
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -474,6 +485,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("METARIG","Metarig Align","Keep the metarig bone alignments"),
                     ], default="METARIG", name="Align Metarig Bones", description="Metarig bone alignments")
 
+    temp_folder: bpy.props.StringProperty(default="", subtype="DIR_PATH", name="Temp Folder",
+                                          description="Folder to save exports and temporary files in when the Blend file is not yet saved."
+                                                      "If not set, a random temporary folder in the system temp files will be used")
+
     # datalink prefs
     datalink_auto_start: bpy.props.BoolProperty(default=False,
                         description="Attempt to (re)start the DataLink connection when ever Blender is started or reloaded")
@@ -505,6 +520,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     datalink_confirm_replace: bpy.props.BoolProperty(default=True,
                         description="Replace matching character imports without confirming")
 
+    datalink_host: bpy.props.StringProperty(default="localhost", update=check_datalink_host)
+    datalink_bad_hostname: bpy.props.BoolProperty(default=False)
+    datalink_target: bpy.props.EnumProperty(items=[
+                        ("LOCAL","Local Machine","Connect to a DataLink server running on the local machine"),
+                        ("REMOTE","Remote Host","Connect to a DataLink server running on a remote machine"),
+                    ], default="LOCAL", name = "DataLink Target")
 
     # convert
     convert_non_standard_type: bpy.props.EnumProperty(items=[

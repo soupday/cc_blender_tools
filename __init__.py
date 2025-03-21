@@ -213,10 +213,10 @@ classes = (
     panels.CC3ToolsSculptingPanel,
     panels.CCICProportionPanel,
     panels.CC3HairPanel,
-    panels.CC3CreateScenePanel,
     # link panels
     panels.CCICDataLinkPanel,
     panels.CCICAnimationToolsPanel,
+    panels.CCICLinkScenePanel,
     # control panels
     panels.CC3SpringControlPanel,
     # test panels

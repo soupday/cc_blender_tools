@@ -1241,6 +1241,7 @@ class CC3Import(bpy.types.Operator):
         for chr_cache in imported_characters:
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
+            if ImportFlags.FBX not in ImportFlags(chr_cache.import_flags): continue
 
             json_data = self.read_json_data(chr_cache.import_file, stage=1)
             chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
@@ -1640,6 +1641,7 @@ class CC3Import(bpy.types.Operator):
             if chr_cache:
                 utils.object_mode()
                 prefs.render_target = "EEVEE"
+                props.wrinkle_mode = False
                 if chr_cache.render_target != "EEVEE":
                     utils.log_info("Character is currently build for Cycles Rendering.")
                     utils.log_info("Rebuilding Character for Eevee Rendering...")

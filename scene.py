@@ -2417,6 +2417,59 @@ def fetch_anim_range(context, expand = False, fit = True):
                 context.scene.frame_end = end
 
 
+def eevee_setup(context):
+    props = vars.props()
+    context = vars.get_context(context)
+
+    hide_view_extras(context, False)
+    chr_cache = props.get_context_character_cache(context)
+    extracted = False
+
+    # rebuild for cycles if needed
+    if chr_cache.render_target != "EEVEE":
+        bpy.ops.cc3.importer(param="REBUILD_EEVEE")
+
+    try:
+        context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    except:
+        try:
+            context.scene.render.engine = 'EEVEE'
+        except:
+            utils.log_error("Unable to set Eevee render engine!")
+
+    try:
+        # preview
+        context.scene.eevee.taa_samples = 32
+        context.scene.eevee.taa_render_samples = 64
+        context.scene.eevee.use_taa_reprojection = True
+        if utils.B420():
+            context.scene.eevee.use_shadows = True
+            context.scene.eevee.use_volumetric_shadows = True
+            context.scene.eevee.use_raytracing = True
+            context.scene.eevee.ray_tracing_options.use_denoise = True
+            context.scene.eevee.use_shadow_jitter_viewport = True
+            context.scene.eevee.use_bokeh_jittered = True
+            context.scene.world.use_sun_shadow = True
+            context.scene.world.use_sun_shadow_jitter = True
+            bpy.data.worlds["World"].sun_threshold = 0.05
+            bpy.data.worlds["World"].use_sun_shadow = True
+        else:
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_bloom = True
+            context.scene.eevee.bloom_threshold = 0.65
+            context.scene.eevee.bloom_knee = 0.5
+            context.scene.eevee.bloom_radius = 3.0
+            context.scene.eevee.bloom_intensity = 1.0
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+        context.scene.eevee.bokeh_max_size = 32.0
+
+    except:
+        pass
+
+
 def cycles_setup(context):
     props = vars.props()
     context = vars.get_context(context)
@@ -2458,7 +2511,7 @@ def cycles_setup(context):
         context.scene.render.engine = 'CYCLES'
         context.scene.cycles.device = 'GPU'
     except:
-        pass
+        utils.log_error("Unable to set Cycles Render Engine!")
 
     try:
         # preview
@@ -2474,6 +2527,8 @@ def cycles_setup(context):
         #context.scene.cycles.samples = 512
         context.scene.cycles.use_denoising = True
         context.scene.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
+        if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
     except:
         pass
 
@@ -2544,6 +2599,9 @@ class CC3Scene(bpy.types.Operator):
 
         elif self.param == "CYCLES_SETUP":
             cycles_setup(context)
+
+        elif self.param == "EEVEE_SETUP":
+            eevee_setup(context)
 
         elif self.param == "DUMP_SETUP":
             dump_scene_pycode(context)

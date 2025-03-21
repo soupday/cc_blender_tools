@@ -3807,6 +3807,7 @@ class CC3Rigifier(bpy.types.Operator):
             self.rigify_data = chr_cache.get_rig_mapping_data()
 
             if self.param == "DATALINK_RIGIFY":
+
                 olc = utils.set_active_layer_collection_from(self.cc3_rig)
                 self.generate_meta_rig(chr_cache)
                 self.rigify_meta_rig(chr_cache)

@@ -346,6 +346,8 @@ def update_wrinkle_strength_all(self, context):
         for i in range(0,13):
             if prop_name in obj:
                 obj[prop_name][i] = value
+    obj.update_tag()
+    bpy.context.view_layer.update()
     return
 
 
@@ -360,6 +362,8 @@ def update_wrinkle_curve_all(self, context):
         for i in range(0,13):
             if prop_name in obj:
                 obj[prop_name][i] = value
+    obj.update_tag()
+    bpy.context.view_layer.update()
     return
 
 
@@ -544,37 +548,6 @@ def update_rig_target(self, context):
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
             self.hair_rig_bind_bone_variance = 0.75
-
-def update_link_target(self, context):
-    link_props = vars.link_props()
-    if link_props.link_target == "BLENDER":
-        link_props.link_port = 9334
-    elif link_props.link_target == "CCIC":
-        link_props.link_port = 9333
-    elif link_props.link_target == "UNITY":
-        link_props.link_port = 9335
-    else:
-        link_props.link_port = 9333
-
-
-def update_link_host(self, context):
-    link_props = vars.link_props()
-    host = link_props.link_host
-    if host:
-        try:
-            link_props.link_host_ip = socket.gethostbyname(host)
-        except:
-            link_props.link_host_ip = "127.0.0.1"
-
-
-def update_link_host_ip(self, context):
-    link_props = vars.link_props()
-    host_ip = link_props.link_host_ip
-    if host_ip:
-        try:
-            link_props.link_host = socket.gethostbyaddr(host_ip)
-        except:
-            link_props.link_host = ""
 
 
 def clean_collection_property(collection_prop):
@@ -1595,6 +1568,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("NONE_LEGACY","None (Legacy)","None (Legacy)"),
                     ], default="FULL", name="Set bone inherit scale")
 
+    baked_target_mode: bpy.props.EnumProperty(items=vars.BAKE_TARGETS, default="NONE")
+
     disabled: bpy.props.BoolProperty(default=False)
 
     def get_auto_index(self):
@@ -2387,6 +2362,17 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.check_type(self.pbr_material_cache, recast, chr_json, "DEFAULT", "SCALP", "EYELASH")
         self.check_type(self.sss_material_cache, recast, chr_json, "SSS")
 
+    def is_wrinkle_active(self):
+        mat_cache: CC3MaterialCache = None
+        for mat_cache in self.head_material_cache:
+            if utils.material_exists(mat_cache.material):
+                mat = mat_cache.material
+                nodes = mat.node_tree.nodes
+                for node in nodes:
+                    if "(rl_wrinkle_shader)" in node.name:
+                        return True
+        return False
+
     def get_sculpt_objects(self):
         sculpt_objects = self.get_all_objects(include_armature=False,
                                               include_cache=False,
@@ -3137,17 +3123,11 @@ class CCICBakeProps(bpy.types.PropertyGroup):
 
 class CCICLinkProps(bpy.types.PropertyGroup):
     # Data link props
-    link_host: bpy.props.StringProperty(default="localhost", update=update_link_host)
-    link_host_ip: bpy.props.StringProperty(default="127.0.0.1")
-    link_target: bpy.props.EnumProperty(items=[
-                        ("BLENDER","Blender","Connect to another Blender instance running on another machine"),
-                        ("CCIC","CC4/iClone","Connect to Character Creator 4 or iClone"),
-                        ("UNITY","Unity","Connect to Unity"),
-                    ], default="CCIC", name = "DataLink Target", update=update_link_target)
-    link_port: bpy.props.IntProperty(default=9333)
     link_status: bpy.props.StringProperty(default="")
     remote_app: bpy.props.StringProperty(default="")
     remote_version: bpy.props.StringProperty(default="")
-    remote_path: bpy.props.StringProperty(default="")
+    remote_path: bpy.props.StringProperty(default="", subtype="DIR_PATH")
     remote_exe: bpy.props.StringProperty(default="")
     connected: bpy.props.BoolProperty(default=False)
+    temp_folder: bpy.props.StringProperty(default="", subtype="DIR_PATH")
+    temp_files: bpy.props.StringProperty(default="", subtype="DIR_PATH")

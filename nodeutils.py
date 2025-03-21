@@ -167,8 +167,12 @@ def make_node_group_node(nodes, group, label, name):
 def make_gltf_settings_node(nodes):
     gltf_group : bpy.types.NodeGroup = None
     for group in bpy.data.node_groups:
-        if group.name == "glTF Settings":
-            gltf_group = group
+        if utils.B400():
+            if group.name == "glTF Material Output":
+                gltf_group = group
+        else:
+            if group.name == "glTF Settings":
+                gltf_group = group
     if not gltf_group:
         if utils.B400():
             gltf_group = bpy.data.node_groups.new("glTF Material Output", "ShaderNodeTree")
