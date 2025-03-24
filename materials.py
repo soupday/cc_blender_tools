@@ -974,7 +974,18 @@ def set_materials_setting(param, obj, context, objects_processed):
                             apply_backface_culling(obj, mat, 2)
 
             elif ob is not None and ob.type == "MESH" and ob.active_material_index <= len(ob.data.materials):
-                mat = utils.context_material(context)
+                try:
+                    # Try the newer function name first
+                    mat = utils.get_context_material(context)
+                except AttributeError:
+                    # Fall back to older function name if it exists
+                    try:
+                        mat = utils.context_material(context)
+                    except AttributeError:
+                        # If both fail, log error and return None
+                        utils.log_error("Unable to get context material - missing utility function")
+                        mat = None
+                        
                 if mat:
                     if param == "OPAQUE" or param == "BLEND" or param == "HASHED" or param == "CLIP":
                         apply_alpha_override(obj, mat, param)
