@@ -17,7 +17,7 @@
 import bpy
 from mathutils import Vector, Matrix, Quaternion, Euler
 from random import random
-import re
+import re, time
 from . import springbones, bones, modifiers, rigify_mapping_data, utils, vars
 
 

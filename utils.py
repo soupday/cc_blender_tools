@@ -770,12 +770,19 @@ def duplicate_object(obj, include_action=False) -> bpy.types.Object:
     return None
 
 
-def remove_all_shape_keys(obj):
+def remove_all_shape_keys(obj: bpy.types.Object):
+    # Bugged in Blender 4.4 (Maybe other versions too) - reverting to operators
+    #if obj and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+    #    key: bpy.types.ShapeKey = None
+    #    keys = [key for key in obj.data.shape_keys.key_blocks]
+    #    keys.reverse() # make sure basis is last to be removed...
+    #    for key in keys:
+    #        obj.shape_key_remove(key)
     if obj and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-        keys = [key for key in obj.data.shape_keys.key_blocks]
-        keys.reverse() # make sure basis is last to be removed...
-        for key in keys:
-            obj.shape_key_remove(key)
+        sms = store_mode_selection_state()
+        set_active_object(obj, True)
+        bpy.ops.object.shape_key_remove(all=True, apply_mix=False)
+        restore_mode_selection_state(sms)
 
 
 def force_object_name(obj, name):
