@@ -397,20 +397,6 @@ def apply_modifier(obj, modifier=None, type=None, preserving=False):
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
 
 
-def apply_modifier_with_shape_keys(obj, modifier=None, type=None):
-    if obj:
-        if not modifier and type:
-            for mod in obj.modifiers:
-                if mod.type == type:
-                    modifier = mod
-                    break
-        if modifier:
-            utils.object_mode_to(obj)
-            utils.set_only_active_object(obj)
-            copy = utils.duplicate_object(obj)
-            copy.shape_key_remove()
-
-
 def copy_base_shape(src_obj, dest_obj):
     geom.copy_vert_positions_by_uv_id(src_obj, dest_obj, accuracy = 5, flatten_udim=False)
 
