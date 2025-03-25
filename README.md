@@ -42,6 +42,7 @@ Links
 - Wrinkle Region ALL, driver update fix.
 - Scene Tools - Eevee setup button.
 - Blender 4.4 action slot fixes.
+- Fix to Blender 4.4 proportion edit crash when removing all shape keys.
 
 ### 2.2.4
 - Rigify face rig fallback to envelope weights if auto weights fail.
