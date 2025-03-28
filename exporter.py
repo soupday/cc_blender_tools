@@ -214,7 +214,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
         json_data[new_name].pop("Import_Name", None)
 
     if not chr_cache.link_id:
-        chr_cache.link_id = utils.generate_random_id(20)
+        chr_cache.set_link_id(utils.generate_random_id(20))
     json_data[new_name]["Link_ID"] = chr_cache.link_id
 
     if chr_cache.is_non_standard():

@@ -82,7 +82,7 @@ def duplicate_character(chr_cache):
     old_cache = chr_cache
     chr_cache = props.add_character_cache()
     utils.copy_property_group(old_cache, chr_cache)
-    chr_cache.link_id = utils.generate_random_id(20)
+    chr_cache.set_link_id(utils.generate_random_id(20))
 
     for obj_cache in chr_cache.object_cache:
         old_id = obj_cache.object_id
@@ -351,7 +351,7 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
     chr_cache.non_standard_type = chr_type
     if not link_id:
         link_id = utils.generate_random_id(20)
-    chr_cache.link_id = link_id
+    chr_cache.set_link_id(link_id)
 
     chr_cache.add_object_cache(chr_rig)
 
@@ -2014,7 +2014,7 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif self.param == "REGENERATE_LINK_ID":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
-                chr_cache.link_id = utils.generate_random_id(20)
+                chr_cache.set_link_id(utils.generate_random_id(20))
 
         elif self.param == "CLEAN_SHAPE_KEYS":
             chr_cache = props.get_context_character_cache(context)

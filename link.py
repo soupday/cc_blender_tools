@@ -5,7 +5,7 @@ from enum import IntEnum
 import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix
-from . import (importer, exporter, bones, geom, colorspace,
+from . import (rlx, importer, exporter, bones, geom, colorspace,
                world, rigging, rigutils, drivers, modifiers,
                jsonutils, utils, vars)
 import textwrap
@@ -33,6 +33,7 @@ class OpCodes(IntEnum):
     DISCONNECT = 11
     DEBUG = 15
     NOTIFY = 50
+    INVALID = 55
     SAVE = 60
     FILE = 75
     MORPH = 90
@@ -43,6 +44,10 @@ class OpCodes(IntEnum):
     CHARACTER_UPDATE = 101
     PROP = 102
     PROP_UPDATE = 103
+    LIGHTS = 104
+    LIGHTS_UPDATE = 105
+    CAMERA = 106
+    CAMERA_UPDATE = 107
     UPDATE_REPLACE = 108
     RIGIFY = 110
     TEMPLATE = 200
@@ -52,7 +57,7 @@ class OpCodes(IntEnum):
     SEQUENCE_FRAME = 221
     SEQUENCE_END = 222
     SEQUENCE_ACK = 223
-    LIGHTS = 230
+    LIGHTING = 230
     CAMERA_SYNC = 231
     FRAME_SYNC = 232
     MOTION = 240
@@ -154,7 +159,7 @@ class LinkActor():
             actor_link_id = chr_cache.link_id
             if not actor_link_id:
                 utils.log_info(f"Assigning actor link_id: {chr_cache.character_name}: {link_id}")
-                chr_cache.link_id = link_id
+                chr_cache.set_link_id(link_id)
                 return
             if link_id not in self.alias and actor_link_id != link_id:
                 utils.log_info(f"Assigning actor alias: {chr_cache.character_name}: {link_id}")
@@ -332,7 +337,7 @@ class LinkActor():
         chr_cache = self.get_chr_cache()
         if chr_cache:
             utils.log_info(f"Assigning new link_id: {chr_cache.character_name}: {new_link_id}")
-            chr_cache.link_id = new_link_id
+            chr_cache.set_link_id(new_link_id)
 
     def ready(self, require_cache=True):
         if require_cache and self.cache and self.get_chr_cache() and self.get_armature():
@@ -1342,7 +1347,10 @@ class LinkService():
                 if not LINK_DATA.set_keyframes:
                     self.is_data = True
                     return
-                if op_code == OpCodes.CHARACTER or op_code == OpCodes.PROP:
+                if (op_code == OpCodes.CHARACTER or
+                    op_code == OpCodes.PROP or
+                    op_code == OpCodes.LIGHTS or
+                    op_code == OpCodes.CAMERA):
                     # give imports time to process, otherwise bad things happen
                     self.is_data = False
                     self.is_import = True
@@ -1355,7 +1363,7 @@ class LinkService():
                     return
                 if r:
                     self.is_data = True
-                    if count >= MAX_RECEIVE or op_code == OpCodes.NOTIFY:
+                    if count >= MAX_RECEIVE or op_code == OpCodes.NOTIFY or op_code == OpCodes.INVALID:
                         return
 
     def accept(self):
@@ -1435,6 +1443,9 @@ class LinkService():
         elif op_code == OpCodes.NOTIFY:
             self.receive_notify(data)
 
+        elif op_code == OpCodes.INVALID:
+            self.receive_invalid(data)
+
         elif op_code == OpCodes.DEBUG:
             self.receive_debug(data)
 
@@ -1468,6 +1479,12 @@ class LinkService():
         elif op_code == OpCodes.PROP:
             self.receive_character_import(data)
 
+        elif op_code == OpCodes.LIGHTS:
+            self.receive_lights_import(data)
+
+        elif op_code == OpCodes.CAMERA:
+            self.receive_camera_import(data)
+
         elif op_code == OpCodes.MOTION:
             self.receive_motion_import(data)
 
@@ -1492,8 +1509,8 @@ class LinkService():
         elif op_code == OpCodes.SEQUENCE_ACK:
             self.receive_sequence_ack(data)
 
-        elif op_code == OpCodes.LIGHTS:
-            self.receive_lights(data)
+        elif op_code == OpCodes.LIGHTING:
+            self.receive_lighting_sync(data)
 
         elif op_code == OpCodes.CAMERA_SYNC:
             self.receive_camera_sync(data)
@@ -1709,9 +1726,18 @@ class LinkService():
         notify_json = { "message": message }
         self.send(OpCodes.NOTIFY, encode_from_json(notify_json))
 
+    def send_invalid(self, message):
+        notify_json = { "message": message }
+        self.send(OpCodes.INVALID, encode_from_json(notify_json))
+
     def receive_notify(self, data):
         notify_json = decode_to_json(data)
         update_link_status(notify_json["message"])
+
+    def receive_invalid(self, data):
+        invalid_json = decode_to_json(data)
+        update_link_status(invalid_json["message"])
+        self.abort_sequence()
 
     def receive_save(self, data):
         if bpy.data.filepath:
@@ -2187,7 +2213,7 @@ class LinkService():
 
         return data
 
-    def encode_sequence_data(self, actors):
+    def encode_sequence_data(self, actors, aborted=False):
         fps = bpy.context.scene.render.fps
         start_frame = BFA(bpy.context.scene.frame_start)
         end_frame = BFA(bpy.context.scene.frame_end)
@@ -2205,6 +2231,7 @@ class LinkService():
             "time": time,
             "frame": frame,
             "actors": actors_data,
+            "aborted": aborted,
         }
         actor: LinkActor
         for actor in actors:
@@ -2261,11 +2288,14 @@ class LinkService():
 
     def abort_sequence(self):
         global LINK_DATA
-        # as the next frame was never sent, go back 1 frame
-        LINK_DATA.sequence_current_frame = prev_frame(LINK_DATA.sequence_current_frame)
-        update_link_status(f"Sequence Aborted: {LINK_DATA.sequence_current_frame}")
-        self.stop_sequence()
-        self.send_sequence_end()
+        if self.is_sequence:
+            # as the next frame was never sent, go back 1 frame
+            LINK_DATA.sequence_current_frame = prev_frame(LINK_DATA.sequence_current_frame)
+            update_link_status(f"Sequence Aborted: {LINK_DATA.sequence_current_frame}")
+            self.stop_sequence()
+            self.send_sequence_end(aborted=True)
+            return True
+        return False
 
     def send_sequence(self):
         global LINK_DATA
@@ -2310,8 +2340,8 @@ class LinkService():
         LINK_DATA.sequence_current_frame = next_frame(current_frame)
 
 
-    def send_sequence_end(self):
-        sequence_data = self.encode_sequence_data(LINK_DATA.sequence_actors)
+    def send_sequence_end(self, aborted=False):
+        sequence_data = self.encode_sequence_data(LINK_DATA.sequence_actors, aborted=aborted)
         self.send(OpCodes.SEQUENCE_END, sequence_data)
         # clear the actors
         self.restore_actor_rigs(LINK_DATA.sequence_actors)
@@ -2474,192 +2504,30 @@ class LinkService():
                 if mod: continue
                 obj.matrix_world = utils.make_transform_matrix(loc, rot, rig.scale)
 
-    def find_link_id(self, link_id: str):
-        for obj in bpy.data.objects:
-            if "link_id" in obj and obj["link_id"] == link_id:
-                return obj
-        return None
-
-    def add_spot_light(self, name, container):
-        bpy.ops.object.light_add(type="SPOT")
-        light = utils.get_active_object()
-        light.name = name
-        light.data.name = name
-        utils.set_ccic_id(light)
-        light.parent = container
-        light.matrix_parent_inverse = container.matrix_world.inverted()
-        return light
-
-    def add_area_light(self, name, container):
-        bpy.ops.object.light_add(type="AREA")
-        light = utils.get_active_object()
-        light.name = name
-        light.data.name = name
-        utils.set_ccic_id(light)
-        light.parent = container
-        light.matrix_parent_inverse = container.matrix_world.inverted()
-        return light
-
-    def add_point_light(self, name, container):
-        bpy.ops.object.light_add(type="POINT")
-        light = utils.get_active_object()
-        light.name = name
-        light.data.name = name
-        utils.set_ccic_id(light)
-        light.parent = container
-        light.matrix_parent_inverse = container.matrix_world.inverted()
-        return light
-
-    def add_dir_light(self, name, container):
-        bpy.ops.object.light_add(type="SUN")
-        light = utils.get_active_object()
-        light.name = name
-        light.data.name = name
-        utils.set_ccic_id(light)
-        light.parent = container
-        light.matrix_parent_inverse = container.matrix_world.inverted()
-        return light
-
-    def add_light_container(self):
-        container = None
-        for obj in bpy.data.objects:
-            if obj.type == "EMPTY" and "Lighting" in obj.name and utils.has_ccic_id(obj):
-                container = obj
-        if not container:
-            bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
-            container = utils.get_active_object()
-            container.name = "Lighting"
-            utils.set_ccic_id(container)
-        children = utils.get_child_objects(container)
-        for child in children:
-            if utils.has_ccic_id(child) and child.type == "LIGHT":
-                utils.delete_object_tree(child)
-        return container
-
-    def decode_lights_data(self, data):
+    def decode_lighting_data(self, data):
         props = vars.props()
         prefs = vars.prefs()
 
         lights_data = decode_to_json(data)
-
-        RECTANGULAR_AS_AREA = True
-        TUBE_AS_AREA = True
 
         ambient_color = utils.array_to_color(lights_data["ambient_color"])
         ambient_strength = 0.125 + ambient_color.v
 
         utils.object_mode()
 
-        container = self.add_light_container()
+        use_lights = lights_data.get("use_lights", True)
 
-        for light_data in lights_data["lights"]:
-            light_type = light_data["type"]
-            if light_type == "DIR":
-                light_type = "SUN"
-            is_tube = light_data["is_tube"]
-            is_rectangle = light_data["is_rectangle"]
-            if TUBE_AS_AREA and is_tube:
-                light_type = "AREA"
-            if RECTANGULAR_AS_AREA and is_rectangle:
-                light_type = "AREA"
-
-            light = self.find_link_id(light_data["link_id"])
-            if light and (light.type != "LIGHT" or light.data.type != light_type):
-                utils.delete_light_object(light)
-                light = None
-            if not light:
-                if light_type == "AREA":
-                    light = self.add_area_light(light_data["name"], container)
-                elif light_type == "POINT":
-                    light = self.add_point_light(light_data["name"], container)
-                elif light_type == "SUN":
-                    light = self.add_dir_light(light_data["name"], container)
-                else:
-                    light = self.add_spot_light(light_data["name"], container)
-                light["link_id"] = light_data["link_id"]
-
-            loc = utils.array_to_vector(light_data["loc"]) / 100
-            light.location = loc
-            rot_mode = light.rotation_mode
-            light.rotation_mode = "QUATERNION"
-            light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
-            light.rotation_mode = rot_mode
-            light.scale = utils.array_to_vector(light_data["sca"])
-            desat_ambient_color = ambient_color.copy()
-            desat_ambient_color.s *= 0.2
-            light.data.color = utils.color_filter(utils.array_to_color(light_data["color"]), desat_ambient_color)
-
-            # range and falloff modifiers
-            fm = 2 - pow(light_data["falloff"] / 100, 2)
-            mult = light_data["multiplier"]
-            r = light_data["range"] / 5000
-            P = 4
-            range_curve = 1.0 - 1.0/pow((r + 1.0),P)
-            S = 1.0
-            E = 1.0
-            # area energy modifier
-            if light_data["is_tube"]:
-                m = 0.75 + light_data["tube_length"] * light_data["tube_radius"] / 10000
-                E *= m
-            elif light_data["is_rectangle"]:
-                a = 0.75 + light_data["rect"][0] * light_data["rect"][1] / 10000
-                E *= a
-
-            # non-inverse square light modifier
-            # CC4 lighting is pointed at the center so we can guess the linear->square light difference
-            if self.is_cc() and not light_data["inverse_square"]:
-                dist = max(loc.magnitude * 0.4, 0.01)
-                inv_linear_atten = 1 / dist
-                inv_square_atten = 1 / (dist * dist)
-                E *= max(1, inv_linear_atten / inv_square_atten)
-
-            if light_type == "SUN":
-                #light.data.energy = 450 * pow(light_data["multiplier"]/20, 2) * fm * mmod
-                light.data.energy = 3 * mult
-            elif light_type == "SPOT":
-                light.data.energy = 25 * mult * fm * range_curve * E
-            elif light_type == "POINT":
-                light.data.energy = 15 * mult * fm * range_curve * E
-            elif light_type == "AREA":
-                light.data.energy = 13 * mult * fm * range_curve * E
-            if light_type != "SUN":
-                light.data.use_custom_distance = True
-                light.data.cutoff_distance = light_data["range"] / 100
-            if light_type == "SPOT":
-                light.data.spot_size = light_data["angle"] * 0.01745329
-                light.data.spot_blend = 0.01 * light_data["falloff"] * (0.5 + 0.01 * light_data["attenuation"] * 0.5)
-                if light_data["is_rectangle"]:
-                    light.data.shadow_soft_size = (light_data["rect"][0] + light_data["rect"][0]) / 200
-                elif light_data["is_tube"]:
-                    light.data.shadow_soft_size = light_data["tube_radius"] / 100
-            if light_type == "AREA":
-                if light_data["is_rectangle"]:
-                    light.data.shape = "RECTANGLE"
-                    light.data.size = S * light_data["rect"][0] / 100
-                    light.data.size_y = S * light_data["rect"][1] / 100
-                elif light_data["is_tube"]:
-                    light.data.shape = "ELLIPSE"
-                    light.data.size = S * 10 * max(1, light_data["tube_length"]) / 100
-                    light.data.size_y = S * light_data["tube_radius"] / 100
-            light.data.use_shadow = light_data["cast_shadow"]
-            if light_data["cast_shadow"]:
-                if utils.B420():
-                    light.data.use_shadow_jitter = True
-                else:
-                    if light_type != "SUN":
-                        light.data.shadow_buffer_clip_start = 0.0025
-                        light.data.shadow_buffer_bias = 1.0
-                    light.data.use_contact_shadow = True
-                    light.data.contact_shadow_distance = 0.1
-                    light.data.contact_shadow_bias = 0.03
-                    light.data.contact_shadow_thickness = 0.001
-            utils.hide(light, not light_data["active"])
-
-        # clean up lights not found in scene
-        for obj in bpy.data.objects:
-            if obj.type == "LIGHT":
-               if "link_id" in obj and obj["link_id"] not in lights_data["scene_lights"]:
-                   utils.delete_light_object(obj)
+        if use_lights:
+            container = rlx.add_light_container()
+            # create or modify existing lights
+            for light_data in lights_data["lights"]:
+                light = rlx.find_link_id(light_data["link_id"])
+                light = rlx.decode_rlx_light(light_data, light, container)
+            # clean up lights not found in scene
+            for obj in bpy.data.objects:
+                if obj.type == "LIGHT":
+                    if "link_id" in obj and obj["link_id"] not in lights_data["scene_lights"]:
+                        utils.delete_light_object(obj)
         #
         bpy.context.scene.eevee.use_taa_reprojection = True
         if utils.B420():
@@ -2725,12 +2593,12 @@ class LinkService():
             world.world_setup(None, "", ambient_color, Vector((0,0,0)), Vector((0,0,0)), 1.0, ambient_strength)
 
 
-    def receive_lights(self, data):
+    def receive_lighting_sync(self, data):
         props = vars.props()
         update_link_status(f"Light Data Receveived")
         state = utils.store_mode_selection_state()
         props.lighting_brightness = 1.0
-        self.decode_lights_data(data)
+        self.decode_lighting_data(data)
         utils.restore_mode_selection_state(state)
 
 
@@ -3013,6 +2881,9 @@ class LinkService():
         LINK_DATA.sequence_actors = actors
         LINK_DATA.sequence_type = "SEQUENCE"
 
+        if not actors:
+            self.send_invalid("No valid sequence Actors!")
+
         # update scene range
         update_link_status(f"Receiving Live Sequence: {num_frames} frames")
         bpy.ops.screen.animation_cancel()
@@ -3055,6 +2926,7 @@ class LinkService():
         json_data = decode_to_json(data)
         actors_data = json_data["actors"]
         end_frame = RLFA(json_data["frame"])
+        aborted = json_data.get("aborted", False)
         LINK_DATA.sequence_end_frame = end_frame
         utils.log_info("Receive Sequence End")
 
@@ -3069,8 +2941,11 @@ class LinkService():
             if actor:
                 actors.append(actor)
         num_frames = LINK_DATA.sequence_end_frame - LINK_DATA.sequence_start_frame + 1
-        utils.log_info(f"sequence complete: {LINK_DATA.sequence_start_frame} to {LINK_DATA.sequence_end_frame} = {num_frames}")
-        update_link_status(f"Live Sequence Complete: {num_frames} frames")
+        if not aborted:
+            utils.log_info(f"sequence complete: {LINK_DATA.sequence_start_frame} to {LINK_DATA.sequence_end_frame} = {num_frames}")
+            update_link_status(f"Live Sequence Complete: {num_frames} frames")
+        else:
+            update_link_status(f"Live Sequence Aborted!")
 
         # write actions
         for actor in actors:
@@ -3090,7 +2965,7 @@ class LinkService():
         bpy.context.scene.frame_current = LINK_DATA.sequence_start_frame
 
         # play the recorded sequence
-        if LINK_DATA.set_keyframes:
+        if not aborted and LINK_DATA.set_keyframes:
             bpy.ops.screen.animation_play()
 
     def receive_sequence_ack(self, data):
@@ -3126,11 +3001,18 @@ class LinkService():
         else:
             self.update_sequence(5, delta_frames)
 
-    def get_remote_file(self, remote_id, source_path):
+    def get_remote_file(self, remote_id, source_path, file_override=None):
         if remote_id:
             remote_files_folder = get_unpacked_tar_file_folder(remote_id)
-            source_folder, source_file = os.path.split(source_path)
+            if file_override:
+                source_file = file_override
+            else:
+                source_folder, source_file = os.path.split(source_path)
             source_path = os.path.join(remote_files_folder, source_file)
+        else:
+            if file_override:
+                source_folder = os.path.split(source_path)[0]
+                source_path = os.path.join(source_folder, file_override)
         return source_path
 
     def receive_character_import(self, data):
@@ -3178,10 +3060,10 @@ class LinkService():
                                        replace_actions=True)
         else:
             update_link_status(f"Receving Character Import: {name}")
-            self.do_character_import(fbx_path, link_id, save_after_import)
+            self.do_fbx_import(fbx_path, link_id, save_after_import)
 
 
-    def do_character_import(self, fbx_path, link_id, save_after_import):
+    def do_fbx_import(self, fbx_path, link_id, save_after_import):
         try:
             bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id,
                                  zoom=False, no_rigify=True,
@@ -3200,9 +3082,111 @@ class LinkService():
             if actor.get_chr_cache().is_non_standard():
                 arm = actor.get_armature()
                 #rigutils.custom_avatar_rig(arm)
-        update_link_status(f"Character Imported: {actor.name}")
+        if actor:
+            update_link_status(f"Character Imported: {actor.name}")
         if save_after_import:
             self.receive_save()
+
+    def receive_camera_import(self, data):
+        props = vars.props()
+        prefs = vars.prefs()
+        global LINK_DATA
+
+        props.validate_and_clean_up()
+
+        # decode character import data
+        json_data = decode_to_json(data)
+        fbx_path = json_data.get("path")
+        remote_id = json_data.get("remote_id")
+        fbx_path = self.get_remote_file(remote_id, fbx_path)
+        name = json_data.get("name")
+        character_type = json_data.get("type")
+        link_id = json_data.get("link_id")
+        motion_prefix = json_data.get("motion_prefix", "")
+        use_fake_user = json_data.get("use_fake_user", False)
+        save_after_import = json_data.get("save_after_import", False)
+        LINK_DATA.set_action_settings(motion_prefix, use_fake_user, True)
+
+        utils.log_info(f"Receive Camera Import: {name} / {link_id} / {fbx_path}")
+
+        if not os.path.exists(fbx_path):
+            update_link_status(f"Invalid Import Path!")
+            utils.log_error(f"Invalid Import Path: {fbx_path}")
+            return
+
+        actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
+        if actor:
+            update_link_status(f"Camera: {name} exists!")
+            utils.log_info(f"Camera {name} ({link_id}) already exists!")
+            if prefs.datalink_confirm_replace:
+                bpy.ops.ccic.link_confirm_dialog("INVOKE_DEFAULT",
+                                                 message=f"Camera {name} already exists in the scene. Do you want to replace the character?",
+                                                 mode="CAMERA",
+                                                 name=name,
+                                                 filepath=fbx_path,
+                                                 link_id=link_id,
+                                                 character_type=character_type,
+                                                 prefs="datalink_confirm_replace")
+            else:
+                self.do_motion_import(link_id, fbx_path, character_type)
+
+        else:
+            update_link_status(f"Receving Camera Import: {name}")
+            self.do_fbx_import(fbx_path, link_id, save_after_import)
+
+    def receive_lights_import(self, data):
+        props = vars.props()
+        prefs = vars.prefs()
+        global LINK_DATA
+
+        props.validate_and_clean_up()
+
+        # decode character import data
+        json_data = decode_to_json(data)
+        print(json_data)
+        base_path = json_data.get("path")
+        remote_id = json_data.get("remote_id")
+        names = json_data.get("names")
+        character_types = json_data.get("types")
+        link_ids = json_data.get("link_ids")
+        motion_prefix = json_data.get("motion_prefix", "")
+        use_fake_user = json_data.get("use_fake_user", False)
+        save_after_import = json_data.get("save_after_import", False)
+        LINK_DATA.set_action_settings(motion_prefix, use_fake_user, True)
+
+        for i, name in enumerate(names):
+            link_id = link_ids[i]
+            character_type = character_types[i]
+            file = name + ".rlx"
+            rlx_path = self.get_remote_file(remote_id, base_path, file_override=file)
+
+            utils.log_info(f"Receive Light Import: {name} / {link_id} / {rlx_path}")
+
+            if not os.path.exists(rlx_path):
+                update_link_status(f"Invalid Import Path!")
+                utils.log_error(f"Invalid Import Path: {rlx_path}")
+                continue
+
+            actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
+            print(actor)
+            if actor:
+                update_link_status(f"Light: {name} exists!")
+                utils.log_info(f"Light {name} ({link_id}) already exists!")
+                if prefs.datalink_confirm_replace:
+                    bpy.ops.ccic.link_confirm_dialog("INVOKE_DEFAULT",
+                                                    message=f"Light {name} already exists in the scene. Do you want to replace the character?",
+                                                    mode="LIGHT",
+                                                    name=name,
+                                                    filepath=rlx_path,
+                                                    link_id=link_id,
+                                                    character_type=character_type,
+                                                    prefs="datalink_confirm_replace")
+                else:
+                    self.do_motion_import(link_id, rlx_path, character_type)
+
+            else:
+                update_link_status(f"Receving Light Import: {name}")
+                self.do_fbx_import(rlx_path, link_id, save_after_import)
 
     def receive_motion_import(self, data):
         props = vars.props()
@@ -3689,7 +3673,7 @@ class LinkService():
                 rig_name = rig.name
                 rig_data_name = rig.data.name
                 rl_armature_id = utils.get_rl_object_id(rig)
-                temp_chr_cache.link_id = link_id
+                temp_chr_cache.set_link_id(link_id)
                 temp_chr_cache.character_name = character_name
 
                 utils.set_rl_object_id(temp_rig, rl_armature_id)
@@ -4070,6 +4054,13 @@ class CCICLinkConfirmDialog(bpy.types.Operator):
                                            self.character_type, True,
                                            objects_to_replace_names=None,
                                            replace_actions=True)
+
+        if self.mode == "CAMERA":
+            LINK_SERVICE.do_motion_import(self.link_id, self.filepath, self.character_type)
+
+        if self.mode == "LIGHT":
+            LINK_SERVICE.do_motion_import(self.link_id, self.filepath, self.character_type)
+
         if self.mode == "MOTION":
             LINK_SERVICE.do_motion_import(self.link_id, self.filepath, self.character_type)
 

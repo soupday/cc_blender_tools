@@ -2072,7 +2072,10 @@ def filter_lights(filter):
             g *= filter[1]
             b *= filter[2]
             l1 = (r+g+b)/3
-            m = l0/l1
+            if l1 > 0.0001:
+                m = l0/l1
+            else:
+                m = l0
             r *= m
             g *= m
             b *= m

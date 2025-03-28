@@ -56,6 +56,7 @@ if "bpy" in locals():
     importlib.reload(link)
     importlib.reload(proportion)
     importlib.reload(iconutils)
+    importlib.reload(rlx)
 
 import bpy
 from bpy.app.handlers import persistent
@@ -100,6 +101,7 @@ from . import normal
 from . import link
 from . import proportion
 from . import iconutils
+from . import rlx
 
 
 bl_info = {

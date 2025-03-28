@@ -207,6 +207,8 @@ def card_dir_from_uv_map(card_dirs, uv_map):
     # analyse uv bounds
     uv_min, uv_max = geom.get_uv_bounds(uv_map)
     uv_extent = uv_max - uv_min
+    if abs(uv_extent.x) < 0.0001 or abs(uv_extent.y < 0.0001):
+        return card_dirs["SQUARE"]
     uv_aspect = uv_extent.x / uv_extent.y
 
     # only deal with vertical or horizontal cards
@@ -1066,8 +1068,9 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
         smoothed_loops_set = []
         for card in cards:
             loops = card["loops"]
-            card_smoothed_loops_set = get_smoothed_loops_set(loops)
-            smoothed_loops_set.extend(card_smoothed_loops_set)
+            if loops:
+                card_smoothed_loops_set = get_smoothed_loops_set(loops)
+                smoothed_loops_set.extend(card_smoothed_loops_set)
         remove_existing_loop_bones(chr_cache, arm, smoothed_loops_set)
         for edit_bone in arm.data.edit_bones:
                 edit_bone.select_head = False

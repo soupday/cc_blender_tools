@@ -1572,6 +1572,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     disabled: bpy.props.BoolProperty(default=False)
 
+    def set_link_id(self, link_id):
+        self.link_id = link_id
+        arm = self.get_armature()
+        utils.set_rl_link_id(arm, link_id)
+
     def get_auto_index(self):
         self.auto_index += 1
         return self.auto_index

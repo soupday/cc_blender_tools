@@ -19,7 +19,7 @@ import shutil
 import bpy
 from enum import IntEnum, IntFlag
 
-from . import (characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
+from . import (rlx, characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
                modifiers, wrinkle, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
                basic, properties, utils, vars)
@@ -506,7 +506,8 @@ def process_root_bones(arm, json_data, name):
                 pose_bone["root_type"] = type
 
 
-def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
+def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras, lights,
+                      objects: list,
                       actions, json_data, report, link_id, only_objects=None, motion_prefix=""):
     props = vars.props()
     prefs = vars.prefs()
@@ -580,7 +581,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
                 link_id = json_link_id
             if multi_import or not link_id:
                 link_id = utils.generate_random_id(20)
-            chr_cache.link_id = link_id
+            chr_cache.set_link_id(link_id)
 
             # root bones
             process_root_bones(arm, json_data, name)
@@ -678,9 +679,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
                 link_id = utils.generate_random_id(20)
             json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
             if not multi_import and json_link_id:
-                chr_cache.link_id = json_link_id
+                chr_cache.set_link_id(json_link_id)
             else:
-                chr_cache.link_id = link_id
+                chr_cache.set_link_id(link_id)
 
             # root bones
             process_root_bones(arm, json_data, name)
@@ -739,6 +740,29 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
             utils.log_recess()
 
+        for camera in cameras:
+
+            # link_id
+            if multi_import:
+                link_id = utils.generate_random_id(20)
+            json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            if not multi_import and json_link_id:
+                utils.set_rl_link_id(camera, json_link_id)
+            else:
+                utils.set_rl_link_id(camera, link_id)
+
+        for light in lights:
+
+            # link_id
+            if multi_import:
+                link_id = utils.generate_random_id(20)
+            json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            if not multi_import and json_link_id:
+                utils.set_rl_link_id(light, json_link_id)
+            else:
+                utils.set_rl_link_id(light, link_id)
+
+
     elif ImportFlags.OBJ in import_flags:
 
         character_name = name
@@ -753,7 +777,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
         chr_cache.character_name = character_name
 
         # link_id (OBJ exports don't have json)
-        chr_cache.link_id = link_id
+        chr_cache.set_link_id(link_id)
 
         # determine the main texture dir
         chr_cache.import_embedded = False
@@ -809,10 +833,12 @@ class ImportFlags(IntFlag):
     GLB = 4
     VRM = 8
     USD = 16
+    RLX = 32
     RL = 1024
     KEY = 2048
     RL_FBX = RL | FBX
     RL_OBJ = RL | OBJ
+    RL_RLX = RL | RLX
     RL_FBX_KEY = RL_FBX | KEY
     RL_OBJ_KEY = RL_OBJ | KEY
 
@@ -1014,12 +1040,12 @@ class CC3Import(bpy.types.Operator):
                 for action in actions:
                     action.use_fake_user = self.use_fake_user
 
-                armatures, rl_armatures, import_flags = self.get_character_armatures(imported, avatar_type, json_generation, import_flags)
+                armatures, rl_armatures, cameras, lights, import_flags = self.get_import_contents(imported, avatar_type, json_generation, import_flags)
 
                 # detect characters and objects
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
-                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures,
+                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, cameras, lights,
                                                             imported, actions, json_data, self.import_report, self.link_id,
                                                             only_objects=only_objects,
                                                             motion_prefix=self.motion_prefix)
@@ -1057,9 +1083,11 @@ class CC3Import(bpy.types.Operator):
                 # detect characters and objects
                 armatures = []
                 rl_armatures = []
+                cameras = []
+                lights = []
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
-                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures,
+                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, cameras, lights,
                                                             imported, actions, json_data, self.import_report, self.link_id,
                                                             motion_prefix=self.motion_prefix)
                 elif prefs.import_auto_convert:
@@ -1076,6 +1104,9 @@ class CC3Import(bpy.types.Operator):
                 #        pass
 
                 utils.log_timer("Done .Obj Import.")
+
+            elif ImportFlags.RLX in import_flags:
+                imported = rlx.import_rlx(filepath)
 
             elif ImportFlags.GLB in import_flags:
 
@@ -1335,6 +1366,13 @@ class CC3Import(bpy.types.Operator):
                 utils.log_info("Importing as editable character with fbxkey.")
                 return import_flags, param
 
+        elif utils.is_file_ext(ext, "RLX"):
+            import_flags = import_flags | ImportFlags.RLX
+            import_flags = import_flags | ImportFlags.RL
+            param = "IMPORT_RLX"
+            utils.log_info("Importing RLX ...")
+            return import_flags, param
+
         elif utils.is_file_ext(ext, "GLB") or utils.is_file_ext(ext, "GLTF"):
             import_flags = import_flags | ImportFlags.GLB
             utils.log_info("Importing generic GLB/GLTF character.")
@@ -1361,9 +1399,11 @@ class CC3Import(bpy.types.Operator):
         return import_flags, param
 
 
-    def get_character_armatures(self, objects, avatar_type, json_generation, import_flags):
+    def get_import_contents(self, objects, avatar_type, json_generation, import_flags):
         armatures = []
         rl_armatures = []
+        cameras = []
+        lights = []
         if not avatar_type:
             if json_generation is not None and json_generation == "":
                 avatar_type = "NoneStandard"
@@ -1386,7 +1426,21 @@ class CC3Import(bpy.types.Operator):
                 else:
                     if obj not in armatures:
                         armatures.append(obj)
-        return armatures, rl_armatures, import_flags
+            elif utils.object_exists_is_camera(obj):
+                if (avatar_type == "CAMERA" or
+                    json_generation == "CAMERA"):
+                    utils.log_info(f"RL Camera found: {obj.name}")
+                    import_flags = import_flags | ImportFlags.RL
+                if obj not in cameras:
+                    cameras.append(obj)
+            elif utils.object_exists_is_light(obj):
+                if (avatar_type == "LIGHT" or
+                    json_generation == "LIGHT"):
+                    utils.log_info(f"RL Light found: {obj.name}")
+                    import_flags = import_flags | ImportFlags.RL
+                if obj not in lights:
+                    lights.append(obj)
+        return armatures, rl_armatures, cameras, lights, import_flags
 
 
     def do_import_report(self, context, stage = 0):

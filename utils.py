@@ -343,6 +343,17 @@ def object_exists_is_light(obj):
         return False
 
 
+def object_exists_is_camera(obj):
+    """Test if Object: obj still exists as an object in the scene, and is a camera."""
+    if obj is None:
+        return False
+    try:
+        name = obj.name
+        return len(obj.users_scene) > 0 and obj.type == "CAMERA"
+    except:
+        return False
+
+
 def object_exists(obj: bpy.types.Object):
     """Test if Object: obj still exists as an object in the scene."""
     if obj is None:
@@ -2465,6 +2476,11 @@ def generate_random_id(length):
     for i in range(0, length):
         id += random.choice(CHARS)
     return id
+
+
+def set_rl_link_id(obj, link_id):
+    if obj:
+        obj["rl_link_id"] = link_id
 
 
 def set_rl_object_id(obj, new_id):
