@@ -1864,17 +1864,32 @@ def copy_action(action: bpy.types.Action, new_name):
     return new_action
 
 
-def set_action_slot(obj, action):
+def set_action_slot(obj, action, slot=None):
     """Blender 4.4+ Only:
-       Set the obj.animation_data.action_slot to the first action slot with the matching slot_type"""
+       Set the obj.animation_data.action_slot to the supplied slot or
+       the first action slot with the matching slot_type"""
     if obj and action and B440():
-        slot_type = "OBJECT"
-        if type(obj) is bpy.types.Key:
-            slot_type = "KEY"
-        for slot in action.slots:
-            if slot.target_id_type == slot_type:
+        if slot:
+            try:
                 obj.animation_data.action_slot = slot
-                return True
+            except:
+                log_error(f"Unable to set action slot {action} / {slot}")
+            return True
+        else:
+            slot_type = "OBJECT"
+            if type(obj) is bpy.types.Key:
+                slot_type = "KEY"
+            if type(obj) is bpy.types.Light:
+                slot_type = "LIGHT"
+            if type(obj) is bpy.types.Camera:
+                slot_type = "CAMERA"
+            for slot in action.slots:
+                if slot.target_id_type == slot_type:
+                    try:
+                        obj.animation_data.action_slot = slot
+                        return True
+                    except:
+                        log_error(f"Unable to set action slot by type: {slot_type} / {action} / {slot}")
         return False
     return True
 
@@ -1889,7 +1904,7 @@ def safe_get_action(obj) -> bpy.types.Action:
     return None
 
 
-def safe_set_action(obj, action, create=True):
+def safe_set_action(obj, action, create=True, slot=None):
     result = False
     if obj:
         try:
@@ -1897,13 +1912,44 @@ def safe_set_action(obj, action, create=True):
                 obj.animation_data_create()
             if obj.animation_data:
                 obj.animation_data.action = action
-                set_action_slot(obj, action)
+                set_action_slot(obj, action, slot)
                 result = True
         except Exception as e:
             action_name = action.name if action else "None"
             log_error(f"Unable to set action {action_name} to {obj.name}", e)
             result = False
     return result
+
+
+def clear_action(action):
+    if action:
+        try:
+            if B440():
+                for layer in action.layers:
+                    for strip in layer.strips:
+                        for channelbag in strip.channelbags:
+                            channelbag.fcurves.clear()
+                while action.slots:
+                    action.slots.remove(action.slots[0])
+            else:
+                action.fcurves.clear()
+            return True
+        except:
+            log_error(f"Unable to clear action: {action}")
+    return False
+
+
+def get_channel_bag(action, slot):
+    if not action.layers:
+        layer = action.layers.new("Layer")
+    else:
+        layer = action.layers[0]
+    if not layer.strips:
+        strip = layer.strips.new(type='KEYFRAME')
+    else:
+        strip = layer.strips[0]
+    channelbag = strip.channelbag(slot, ensure=True)
+    return channelbag
 
 
 def index_of_collection(item, collection):
@@ -2470,6 +2516,13 @@ def make_empty(name, loc=None, rot=None, scale=None, matrix=None):
     bpy.context.scene.collection.objects.link(ob)
 
 
+def is_n_panel_sub_tabs():
+    for prefs in bpy.context.preferences.addons.keys():
+        if "n_panel_sub_tabs" in prefs:
+            return True
+    return False
+
+
 def generate_random_id(length):
     CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
     id = ""
@@ -2481,6 +2534,18 @@ def generate_random_id(length):
 def set_rl_link_id(obj, link_id):
     if obj:
         obj["rl_link_id"] = link_id
+
+
+def get_rl_link_id(obj):
+    if obj:
+        if "link_id" in obj:
+            link_id = obj["link_id"]
+            del(obj["link_id"])
+            set_rl_link_id(obj, link_id)
+            return link_id
+        elif "rl_link_id" in obj:
+            return obj["rl_link_id"]
+    return None
 
 
 def set_rl_object_id(obj, new_id):
@@ -2561,6 +2626,14 @@ def make_sub_folder(parent_folder, folder_name):
     folder_path = os.path.normpath(os.path.join(parent_folder, folder_name))
     os.makedirs(folder_path, exist_ok=True)
     return folder_path
+
+
+def timestampns():
+    return str(time.time_ns())
+
+
+def datetimes():
+    return time.strftime("%Y%m%d%H%M%S")
 
 
 def open_folder(folder_path):

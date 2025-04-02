@@ -2526,7 +2526,8 @@ class LinkService():
             # clean up lights not found in scene
             for obj in bpy.data.objects:
                 if obj.type == "LIGHT":
-                    if "link_id" in obj and obj["link_id"] not in lights_data["scene_lights"]:
+                    obj_link_id = utils.get_rl_link_id(obj)
+                    if obj_link_id and obj_link_id not in lights_data["scene_lights"]:
                         utils.delete_light_object(obj)
         #
         bpy.context.scene.eevee.use_taa_reprojection = True
