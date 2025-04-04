@@ -17,7 +17,7 @@
 import bpy, struct, json
 from mathutils import Vector, Matrix, Color, Quaternion
 from enum import IntEnum
-from . import utils
+from . import utils, rigutils
 
 class RLXCodes(IntEnum):
     RLX_ID_LIGHT = 0xCC01
@@ -121,21 +121,57 @@ def import_rlx(file_path):
     return None
 
 
+def prep_rlx_actions(obj, name, motion_id, reuse_existing=False, timestamp=False, motion_prefix=None):
+    if not motion_id:
+        motion_id = "DataLink"
+    if timestamp:
+        motion_id += f"_{utils.datetimes()}"
+    f_prefix = rigutils.get_formatted_prefix(motion_prefix)
+    # generate names
+    T = utils.get_slot_type_for(obj.data)
+    ob_name = f"{f_prefix}{name}|O|{motion_id}"
+    data_name = f"{f_prefix}{name}|{T[0]}|{motion_id}"
+    # find existing actions
+    ob_action = utils.safe_get_action(obj)
+    data_action = utils.safe_get_action(obj.data)
+    # reuse existing by name if nothing on the object
+    if reuse_existing and not ob_action and ob_name in bpy.data.actions:
+        ob_action = bpy.data.actions[ob_name]
+    if reuse_existing and not data_action and data_name in bpy.data.actions:
+        data_action = bpy.data.actions[data_name]
+    # clear existing actions or create new ones
+    if ob_action:
+        utils.clear_action(ob_action)
+        ob_action.name = ob_name
+    else:
+        ob_action = bpy.data.actions.new(ob_name)
+    # clear or add action for object data animation
+    if data_action and data_action != ob_action:
+        utils.clear_action(data_action)
+        data_action.name = data_name
+    elif utils.B440():
+        data_action = ob_action
+    else:
+        data_action = bpy.data.actions.new(data_name)
+    if utils.B440():
+        # add slots to Blender 4.4 actions
+        ob_slot = ob_action.slots.new("OBJECT", ob_name)
+        data_slot = data_action.slots.new(T, data_name)
+    else:
+        ob_slot = None
+        data_slot = None
+    # set the actions
+    utils.safe_set_action(obj, ob_action, slot=ob_slot)
+    utils.safe_set_action(obj.data, data_action, slot=data_slot)
+
+    return ob_action, data_action, ob_slot, data_slot
+
+
 def import_rlx_light(data: BinaryData):
     light_data = data.json()
     # make the light
     link_id = light_data["link_id"]
     light = find_link_id(link_id)
-    if utils.B440():
-        action: bpy.types.Action = None
-        if light:
-            action = utils.safe_get_action(light)
-    else:
-        ob_action = None
-        light_action = None
-        if light:
-            ob_action = utils.safe_get_action(light)
-            light_action = utils.safe_get_action(light.data)
     light = decode_rlx_light(light_data, light)
     # static properties
     name: str = light_data["name"]
@@ -200,56 +236,22 @@ def import_rlx_light(data: BinaryData):
         elif light_type == "AREA":
             energy = ENERGY * multiplier
             store_frame(energy_cache, frame, energy)
+        elif light_type == "POINT":
+            energy = ENERGY * multiplier
+            store_frame(energy_cache, frame, energy)
 
-
-    if utils.B440():
-        action_name = f"{name}|Export_{utils.datetimes()}"
-        ob_slot_name = f"{name}|O|Export_{utils.datetimes()}"
-        light_slot_name = f"{name}|L|Export_{utils.datetimes()}"
-        if action:
-            utils.clear_action(action)
-            action.name = action_name
-        else:
-            action = bpy.data.actions.new(action_name)
-        ob_slot = action.slots.new("OBJECT", ob_slot_name)
-        light_slot = action.slots.new("LIGHT", light_slot_name)
-        channelbag = utils.get_channel_bag(action, ob_slot)
-        add_cache_fcurves(action, light.path_from_id("location"), loc_cache, num_frames, "Location", channelbag=channelbag)
-        add_cache_fcurves(action, light.path_from_id("rotation_quaternion"), rot_cache, num_frames, "Rotation Quaternion", channelbag=channelbag)
-        add_cache_fcurves(action, light.path_from_id("scale"), sca_cache, num_frames, "Scale", channelbag=channelbag)
-        channelbag = utils.get_channel_bag(action, light_slot)
-        add_cache_fcurves(action, light.data.path_from_id("color"), color_cache, num_frames, "Color", channelbag=channelbag)
-        add_cache_fcurves(action, light.data.path_from_id("energy"), energy_cache, num_frames, "Energy", channelbag=channelbag)
-        add_cache_fcurves(action, light.data.path_from_id("cutoff_distance"), cutoff_distance_cache, num_frames, "Cutoff Distance", channelbag=channelbag)
-        if light_type == "SPOT":
-            add_cache_fcurves(action, light.data.path_from_id("spot_blend"), spot_blend_cache, num_frames, "Spot Blend", channelbag=channelbag)
-            add_cache_fcurves(action, light.data.path_from_id("spot_size"), spot_size_cache, num_frames, "Spot Size", channelbag=channelbag)
-        utils.safe_set_action(light, action, slot=ob_slot)
-        utils.safe_set_action(light.data, action, slot=light_slot)
-    else:
-        ob_action_name = f"{name}|O|Export_{utils.datetimes()}"
-        light_action_name = f"{name}|L|Export_{utils.datetimes()}"
-        if ob_action:
-            utils.clear_action(ob_action)
-            ob_action.name = ob_action_name
-        else:
-            ob_action = bpy.data.actions.new(ob_action_name)
-        if light_action:
-            utils.clear_action(light_action)
-            light_action.name = light_action_name
-        else:
-            light_action = bpy.data.actions.new(light_action_name)
-        add_cache_fcurves(ob_action, light.path_from_id("location"), loc_cache, num_frames, "Location")
-        add_cache_fcurves(ob_action, light.path_from_id("rotation_quaternion"), rot_cache, num_frames, "Rotation Quaternion")
-        add_cache_fcurves(ob_action, light.path_from_id("scale"), sca_cache, num_frames, "Scale")
-        add_cache_fcurves(light_action, light.data.path_from_id("color"), color_cache, num_frames, "Color")
-        add_cache_fcurves(light_action, light.data.path_from_id("energy"), energy_cache, num_frames, "Energy")
-        add_cache_fcurves(light_action, light.data.path_from_id("cutoff_distance"), cutoff_distance_cache, num_frames, "Cutoff Distance")
-        if light_type == "SPOT":
-            add_cache_fcurves(light_action, light.data.path_from_id("spot_blend"), spot_blend_cache, num_frames, "Spot Blend")
-            add_cache_fcurves(light_action, light.data.path_from_id("spot_size"), spot_size_cache, num_frames, "Spot Size")
-        utils.safe_set_action(light, ob_action)
-        utils.safe_set_action(light.data, light_action)
+    ob_action, light_action, ob_slot, light_slot = prep_rlx_actions(light, name, "Export",
+                                                                    reuse_existing=False,
+                                                                    timestamp=True)
+    add_cache_fcurves(ob_action, light.path_from_id("location"), loc_cache, num_frames, "Location", slot=ob_slot)
+    add_cache_fcurves(ob_action, light.path_from_id("rotation_quaternion"), rot_cache, num_frames, "Rotation Quaternion", slot=ob_slot)
+    add_cache_fcurves(ob_action, light.path_from_id("scale"), sca_cache, num_frames, "Scale", slot=ob_slot)
+    add_cache_fcurves(light_action, light.data.path_from_id("color"), color_cache, num_frames, "Color", slot=light_slot)
+    add_cache_fcurves(light_action, light.data.path_from_id("energy"), energy_cache, num_frames, "Energy", slot=light_slot)
+    add_cache_fcurves(light_action, light.data.path_from_id("cutoff_distance"), cutoff_distance_cache, num_frames, "Cutoff Distance", slot=light_slot)
+    if light_type == "SPOT":
+        add_cache_fcurves(light_action, light.data.path_from_id("spot_blend"), spot_blend_cache, num_frames, "Spot Blend", slot=light_slot)
+        add_cache_fcurves(light_action, light.data.path_from_id("spot_size"), spot_size_cache, num_frames, "Spot Size", slot=light_slot)
 
 
 def import_rlx_camera(data: BinaryData):
@@ -257,16 +259,6 @@ def import_rlx_camera(data: BinaryData):
     # make the camera
     link_id = camera_data["link_id"]
     camera = find_link_id(link_id)
-    if utils.B440():
-        action = None
-        if camera:
-            action = utils.safe_get_action(camera)
-    else:
-        ob_action = None
-        cam_action = None
-        if camera:
-            ob_action = utils.safe_get_action(camera)
-            cam_action = utils.safe_get_action(camera.data)
     camera = decode_rlx_camera(camera_data, camera)
     # static properties
     link_id = camera_data["link_id"]
@@ -307,6 +299,7 @@ def import_rlx_camera(data: BinaryData):
         dof_far_transition = frames.float() / 100
         dof_near_transition = frames.float() / 100
         dof_min_blend_distance = frames.float()
+        fov = frames.float()
         store_frame(loc_cache, frame, loc)
         store_frame(rot_cache, frame, rot)
         store_frame(sca_cache, frame, sca)
@@ -318,50 +311,16 @@ def import_rlx_camera(data: BinaryData):
         f_stop = transition
         store_frame(f_stop_cache, frame, f_stop)
 
-    if utils.B440():
-        action_name = f"{name}|Export_{utils.datetimes()}"
-        ob_slot_name = f"{name}|O|Export_{utils.datetimes()}"
-        cam_slot_name = f"{name}|C|Export_{utils.datetimes()}"
-        if action:
-            utils.clear_action(action)
-            action.name = action_name
-        else:
-            action = bpy.data.actions.new(action_name)
-        ob_slot = action.slots.new("OBJECT", ob_slot_name)
-        cam_slot = action.slots.new("CAMERA", cam_slot_name)
-        channelbag = utils.get_channel_bag(action, ob_slot)
-        add_cache_fcurves(action, "location", loc_cache, num_frames, "Location", channelbag=channelbag)
-        add_cache_fcurves(action, "rotation_quaternion", rot_cache, num_frames, "Rotation Quaternion", channelbag=channelbag)
-        add_cache_fcurves(action, "scale", sca_cache, num_frames, "Scale", channelbag=channelbag)
-        channelbag = utils.get_channel_bag(action, cam_slot)
-        add_cache_fcurves(action, "lens", lens_cache, num_frames, "Camera", channelbag=channelbag)
-        add_cache_fcurves(action, "dof.use_dof", dof_cache, num_frames, "DOF", channelbag=channelbag)
-        add_cache_fcurves(action, "dof.focus_distance", focus_distance_cache, num_frames, "DOF", channelbag=channelbag)
-        add_cache_fcurves(action, "dof.f_stop", f_stop_cache, num_frames, "DOF", channelbag=channelbag)
-        utils.safe_set_action(camera, action, slot=ob_slot)
-        utils.safe_set_action(camera.data, action, slot=cam_slot)
-    else:
-        ob_action_name = f"{name}|O|Export_{utils.datetimes()}"
-        cam_action_name = f"{name}|C|Export_{utils.datetimes()}"
-        if ob_action:
-            utils.clear_action(ob_action)
-            ob_action.name = ob_action_name
-        else:
-            ob_action = bpy.data.actions.new(ob_action_name)
-        if cam_action:
-            utils.clear_action(cam_action)
-            cam_action.name = cam_action_name
-        else:
-            cam_action = bpy.data.actions.new(cam_action_name)
-        add_cache_fcurves(action, "location", loc_cache, num_frames, "Location")
-        add_cache_fcurves(action, "rotation_quaternion", rot_cache, num_frames, "Rotation Quaternion")
-        add_cache_fcurves(action, "scale", sca_cache, num_frames, "Scale")
-        add_cache_fcurves(action, "lens", lens_cache, num_frames, "Camera")
-        add_cache_fcurves(action, "dof.use_dof", dof_cache, num_frames, "DOF")
-        add_cache_fcurves(action, "dof.focus_distance", focus_distance_cache, num_frames, "DOF")
-        add_cache_fcurves(action, "dof.f_stop", f_stop_cache, num_frames, "DOF")
-        utils.safe_set_action(camera, ob_action)
-        utils.safe_set_action(camera.data, cam_action)
+    ob_action, cam_action, ob_slot, cam_slot = prep_rlx_actions(camera, name, "Export",
+                                                                reuse_existing=False,
+                                                                timestamp=True)
+    add_cache_fcurves(ob_action, "location", loc_cache, num_frames, "Location", slot=ob_slot)
+    add_cache_fcurves(ob_action, "rotation_quaternion", rot_cache, num_frames, "Rotation Quaternion", slot=ob_slot)
+    add_cache_fcurves(ob_action, "scale", sca_cache, num_frames, "Scale", slot=ob_slot)
+    add_cache_fcurves(cam_action, "lens", lens_cache, num_frames, "Camera", slot=cam_slot)
+    add_cache_fcurves(cam_action, "dof.use_dof", dof_cache, num_frames, "DOF", slot=cam_slot)
+    add_cache_fcurves(cam_action, "dof.focus_distance", focus_distance_cache, num_frames, "DOF", slot=cam_slot)
+    add_cache_fcurves(cam_action, "dof.f_stop", f_stop_cache, num_frames, "DOF", slot=cam_slot)
 
 
 def frame_cache(frames, indices=1, default_value=0.0):
@@ -384,22 +343,17 @@ def store_frame(cache, frame, value):
         cache[0][frame * 2 + 1] = value
 
 
-def add_cache_fcurves(action: bpy.types.Action, data_path, cache, num_frames, group_name=None, channelbag=None):
+def add_cache_fcurves(action: bpy.types.Action, data_path, cache, num_frames, group_name=None, slot=None):
+    channels = utils.get_action_channels(action, slot)
     num_curves = len(cache)
-    fcurve: bpy.types.FCurve
-    if channelbag:
-        if group_name not in channelbag.groups:
-            channelbag.groups.new(group_name)
-        for i in range(0, num_curves):
-            fcurve = channelbag.fcurves.new(data_path, index=i)
-            fcurve.group = channelbag.groups[group_name]
-            fcurve.keyframe_points.add(num_frames)
-            fcurve.keyframe_points.foreach_set('co', cache[i])
-    else:
-        for i in range(0, num_curves):
-            fcurve = action.fcurves.new(data_path, index=i, action_group=group_name)
-            fcurve.keyframe_points.add(num_frames)
-            fcurve.keyframe_points.foreach_set('co', cache[i])
+    fcurve: bpy.types.FCurve = None
+    if group_name not in channels.groups:
+        channels.groups.new(group_name)
+    for i in range(0, num_curves):
+        fcurve = channels.fcurves.new(data_path, index=i)
+        fcurve.group = channels.groups[group_name]
+        fcurve.keyframe_points.add(num_frames)
+        fcurve.keyframe_points.foreach_set('co', cache[i])
 
 
 def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
@@ -430,6 +384,8 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
     darkness = light_data["darkness"]
     light_type = get_light_type(type, is_rectangle, is_tube)
 
+    ob_action = utils.safe_get_action(light) if light else None
+    light_action = utils.safe_get_action(light.data) if light else None
 
     if light and (light.type != "LIGHT" or light.data.type != light_type):
         utils.delete_light_object(light)
@@ -445,6 +401,9 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
         else:
             light = add_spot_light(light_data["name"], container)
         utils.set_rl_link_id(light, link_id)
+
+    utils.safe_set_action(light, ob_action)
+    utils.safe_set_action(light.data, light_action)
 
     light.location = loc
     light.rotation_mode = "QUATERNION"
@@ -503,6 +462,29 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
     return light
 
 
+def apply_light_pose(light, loc, rot, sca, color, active, multiplier, range, angle, falloff, attenuation, darkness):
+    light.location = loc
+    light.rotation_mode = "QUATERNION"
+    light.rotation_quaternion = rot
+    light.scale = sca
+    light.data.color = color
+    if not active:
+        multiplier = 0.0
+    if light.data.type == "SUN":
+        light.data.energy = 2 * multiplier
+    elif light.data.type == "SPOT":
+        light.data.energy = ENERGY * multiplier
+        light.data.cutoff_distance = range / 100
+        light.data.spot_blend = (falloff + attenuation) / 200
+        light.data.spot_size = angle * 0.01745329
+    elif light.data.type == "AREA":
+        light.data.energy = ENERGY * multiplier
+        light.data.cutoff_distance = range / 100
+    elif light.data.type == "POINT":
+        light.data.energy = ENERGY * 2.0 * multiplier
+        light.data.cutoff_distance = range / 100
+
+
 def decode_rlx_camera(camera_data, camera):
     # static properties
     link_id = camera_data["link_id"]
@@ -530,6 +512,9 @@ def decode_rlx_camera(camera_data, camera):
     dof_near_transition = camera_data["dof_near_transition"] / 100
     dof_min_blend_distance = camera_data["dof_min_blend_distance"] # 0.0 - 1.0
 
+    ob_action = utils.safe_get_action(camera) if camera else None
+    cam_action = utils.safe_get_action(camera.data) if camera else None
+
     if camera and camera.type != "CAMERA":
         utils.delete_object(camera)
         camera = None
@@ -537,6 +522,9 @@ def decode_rlx_camera(camera_data, camera):
     if not camera:
         camera = add_camera(name)
         utils.set_rl_link_id(camera, link_id)
+
+    utils.safe_set_action(camera, ob_action)
+    utils.safe_set_action(camera.data, cam_action)
 
     camera.location = loc
     camera.rotation_mode = "QUATERNION"
@@ -561,6 +549,29 @@ def decode_rlx_camera(camera_data, camera):
     f_stop = transition
     camera.data.dof.aperture_fstop = f_stop
     return camera
+
+
+def apply_camera_pose(camera, loc, rot, sca, focal_length,
+                      dof_enable, dof_focus, dof_range,
+                      dof_far_blur, dof_near_blur,
+                      dof_far_transition, dof_near_transition, dof_min_blend_distance):
+    camera.location = loc
+    camera.rotation_mode = "QUATERNION"
+    camera.rotation_quaternion = rot
+    camera.scale = sca
+    camera.data.lens = focal_length
+    # depth of field
+    camera.data.dof.use_dof = dof_enable
+    camera.data.dof.focus_distance = dof_focus / 100
+    # not much we can do about blur as DOF blur is a global scene setting in Blender (and only for Eevee)
+    # bpy.data.scenes["Scene"].eevee.bokeh_max_size
+    # TODO maybe blur can be incorporated into f_stop
+    # TODO maybe dof_range too (perfect focus range)
+    blur = (dof_far_blur + dof_near_blur) / 2
+    # transition range can be interpreted as the f-stop
+    transition = (dof_far_transition + dof_near_transition) / 200
+    f_stop = transition
+    camera.data.dof.aperture_fstop = f_stop
 
 
 def get_light_type(rl_type, is_rectangle, is_tube):

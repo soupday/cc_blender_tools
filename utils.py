@@ -1864,6 +1864,30 @@ def copy_action(action: bpy.types.Action, new_name):
     return new_action
 
 
+def get_action_slot(action, slot_type):
+    if B440():
+        for slot in action.slots:
+            if slot.target_id_type == slot_type:
+                return slot
+    return None
+
+
+def get_slot_type_for(obj):
+    T = type(obj)
+    slot_type = "OBJECT"
+    if T is bpy.types.Key:
+        slot_type = "KEY"
+    if (T is bpy.types.Light or
+        T is bpy.types.SpotLight or
+        T is bpy.types.SunLight or
+        T is bpy.types.AreaLight or
+        T is bpy.types.PointLight):
+        slot_type = "LIGHT"
+    if T is bpy.types.Camera:
+        slot_type = "CAMERA"
+    return slot_type
+
+
 def set_action_slot(obj, action, slot=None):
     """Blender 4.4+ Only:
        Set the obj.animation_data.action_slot to the supplied slot or
@@ -1876,20 +1900,13 @@ def set_action_slot(obj, action, slot=None):
                 log_error(f"Unable to set action slot {action} / {slot}")
             return True
         else:
-            slot_type = "OBJECT"
-            if type(obj) is bpy.types.Key:
-                slot_type = "KEY"
-            if type(obj) is bpy.types.Light:
-                slot_type = "LIGHT"
-            if type(obj) is bpy.types.Camera:
-                slot_type = "CAMERA"
-            for slot in action.slots:
-                if slot.target_id_type == slot_type:
-                    try:
-                        obj.animation_data.action_slot = slot
-                        return True
-                    except:
-                        log_error(f"Unable to set action slot by type: {slot_type} / {action} / {slot}")
+            slot_type = get_slot_type_for(obj)
+            slot = get_action_slot(action, slot_type)
+            if slot:
+                try:
+                    obj.animation_data.action_slot = slot
+                except:
+                    log_error(f"Unable to set action slot by type: {slot_type} / {action} / {slot}")
         return False
     return True
 
@@ -1931,25 +1948,29 @@ def clear_action(action):
                             channelbag.fcurves.clear()
                 while action.slots:
                     action.slots.remove(action.slots[0])
-            else:
-                action.fcurves.clear()
+            action.fcurves.clear()
             return True
         except:
             log_error(f"Unable to clear action: {action}")
     return False
 
 
-def get_channel_bag(action, slot):
-    if not action.layers:
-        layer = action.layers.new("Layer")
+def get_action_channels(action: bpy.types.Action, slot=None):
+    if not action:
+        return None
+    if B440() and slot:
+        if not action.layers:
+            layer = action.layers.new("Layer")
+        else:
+            layer = action.layers[0]
+        if not layer.strips:
+            strip = layer.strips.new(type='KEYFRAME')
+        else:
+            strip = layer.strips[0]
+        channelbag = strip.channelbag(slot, ensure=True)
+        return channelbag
     else:
-        layer = action.layers[0]
-    if not layer.strips:
-        strip = layer.strips.new(type='KEYFRAME')
-    else:
-        strip = layer.strips[0]
-    channelbag = strip.channelbag(slot, ensure=True)
-    return channelbag
+        return action
 
 
 def index_of_collection(item, collection):
@@ -2567,7 +2588,7 @@ def get_rl_object_id(obj):
     return None
 
 
-def custom_prop(obj, prop_name, default=None):
+def prop(obj, prop_name, default=None):
     if prop_name in obj:
         return obj[prop_name]
     return default

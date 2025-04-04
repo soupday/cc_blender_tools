@@ -539,6 +539,8 @@ def get_action_obj_id(obj):
 
 
 def get_formatted_prefix(motion_prefix):
+    if motion_prefix is None:
+        motion_prefix = ""
     motion_prefix = motion_prefix.strip().replace("|", "_")
     while motion_prefix.endswith("_"):
         motion_prefix = motion_prefix[:-1]
@@ -761,7 +763,7 @@ def get_strips_by_sets(set_ids: set):
     strip: bpy.types.NlaStrip
     strips = {}
     for strip in all_strips:
-        strip_set_id = utils.custom_prop(strip.action, "rl_set_id")
+        strip_set_id = utils.prop(strip.action, "rl_set_id")
         for sel_set_id, sel_auto_index in set_ids:
             if strip_set_id == sel_set_id:
                 strip_auto_index = utils.get_auto_index_suffix(strip.name)
@@ -788,7 +790,7 @@ def select_strips_by_set(active_strip: bpy.types.NlaStrip):
     strips = bpy.context.selected_nla_strips.copy()
     set_ids = set()
     for strip in strips:
-        set_id = utils.custom_prop(strip.action, "rl_set_id")
+        set_id = utils.prop(strip.action, "rl_set_id")
         strip_auto_index = utils.get_auto_index_suffix(strip.name)
         if set_id and strip_auto_index:
             set_ids.add((set_id, strip_auto_index))
@@ -857,21 +859,21 @@ def size_strips(strips, to_strip: bpy.types.NlaStrip=None, longest=True, reset=F
 
 
 def set_action_set_fake_user(action, use_fake_user):
-    set_id = utils.custom_prop(action, "rl_set_id")
+    set_id = utils.prop(action, "rl_set_id")
     if set_id:
         for action in bpy.data.actions:
-            action_set_id = utils.custom_prop(action, "rl_set_id")
+            action_set_id = utils.prop(action, "rl_set_id")
             if action_set_id == set_id:
                 action.use_fake_user = use_fake_user
     utils.update_ui(all=True)
 
 
 def delete_motion_set(action):
-    set_id = utils.custom_prop(action, "rl_set_id")
+    set_id = utils.prop(action, "rl_set_id")
     if set_id:
         to_remove = []
         for action in bpy.data.actions:
-            action_set_id = utils.custom_prop(action, "rl_set_id")
+            action_set_id = utils.prop(action, "rl_set_id")
             if action_set_id == set_id:
                 to_remove.append(action)
     for action in to_remove:
@@ -2096,13 +2098,13 @@ class CCICMotionSetInfo(bpy.types.Operator):
         col_1 = split.column()
         col_2 = split.column()
         for action in bpy.data.actions:
-            action_set_id = utils.custom_prop(action, "rl_set_id")
-            action_type = utils.custom_prop(action, "rl_action_type")
+            action_set_id = utils.prop(action, "rl_set_id")
+            action_type = utils.prop(action, "rl_action_type")
             if action_set_id == self.set_id:
                 if action_type == "ARM":
                     col_1.label(text="Armature")
                 elif action_type == "KEY":
-                    obj_id = utils.custom_prop(action, "rl_key_object", "(None)")
+                    obj_id = utils.prop(action, "rl_key_object", "(None)")
                     col_1.label(text=obj_id)
                 else:
                     col_1.label(text="?")

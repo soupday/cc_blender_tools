@@ -737,10 +737,9 @@ class ARMATURE_UL_List(bpy.types.UIList):
             item_name = utils.strip_name(item.name)
             allowed = False
             if item.type == "ARMATURE": # only list armatures
-                if "rl_set_generation" in item:
-                    set_generation = item["rl_set_generation"]
-                    if set_generation != "Rigify" and set_generation != "Rigify+":
-                        allowed = True
+                set_generation = utils.prop(item, "rl_set_generation")
+                if set_generation != "Rigify" and set_generation != "Rigify+":
+                    allowed = True
                 elif "_Rigify" not in item_name: # don't list rigified armatures
                     if "_Retarget" not in item_name: # don't list retarget armatures
                         if len(item.data.bones) > 0:
@@ -775,23 +774,16 @@ class ACTION_UL_List(bpy.types.UIList):
         if arm_object:
             if arm_object.type == "ARMATURE":
                 arm_name = arm_object.name
-            if "rl_set_generation" in arm_object:
-                arm_set_generation = arm_object["rl_set_generation"]
+            arm_set_generation = utils.prop(arm_object, "rl_set_generation")
         rl_arm_id = utils.get_rl_object_id(arm_object)
         items = getattr(data, propname)
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
         for i, item in enumerate(items):
             allowed = False
-            action_set_generation = None
-            action_type = None
-            action_armature_id = None
-            if "rl_set_generation" in item:
-                action_set_generation = item["rl_set_generation"]
-            if "rl_action_type" in item:
-                action_type = item["rl_action_type"]
-            if "rl_armature_id" in item:
-                action_armature_id = item["rl_armature_id"]
+            action_set_generation = utils.prop(item, "rl_set_generation")
+            action_type = utils.prop(item, "rl_action_type")
+            action_armature_id = utils.prop(item, "rl_armature_id")
             if props.armature_action_filter and arm_object:
                 if arm_set_generation and action_set_generation and action_type and rl_arm_id and action_armature_id:
                     if (arm_set_generation == action_set_generation and
@@ -838,16 +830,11 @@ class ACTION_SET_UL_List(bpy.types.UIList):
         arm_set_generation = None
         if chr_cache:
             arm = chr_cache.get_armature()
-            if "rl_set_generation" in arm:
-                arm_set_generation = arm["rl_set_generation"]
+            arm_set_generation = utils.prop(arm, "rl_set_generation")
         for i, item in enumerate(items):
             allowed = False
-            action_set_generation = None
-            action_type = None
-            if "rl_set_generation" in item:
-                action_set_generation = item["rl_set_generation"]
-            if "rl_action_type" in item:
-                action_type = item["rl_action_type"]
+            action_set_generation = utils.prop(item, "rl_set_generation")
+            action_type = utils.prop(item, "rl_action_type")
             if (arm_set_generation and
                 action_set_generation and
                 action_type == "ARM" and
@@ -2351,15 +2338,12 @@ def motion_set_ui(layout: bpy.types.UILayout, chr_cache, show_nla=False):
 
     # current selected motion set action
     action_set_list_action = utils.collection_at_index(props.action_set_list_index, bpy.data.actions)
-    action_set_generation = None
-    if action_set_list_action:
-        action_set_generation = action_set_list_action["rl_set_generation"]
+    action_set_generation = utils.prop(action_set_list_action, "rl_set_generation")
     rig = None
     rig_set_generation = None
     if chr_cache:
         rig = chr_cache.get_armature()
-        if "rl_set_generation" in rig:
-            rig_set_generation = rig["rl_set_generation"]
+        rig_set_generation = utils.prop(rig, "rl_set_generation")
 
     col = layout.column(align=True)
     split = col.split(factor=0.65)
@@ -2563,10 +2547,7 @@ class CC3SpringControlPanel(bpy.types.Panel):
         parent_mode = None
 
         if single_chain_bone_name:
-            if "ik_root" in active_pose_bone:
-                search_bone_name = active_pose_bone["ik_root"]
-            else:
-                search_bone_name = active_pose_bone.name
+            search_bone_name = utils.prop(active_pose_bone, "ik_root", active_pose_bone.name)
             spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, search_bone_name)
             prefix = springbones.get_spring_rig_prefix(parent_mode)
             rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
@@ -2612,10 +2593,7 @@ class CC3SpringControlPanel(bpy.types.Panel):
             for child in active_pose_bone.children:
                 if child.name.endswith("_target_ik"):
                     child_chain_bone_name = child.name[:-10]
-                    if "ik_root" in child:
-                        search_bone_name = child["ik_root"]
-                    else:
-                        search_bone_name = child.name
+                    search_bone_name = utils.prop(child, "ik_root", child.name)
                     spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, search_bone_name)
                     prefix = springbones.get_spring_rig_prefix(parent_mode)
                     rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
