@@ -25,7 +25,8 @@ class RLXCodes(IntEnum):
 
 RECTANGULAR_AS_AREA = False
 TUBE_AS_AREA = True
-ENERGY = 35
+ENERGY_SCALE = 35
+SUN_SCALE = 2
 
 class BinaryData():
     data: bytearray = None
@@ -224,20 +225,20 @@ def import_rlx_light(data: BinaryData):
         store_frame(color_cache, frame, color)
         store_frame(cutoff_distance_cache, frame, cutoff_distance)
         if light_type == "SUN":
-            energy = 2 * multiplier
+            energy = SUN_SCALE * multiplier
             store_frame(energy_cache, frame, energy)
         elif light_type == "SPOT":
-            energy = ENERGY * multiplier
+            energy = ENERGY_SCALE * multiplier
             spot_blend = (falloff + attenuation) / 2
             spot_size = angle
             store_frame(energy_cache, frame, energy)
             store_frame(spot_blend_cache, frame, spot_blend)
             store_frame(spot_size_cache, frame, spot_size)
         elif light_type == "AREA":
-            energy = ENERGY * multiplier
+            energy = ENERGY_SCALE * multiplier
             store_frame(energy_cache, frame, energy)
         elif light_type == "POINT":
-            energy = ENERGY * multiplier
+            energy = ENERGY_SCALE * multiplier
             store_frame(energy_cache, frame, energy)
 
     ob_action, light_action, ob_slot, light_slot = prep_rlx_actions(light, name, "Export",
@@ -412,13 +413,13 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
     light.data.color = color
 
     if light_type == "SUN":
-        light.data.energy = 2 * multiplier
+        light.data.energy = SUN_SCALE * multiplier
 
     elif light_type == "SPOT":
-        light.data.energy = ENERGY * multiplier
+        light.data.energy = ENERGY_SCALE * multiplier
         light.data.use_custom_distance = True
         light.data.cutoff_distance = range
-        light.data.spot_blend = (falloff + attenuation) / 2
+        light.data.spot_blend = (falloff*attenuation + attenuation) / 2
         light.data.spot_size = angle
         light.data.use_soft_falloff = True
         if is_rectangle:
@@ -428,7 +429,7 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
 
 
     elif light_type == "AREA":
-        light.data.energy = ENERGY * multiplier
+        light.data.energy = ENERGY_SCALE * multiplier
         light.data.use_custom_distance = True
         light.data.cutoff_distance = range
         if is_rectangle:
@@ -441,7 +442,7 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
             light.data.size_y = tube_radius
 
     elif light_type == "POINT":
-        light.data.energy = ENERGY * 2.0 * multiplier
+        light.data.energy = ENERGY_SCALE * 2.0 * multiplier
         light.data.use_custom_distance = True
         light.data.cutoff_distance = range
 
@@ -473,15 +474,15 @@ def apply_light_pose(light, loc, rot, sca, color, active, multiplier, range, ang
     if light.data.type == "SUN":
         light.data.energy = 2 * multiplier
     elif light.data.type == "SPOT":
-        light.data.energy = ENERGY * multiplier
+        light.data.energy = ENERGY_SCALE * multiplier
         light.data.cutoff_distance = range / 100
-        light.data.spot_blend = (falloff + attenuation) / 200
+        light.data.spot_blend = (attenuation * falloff + attenuation) / 200
         light.data.spot_size = angle * 0.01745329
     elif light.data.type == "AREA":
-        light.data.energy = ENERGY * multiplier
+        light.data.energy = ENERGY_SCALE * multiplier
         light.data.cutoff_distance = range / 100
     elif light.data.type == "POINT":
-        light.data.energy = ENERGY * 2.0 * multiplier
+        light.data.energy = ENERGY_SCALE * 2.0 * multiplier
         light.data.cutoff_distance = range / 100
 
 

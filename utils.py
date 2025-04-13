@@ -163,6 +163,30 @@ def has_ccic_id(obj: bpy.types.Object):
     return False
 
 
+def deduplicate_names(names: list, func=None, replace: dict=None, partial=False):
+    totals = {}
+    name: str = None
+    for i, name in enumerate(names):
+        if replace:
+            if partial:
+                for r in replace:
+                    if r in name:
+                        name = name.replace(r, replace[r])
+                        break
+            elif name in replace:
+                name = replace[name]
+        if func:
+            name = func(name)
+        if name in totals:
+            count = totals[name]
+        else:
+            count = 0
+            totals[name] = 0
+        names[i] = name if count == 0 else f"{name}.{count:03d}"
+        totals[name] += 1
+    return names
+
+
 def obj_is_linked(obj):
     try:
         if obj.library is not None:
@@ -1938,7 +1962,7 @@ def safe_set_action(obj, action, create=True, slot=None):
     return result
 
 
-def clear_action(action):
+def clear_action(action, slot_type=None, slot_name=None):
     if action:
         try:
             if B440():
@@ -1949,6 +1973,9 @@ def clear_action(action):
                 while action.slots:
                     action.slots.remove(action.slots[0])
             action.fcurves.clear()
+            if B440():
+                if slot_type and slot_name:
+                    action.slots.new(slot_type, slot_name)
             return True
         except:
             log_error(f"Unable to clear action: {action}")

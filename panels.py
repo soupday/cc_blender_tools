@@ -3432,6 +3432,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
                     all_valid_topography = all_valid_topography and obj_cache.validate_topography()
 
         link_service = link.get_link_service()
+        actors = link_service.get_selected_actors() if link_service else None
         connected = link_service and link_service.is_connected
         listening = link_service and link_service.is_listening
         connecting = link_service and link_service.is_connecting
@@ -3537,11 +3538,11 @@ class CCICDataLinkPanel(bpy.types.Panel):
             else:
                 col_2.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
             # no pose or sequence for props yet...
-            if not chr_cache or not chr_cache.is_avatar():
+            if not actors:
                 split.enabled = False
             # for now rigified Game base don't work
-            if chr_cache and chr_cache.rigified and chr_cache.generation == "GameBase":
-                split.enabled = False
+            #if chr_cache and chr_cache.rigified and chr_cache.generation == "GameBase":
+            #    split.enabled = False
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
