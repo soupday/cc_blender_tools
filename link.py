@@ -2540,7 +2540,7 @@ class LinkService():
                             T: Matrix = M @ pose_bone.matrix
                             t = T.to_translation() * 100
                             r = T.to_quaternion()
-                            s = T.to_scale() * 100
+                            s = T.to_scale()
                             data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
                 else:
                     rig: bpy.types.Object = chr_cache.get_armature()
@@ -2550,8 +2550,8 @@ class LinkService():
                     T: Matrix = M
                     t = T.to_translation() * 100
                     r = T.to_quaternion()
-                    s = T.to_scale() * 100
-                    print(t, r, s)
+                    s = T.to_scale()
+                    #print(rig.name, t, r, s)
                     data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
 
                     # pack all the bone data
@@ -2562,7 +2562,8 @@ class LinkService():
                             T: Matrix = M @ pose_bone.matrix
                             t = T.to_translation()
                             r = T.to_quaternion()
-                            s = T.to_scale() * 100
+                            s = T.to_scale()
+                            #print(pose_bone.name, t, r, s)
                             data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
 
                 # pack mesh transforms (actor.meshes is sanitized by encode_actor_templates)
@@ -2571,13 +2572,12 @@ class LinkService():
                     if utils.object_mode_to(rig):
                         mesh_obj: bpy.types.Object
                         for mesh_name in actor.meshes:
-                            print(f"MESH: {mesh_name}")
                             mesh_obj = bpy.data.objects[mesh_name]
                             T: Matrix = mesh_obj.matrix_world
-                            t = T.to_translation() * 100
+                            t = T.to_translation()
                             r = T.to_quaternion()
-                            s = T.to_scale() * 100
-                            print(t, r, s)
+                            s = T.to_scale()
+                            #print(mesh_obj.name, t, r, s)
                             data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
 
                 # pack shape_keys
