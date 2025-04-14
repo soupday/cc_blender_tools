@@ -2616,7 +2616,7 @@ def get_rl_object_id(obj):
 
 
 def prop(obj, prop_name, default=None):
-    if prop_name in obj:
+    if obj and prop_name in obj:
         return obj[prop_name]
     return default
 

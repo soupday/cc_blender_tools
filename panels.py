@@ -2114,7 +2114,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                 if chr_cache.rigified:
 
                     has_spring_rigs = springbones.has_spring_rigs(chr_cache, rig)
-                    ik_fk = rigutils.get_rigify_ik_fk_influence(rig)
+                    ik_fk = rigutils.get_rigify_ik_fk_influence_avg(rig)
 
                     # utility widgets minipanel
                     box_row = layout.box().row(align=True)

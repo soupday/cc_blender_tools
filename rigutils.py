@@ -904,7 +904,7 @@ def restore_armature_names(armature_object, armature_data, name):
         utils.force_armature_name(armature_data, name)
 
 
-def get_rigify_ik_fk_influence(rig):
+def get_rigify_ik_fk_influence_avg(rig):
     ik_fk = 0
     num_bones = 0
     ik_fk_control_bones = ["upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.L", "thigh_parent.R"]
@@ -918,12 +918,28 @@ def get_rigify_ik_fk_influence(rig):
     return ik_fk
 
 
-def set_rigify_ik_fk_influence(rig, influence):
+def get_rigify_ik_fk_influence(rig):
     ik_fk_control_bones = ["upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.L", "thigh_parent.R"]
-    for bone_name in ik_fk_control_bones:
+    ik_fk = [0,0,0,0]
+    for i, bone_name in enumerate(ik_fk_control_bones):
         if bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[bone_name]
-            pose_bone["IK_FK"] = influence
+            ik_fk[i] = pose_bone["IK_FK"]
+    return ik_fk
+
+
+def set_rigify_ik_fk_influence(rig, ik_fk):
+    ik_fk_control_bones = ["upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.L", "thigh_parent.R"]
+    if type(ik_fk) is list:
+        for i, bone_name in enumerate(ik_fk_control_bones):
+            if bone_name in rig.pose.bones:
+                pose_bone = rig.pose.bones[bone_name]
+                pose_bone["IK_FK"] = ik_fk[i]
+    else:
+        for bone_name in ik_fk_control_bones:
+            if bone_name in rig.pose.bones:
+                pose_bone = rig.pose.bones[bone_name]
+                pose_bone["IK_FK"] = ik_fk
 
 
 def poke_rig(rig):
@@ -1457,6 +1473,7 @@ def set_ik_stretch_control(rigify_rig, fac):
 
 def disable_ik_stretch(rigify_rig, bone_names=None):
     con_store = {}
+    ik_store = { "constraints": con_store }
     for pose_bone in rigify_rig.pose.bones:
         if bone_names and pose_bone.name not in bone_names:
             continue
@@ -1464,10 +1481,11 @@ def disable_ik_stretch(rigify_rig, bone_names=None):
             if con and con.type == "IK":
                 con_store[con] = con.use_stretch
                 con.use_stretch = False
-    return con_store
+    return ik_store
 
 
-def restore_ik_stretch(con_store):
+def restore_ik_stretch(ik_store):
+    con_store = ik_store["constraints"]
     for con in con_store:
         con.use_stretch = con_store[con]
 

@@ -118,6 +118,7 @@ class LinkActor():
     alias: list = None
     shape_keys: dict = None
     ik_store: dict = None
+    rigify_ik_fk: float = 0.0
 
     def __init__(self, obj_or_chr_cache):
         if type(obj_or_chr_cache) is bpy.types.Object:
@@ -596,7 +597,7 @@ def match_id_tree(rl_tree, arm=None, bone_obj: bpy.types.Bone=None, is_mesh=Fals
     if names is None:
         names = {}
     bone_obj_name = bone_obj.name if bone_obj else deduplicate_name(rl_tree["name"], names)
-    # id_map is a dict of bones by ID mapping the source skin_bone name to the armature bone or mesh
+    # id_map is a dict of bones by ID, mapping the source skin_bone name to the armature bone or mesh
     id_map[rl_tree["id"]] = {
         "source": rl_tree["name"],
         "name": bone_obj_name,
@@ -766,6 +767,7 @@ def remove_datalink_import_rig(actor: LinkActor, apply_contraints=False):
             if chr_cache.rigified:
                 rigging.adv_retarget_remove_pair(None, chr_cache)
                 if actor.ik_store:
+                    rigutils.set_rigify_ik_fk_influence(chr_rig, actor.ik_store["ik_fk"])
                     rigutils.restore_ik_stretch(actor.ik_store)
 
             else:
@@ -1021,8 +1023,11 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                     utils.safe_set_action(obj.data.shape_keys, None)
 
             if chr_cache.rigified:
-                # disable IK stretch
+                # disable IK stretch, set rig to FK during transfer
                 actor.ik_store = rigutils.disable_ik_stretch(rig)
+                actor.ik_store["ik_fk"] = rigutils.get_rigify_ik_fk_influence(rig)
+                rigutils.set_rigify_ik_fk_influence(rig, 1.0)
+
                 BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Root"] #not Tweak and Extra
                 BAKE_BONE_COLLECTIONS = ["Face", #"Face (Primary)", "Face (Secondary)",
                                          "Torso", "Torso (Tweak)",
