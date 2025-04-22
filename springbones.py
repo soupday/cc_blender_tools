@@ -262,7 +262,7 @@ def is_hair_rig_bone(bone_name):
         return False
 
 
-def convert_spring_rig_to_accessory(chr_cache, arm, parent_mode):
+def convert_spring_rig_to_accessory(chr_cache, arm, objects, parent_mode):
     """Removes all none hair rig vertex groups from objects so that CC4 recognizes them as accessories
        and not cloth or hair.\n\n
        Accessories are categorized by:\n
@@ -273,10 +273,20 @@ def convert_spring_rig_to_accessory(chr_cache, arm, parent_mode):
     """
     groups_to_remove = []
 
+    active_object = bpy.context.active_object
+    if active_object not in objects:
+        active_object = objects[0]
+    accessory_name = active_object.name + "_Accessory"
+
     # get a list of all bones in the spring rig
     spring_rig_bone = get_spring_rig(chr_cache, arm, parent_mode)
+    if not spring_rig_bone:
+        return None
     spring_bones = bones.get_bone_children(spring_rig_bone)
     spring_bone_names = [ bone.name for bone in spring_bones ]
+
+    utils.log_info(f"Converting spring rig: {parent_mode} to accessory:")
+    utils.log_info(f"Spring rig bones: {spring_bone_names}")
 
     # find all character objects with vertex groups for these bones
     accessory_objects = set()
@@ -290,12 +300,24 @@ def convert_spring_rig_to_accessory(chr_cache, arm, parent_mode):
 
     # in these objects remove all vertex groups not from these bones
     for obj in accessory_objects:
+        utils.log_info(f"Accessory Object: {obj.name}")
         groups_to_remove = []
         for vg in obj.vertex_groups:
             if vg.name not in spring_bone_names:
                 groups_to_remove.append(vg)
         for vg in groups_to_remove:
             obj.vertex_groups.remove(vg)
+
+    spring_rig_bone.name = accessory_name
+    spring_bones.append(spring_rig_bone)
+    for bone in spring_bones:
+        bones.set_bone_collection(arm, bone, "Accessory", color="SPECIAL")
+
+    toggle_show_spring_bones(chr_cache)
+
+    utils.log_info(f"Accessory Created: {accessory_name}")
+    return accessory_name
+
 
 
 def is_rigified(chr_cache, rig, parent_mode):
@@ -361,7 +383,7 @@ def show_spring_bone_edit_layer(chr_cache, arm, show):
             #arm.data.display_type = 'STICK'
 
         else:
-            bones.set_bone_collection_visibility(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER, False, only=True)
+            bones.set_bone_collection_visibility(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER, True, invert=True)
             arm.show_in_front = False
             if chr_cache.rigified:
                 arm.display_type = 'WIRE'
@@ -422,16 +444,19 @@ def add_spring_colliders(chr_cache):
         rigidbody.build_rigid_body_colliders(chr_cache, json_data, bone_mapping=bone_mapping)
 
 
-def toggle_show_spring_bones(chr_cache):
+def toggle_show_spring_bones(chr_cache, show_hide=None):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
         arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
-        if bones.is_bone_collection_visible(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER):
-            show_spring_bone_edit_layer(chr_cache, arm, False)
+        if show_hide:
+            show_spring_bone_edit_layer(chr_cache, arm, show_hide)
         else:
-            show_spring_bone_edit_layer(chr_cache, arm, True)
+            if bones.is_bone_collection_visible(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER):
+                show_spring_bone_edit_layer(chr_cache, arm, False)
+            else:
+                show_spring_bone_edit_layer(chr_cache, arm, True)
 
 
 class CC3OperatorSpringBones(bpy.types.Operator):

@@ -1054,7 +1054,8 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                                                                 BAKE_BONE_GROUPS):
                             if bone.name not in BAKE_BONE_EXCLUSIONS:
                                 bone.hide = False
-                                bone.hide_select = False
+                                if bones.can_unlock(pose_bone):
+                                    bone.hide_select = False
                                 bone.select = True
                                 pose_bone.rotation_mode = "QUATERNION"
             else:
@@ -1064,7 +1065,8 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                     for pose_bone in rig.pose.bones:
                         bone = pose_bone.bone
                         bone.hide = False
-                        bone.hide_select = False
+                        if bones.can_unlock(pose_bone):
+                            bone.hide_select = False
                         bone.select = True
                         #pose_bone.rotation_mode = "QUATERNION"
 
@@ -2187,7 +2189,7 @@ class LinkService():
         utils.log_info(f"Sending LinkActors: {([a.name for a in actors])}")
         count = 0
         for actor in actors:
-            if actor.get_type() != "PROP" or actor.get_type() != "AVATAR": continue
+            if actor.get_type() != "PROP" and actor.get_type() != "AVATAR": continue
             if self.is_cc() and not actor.can_go_cc(): continue
             if self.is_iclone() and not actor.can_go_ic(): continue
             self.send_notify(f"Blender Exporting: {actor.name}...")

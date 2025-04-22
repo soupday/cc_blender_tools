@@ -18,7 +18,7 @@ import bpy, os, socket
 from mathutils import Vector
 
 from . import (channel_mixer, imageutils, meshutils, sculpting, materials,
-               springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
+               facerig, springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
 from .meshutils import get_head_body_object_quick
 
@@ -548,6 +548,10 @@ def update_rig_target(self, context):
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
             self.hair_rig_bind_bone_variance = 0.75
+
+
+def update_facerig_color(self, context):
+    facerig.update_face_rig_color(context)
 
 
 def clean_collection_property(collection_prop):
@@ -1570,6 +1574,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     baked_target_mode: bpy.props.EnumProperty(items=vars.BAKE_TARGETS, default="NONE")
 
+    rigify_face_control_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                                                             default=(1.0, 0.95, 0.4, 1.0),
+                                                             min = 0.0, max = 1.0,
+                                                             name="Rig Color",
+                                                             update=update_facerig_color)
+
     disabled: bpy.props.BoolProperty(default=False)
 
     def set_link_id(self, link_id):
@@ -1740,21 +1750,17 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return True
         return False
 
-    def can_rig_full_face(self):
+    def can_expression_rig(self):
         if (self.generation == "G3" or
             self.generation == "G3Plus"):
             return True
         return False
 
-    def is_rig_full_face(self):
-        prefs = vars.prefs()
-        if self.rig_mode == "ADVANCED":
-            return prefs.rigify_build_face_rig
-        else:
-            if self.can_rig_full_face():
-                return prefs.rigify_build_face_rig
-            else:
-                return False
+    def can_rigify_face(self):
+        if (self.generation == "G3" or
+            self.generation == "G3Plus"):
+            return True
+        return False
 
     def get_rig_mapping_data(self):
         return rigify_mapping_data.get_mapping_for_generation(self.generation)
@@ -2667,7 +2673,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     section_rigify_action_sets: bpy.props.BoolProperty(default=True)
-    section_rigify_controls: bpy.props.BoolProperty(default=False)
+    section_rigify_controls: bpy.props.BoolProperty(default=True)
     section_rigify_spring: bpy.props.BoolProperty(default=False)
     section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)
     section_physics_cloth_settings: bpy.props.BoolProperty(default=False)

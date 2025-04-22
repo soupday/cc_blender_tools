@@ -46,6 +46,7 @@ if "bpy" in locals():
     importlib.reload(drivers)
     importlib.reload(wrinkle)
     importlib.reload(rigify_mapping_data)
+    importlib.reload(facerig)
     importlib.reload(rigging)
     importlib.reload(rigutils)
     importlib.reload(sculpting)
@@ -91,6 +92,7 @@ from . import springbones
 from . import drivers
 from . import wrinkle
 from . import rigify_mapping_data
+from . import facerig
 from . import rigging
 from . import rigutils
 from . import sculpting
@@ -107,7 +109,7 @@ from . import rlx
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 2, 6),
+    "version": (2, 3, 0),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -210,6 +212,7 @@ classes = (
     # create panels
     panels.CC3ToolsCreatePanel,
     panels.CC3ObjectManagementPanel,
+    panels.CC3WeightPaintPanel,
     panels.CC3ToolsPhysicsPanel,
     panels.CC3SpringRigPanel,
     panels.CC3ToolsSculptingPanel,

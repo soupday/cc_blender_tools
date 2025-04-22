@@ -1084,7 +1084,6 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         rigified = chr_cache and chr_cache.rigified
         is_standard = chr_cache and chr_cache.is_standard()
         num_meshes_in_selection = 0
-        weight_transferable = False
         removable_objects = False
         missing_materials = False
         objects_addable = False
@@ -1097,7 +1096,6 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
                     oc = chr_cache.get_object_cache(o)
                     if oc and not oc.disabled:
                         if oc.object_type == "DEFAULT" or oc.object_type == "HAIR":
-                            weight_transferable = True
                             removable_objects = True
                         if not chr_cache.has_all_materials(o.data.materials):
                             missing_materials = True
@@ -1207,14 +1205,47 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         row = column.row()
         row.operator("cc3.character", icon="KEY_DEHLT", text="Clean Empty Data").param = "CLEAN_SHAPE_KEYS"
 
-        column.separator()
+
+class CC3WeightPaintPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Weight_Paint_Panel"
+    bl_label = "Weight Painting"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+
+        props = vars.props()
+        prefs = vars.prefs()
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
+
+        generic_rig = None
+        arm = None
+        if chr_cache:
+            arm = chr_cache.get_armature()
+
+        disable_on_linked(layout, chr_cache)
+
+        weight_transferable = False
+        if chr_cache:
+            for o in bpy.context.selected_objects:
+                if utils.object_exists_is_mesh(o):
+                    oc = chr_cache.get_object_cache(o)
+                    if oc and not oc.disabled:
+                        if oc.object_type != "BODY":
+                            weight_transferable = True
 
         # Armature & Weights
 
+        column = layout.column()
         column.box().label(text = "Armature & Weights", icon = "ARMATURE_DATA")
 
         if arm:
             column.row().prop(arm.data, "pose_position", expand=True)
+
+        column.row().label(text="Surface Copy")
 
         row = column.row()
         row.scale_y = 1.5
@@ -1223,14 +1254,29 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             row.enabled = False
 
         if rigging.is_surface_heat_voxel_skinning_installed():
+
+            column = layout.column()
+            column.row().label(text="Voxel Skinning")
+
             # bpy.data.scenes["Scene"].voxel_resolution
             # bpy.data.scenes["Scene"].voxel_falloff
-            layout.prop(bpy.context.scene, "voxel_resolution", slider=True)
-            layout.prop(bpy.context.scene, "voxel_falloff", slider=True)
-            row = layout.row()
+            column.prop(bpy.context.scene, "voxel_resolution", slider=True)
+            column.prop(bpy.context.scene, "voxel_falloff", slider=True)
+            row = column.row()
             row.scale_y = 1.5
             row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Diffuse Skinning").param = "VOXEL_HEAT_SKINNING"
             row.enabled = chr_cache is not None and obj is not None and obj.type == "MESH"
+
+        column.separator()
+
+        column.row().label(text="Smoothing")
+
+        column.row().operator("cc3.character", icon="SMOOTHCURVE", text="Light Smooth").param = "WEIGHTS_LIGHT_SMOOTH"
+        column.row().operator("cc3.character", icon="SPHERECURVE", text="Heavy Smooth").param = "WEIGHTS_HEAVY_SMOOTH"
+
+        column.separator()
+
+        column.row().label(text="Surface Correction Blend")
 
         column = layout.column(align=True)
         row = column.row(align=True)
@@ -1249,11 +1295,16 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         if not weight_transferable:
             column.enabled = False
 
+        column.separator()
+
+        column.row().label(text="Tools")
+
         column = layout.column()
         row = column.row()
         row.operator("cc3.character", icon="ORIENTATION_NORMAL", text="Normalize Weights").param = "NORMALIZE_WEIGHTS"
         if not weight_transferable:
             row.enabled = False
+
 
 
 class CC3SpringRigPanel(bpy.types.Panel):
@@ -1273,11 +1324,14 @@ class CC3SpringRigPanel(bpy.types.Panel):
         arm = None
         can_hair_spring_rig = False
         can_spring_rig = False
+        has_spring_rig = False
         if chr_cache:
             arm = chr_cache.get_armature()
             if arm:
                 can_spring_rig = True
                 can_hair_spring_rig = chr_cache.can_hair_spring_rig()
+            parent_mode = chr_cache.available_spring_rigs
+            has_spring_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
 
         if chr_cache and not can_hair_spring_rig:
             row = layout.row()
@@ -1300,6 +1354,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 icon=icon, icon_closed=icon):
 
             edit_enabled = True
+            # don't allow spring rig editing if has a control rig
             if (chr_cache and chr_cache.rigified and
                 springbones.is_rigified(chr_cache, arm, props.hair_rig_bone_root)):
                 edit_enabled = False
@@ -1324,6 +1379,12 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
             column.separator()
 
+            split = column.split(factor=0.45)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Hair System")
+            col_2.prop(props, "hair_rig_bone_root", text="")
+
             box = column.box()
             box.label(text="Hair Spring Rig", icon="FORCE_MAGNETIC")
             row = box.row()
@@ -1338,14 +1399,11 @@ class CC3SpringRigPanel(bpy.types.Panel):
             grid.prop(props, "hair_rig_bind_trunc_length", text="Truncate Length (cm)", slider=True)
             grid.prop(props, "hair_rig_bone_smoothing", text="Smoothing Steps", slider=True)
 
-
             column.separator()
 
             split = column.split(factor=0.45)
             col_1 = split.column()
             col_2 = split.column()
-            col_1.label(text="Hair System")
-            col_2.prop(props, "hair_rig_bone_root", text="")
             col_1.label(text="Group Name")
             col_2.prop(props, "hair_rig_group_name", text="")
             tool_row = col_1.row(align=True)
@@ -1435,22 +1493,13 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 grid.separator()
                 grid.prop(props, "hair_rig_bind_existing_scale", text="Scale Body Weights", slider=True)
             column.separator()
+            if props.hair_rig_target == "CC4":
+                column.operator("cc3.hair", icon=utils.check_icon("X"), text="Reset Weights").param = "RESET_ACCESSORY_WEIGHTS"
             row = column.row()
             row.scale_y = 2.0
             op_text = "Bind Hair" if props.hair_rig_bind_card_mode == "ALL" and props.hair_rig_bind_bone_mode == "ALL" else "Bind Selected Hair"
             row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text=op_text).param = "BIND_TO_BONES"
             row.enabled = edit_enabled
-
-            column.separator()
-
-            if chr_cache and not chr_cache.rigified and props.hair_rig_target == "CC4":
-                is_accessory = characters.get_accessory_root(chr_cache, obj) is not None
-                can_make_accessory = not chr_cache.rigified and edit_enabled and not is_accessory
-                column.row().label(text = "For CC4 Accessory Only", icon="INFO")
-                row = column.row()
-                row.operator("cc3.hair", icon=utils.check_icon("CONSTRAINT_BONE"), text="Make Accessory").param = "MAKE_ACCESSORY"
-                row.enabled = can_make_accessory
-                column.separator()
 
             if chr_cache and arm and obj:
                 rigified_spring_rig = False
@@ -1466,6 +1515,15 @@ class CC3SpringRigPanel(bpy.types.Panel):
                         else:
                             row.operator("cc3.rigifier", icon="MOD_SCREW", text="Build Control Rig").param = "BUILD_SPRING_RIG"
                 column.separator()
+
+            if chr_cache and props.hair_rig_target == "CC4" and edit_enabled:
+                accessory_root = characters.get_accessory_root(chr_cache, obj)
+                spring_root = springbones.get_spring_rig(chr_cache, arm, props.hair_rig_bone_root)
+                if spring_root and accessory_root and accessory_root.name == spring_root.name:
+                    #box.row().label(text = "For CC4 Accessory Only", icon="INFO")
+                    row = column.row()
+                    row.scale_y = 1.5
+                    row.operator("cc3.hair", icon=utils.check_icon("FORWARD"), text="Finalize Accessory").param = "MAKE_ACCESSORY"
 
         if chr_cache and arm and obj:
             build_allowed = True
@@ -1977,6 +2035,7 @@ class CC3RigifyPanel(bpy.types.Panel):
             if chr_cache:
 
                 rig = chr_cache.get_armature()
+                is_face_rig = rigutils.is_face_rig(rig)
 
                 box = layout.box()
                 split = box.split(factor=0.4)
@@ -2060,12 +2119,12 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     elif chr_cache.can_be_rigged():
 
-                        if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
+                        if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rigify_face():
                             #row = layout.row()
                             #row.prop(prefs, "rigify_align_bones", expand=True)
                             grid = layout.grid_flow(columns=2, row_major=True, align=True)
-                            grid.prop(prefs, "rigify_build_face_rig", text = "Face Rig", toggle=True)
-                            if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
+                            grid.prop(prefs, "rigify_build_face_rig", text="Face Rig", toggle=True)
+                            if not chr_cache.can_rigify_face() and prefs.rigify_build_face_rig:
                                 wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
                         else:
                             grid = layout.grid_flow(columns=1, row_major=True, align=True)
@@ -2082,7 +2141,17 @@ class CC3RigifyPanel(bpy.types.Panel):
                             icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
                             row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
 
-                        layout.row().prop(prefs, "rigify_align_bones", expand=True)
+                        if chr_cache.can_expression_rig():
+                            col = layout.column(align=True)
+                            col.label(text="Expression Rig:")
+                            col.row(align=True).prop(prefs, "rigify_expression_rig", expand=True)
+                            col = layout.column()
+                            if prefs.rigify_expression_rig == "META":
+                                col.row().prop(prefs, "rigify_face_control_color")
+
+                        col = layout.column(align=True)
+                        col.label(text="Bone Alignment:")
+                        col.row(align=True).prop(prefs, "rigify_align_bones", expand=True)
 
                         if chr_cache.rig_mode == "QUICK":
 
@@ -2171,38 +2240,61 @@ class CC3RigifyPanel(bpy.types.Panel):
                                         props.section_rigify_controls,
                                         icon="TOOL_SETTINGS", icon_closed="TOOL_SETTINGS"):
 
-                        split = layout.split(factor=0.6)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_3 = split.column()
-
-                        for control_name in rigify_mapping_data.IKFK_RIG_CONTROLS:
-                            control_def = rigify_mapping_data.IKFK_RIG_CONTROLS[control_name]
-                            if len(control_def) == 3 and type(control_def[0]) is str:
-                                col_1.label(text=control_def[0])
-                                col_2.label(text=control_def[1])
-                                col_3.label(text=control_def[2])
+                        num_splits = 0
+                        for control_name, control_def in rigify_mapping_data.IKFK_RIG_CONTROLS.items():
+                            if len(control_def) == 4 and type(control_def[0]) is str:
+                                num_splits, split_fac = control_def[3]
+                                split = layout.split(factor=split_fac)
+                                col_1 = col_2 = col_3 = None
+                                if num_splits >= 1:
+                                    col_1 = split.column()
+                                    col_1.label(text=control_def[0])
+                                if num_splits >= 2:
+                                    col_2 = split.column()
+                                    col_2.label(text=control_def[1])
+                                if num_splits >= 3:
+                                    col_3 = split.column()
+                                    col_3.label(text=control_def[2])
                             else:
-                                prop_def_1 = control_def[0]
-                                prop_def_2 = None
-                                prop_def_3 = None
+                                prop_def_1 = prop_def_2 = prop_def_3 = None
+                                if len(control_def) >= 1:
+                                    prop_def_1 = control_def[0]
                                 if len(control_def) >= 2:
                                     prop_def_2 = control_def[1]
                                 if len(control_def) >= 3:
                                     prop_def_3 = control_def[2]
-
                                 if prop_def_1:
-                                    col_1.prop(rig.pose.bones[prop_def_1[0]], f"[\"{prop_def_1[1]}\"]", text=control_name, slider=True)
-                                else:
+                                    col_1.prop(rig.pose.bones[prop_def_1[0]], f"[\"{prop_def_1[1]}\"]", text=prop_def_1[2], slider=True)
+                                elif col_1:
                                     col_1.label(text="")
                                 if prop_def_2:
-                                    col_2.prop(rig.pose.bones[prop_def_2[0]], f"[\"{prop_def_2[1]}\"]", text="", slider=True)
-                                else:
+                                    col_2.prop(rig.pose.bones[prop_def_2[0]], f"[\"{prop_def_2[1]}\"]", text=prop_def_2[2], slider=True)
+                                elif col_2:
                                     col_2.label(text="")
                                 if prop_def_3:
-                                    col_3.prop(rig.pose.bones[prop_def_3[0]], f"[\"{prop_def_3[1]}\"]", text="", slider=True)
-                                else:
+                                    col_3.prop(rig.pose.bones[prop_def_3[0]], f"[\"{prop_def_3[1]}\"]", text=prop_def_3[2], slider=True)
+                                elif col_3:
                                     col_3.label(text="")
+
+                        if is_face_rig:
+                            split = layout.split(factor=0.4)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            facerig_bone = rig.pose.bones["facerig"]
+                            col_1.label(text="Face Rig:")
+                            col_row = col_2.row(align=True)
+                            is_facerig_shown, is_only_facerig_shown = rigutils.is_only_face_rig_shown(rig)
+                            col_row.operator("ccic.rigutils", icon=("HIDE_OFF" if is_facerig_shown else "HIDE_ON"),
+                                                              text="", depress=is_only_facerig_shown).param = "TOGGLE_SHOW_FACE_RIG"
+                            col_row.operator("ccic.rigutils", icon="LOOP_BACK", text="").param = "RESET_EXPRESSION_POSE_SELECTED"
+                            col_row.operator("ccic.rigutils", icon="X", text="").param = "RESET_EXPRESSION_POSE"
+                            col_row.prop(chr_cache, "rigify_face_control_color", text="")
+                            col_1.label(text="Head Follow")
+                            col_row = col_row = col_2.row(align=True)
+                            col_row.prop(facerig_bone, "[\"head_follow\"]", slider=True, text="")
+                            facerig_locked = facerig_bone.bone.hide_select
+                            col_row.operator("ccic.rigutils", icon="LOCKED" if facerig_locked else "UNLOCKED", text="").param = "TOGGLE_EXPRESSION_RIG_LOCK"
+
 
                     box_row = layout.box().row()
                     if fake_drop_down(box_row,

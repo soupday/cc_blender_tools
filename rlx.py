@@ -14,10 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy, struct, json
+import bpy, struct, json, os
 from mathutils import Vector, Matrix, Color, Quaternion
 from enum import IntEnum
-from . import utils, rigutils
+from . import utils, rigutils, nodeutils, imageutils
 
 class RLXCodes(IntEnum):
     RLX_ID_LIGHT = 0xCC01
@@ -112,14 +112,22 @@ class BinaryData():
 
 
 def import_rlx(file_path):
+    data_folder, data_file = os.path.split(file_path)
     data = BinaryData(file_path=file_path)
     rlx_code = data.int()
     utils.log_info(f"RLX Code: {rlx_code}")
     if rlx_code == RLXCodes.RLX_ID_LIGHT:
-        return import_rlx_light(data)
+        return import_rlx_light(data, data_folder)
     elif rlx_code == RLXCodes.RLX_ID_CAMERA:
-        return import_rlx_camera(data)
+        return import_rlx_camera(data, data_folder)
     return None
+
+
+def remap_file(file_path, data_folder):
+    if file_path and data_folder:
+        orig_folder, orig_file = os.path.split(file_path)
+        file_path = os.path.join(data_folder, orig_file)
+    return file_path
 
 
 def prep_rlx_actions(obj, name, motion_id, reuse_existing=False, timestamp=False, motion_prefix=None):
@@ -168,7 +176,7 @@ def prep_rlx_actions(obj, name, motion_id, reuse_existing=False, timestamp=False
     return ob_action, data_action, ob_slot, data_slot
 
 
-def import_rlx_light(data: BinaryData):
+def import_rlx_light(data: BinaryData, data_folder):
     light_data = data.json()
     # make the light
     link_id = light_data["link_id"]
@@ -188,6 +196,9 @@ def import_rlx_light(data: BinaryData):
     cast_shadow: bool = light_data["cast_shadow"]
     num_frames = light_data["frame_count"]
     light_type = get_light_type(type, is_rectangle, is_tube)
+    cookie = remap_file(light_data.get("cookie"), data_folder)
+    ies = remap_file(light_data.get("ies"), data_folder)
+    build_light_nodes(light, cookie, ies)
     # now read in the frames and create an action for the light...
     frames = data.block()
 
@@ -255,7 +266,7 @@ def import_rlx_light(data: BinaryData):
         add_cache_fcurves(light_action, light.data.path_from_id("spot_size"), spot_size_cache, num_frames, "Spot Size", slot=light_slot)
 
 
-def import_rlx_camera(data: BinaryData):
+def import_rlx_camera(data: BinaryData, data_folder):
     camera_data = data.json()
     # make the camera
     link_id = camera_data["link_id"]
@@ -675,4 +686,29 @@ def add_light_container():
         if utils.has_ccic_id(child) and child.type == "LIGHT":
             utils.delete_object_tree(child)
     return container
+
+
+def build_light_nodes(light, cookie, ies):
+    if light and (cookie or ies):
+        light.data.use_nodes = True
+        nodes: bpy.types.Nodes = light.data.node_tree.nodes
+        links = light.data.node_tree.links
+        nodes.clear()
+        emission_node: bpy.types.ShaderNodeEmission = nodes.new("ShaderNodeEmission")
+        output_node: bpy.types.ShaderNodeOutputLight = nodes.new("ShaderNodeOutputLight")
+        nodeutils.link_nodes(links, emission_node, "Emission", output_node, "Surface")
+        emission_node.location = Vector((40, 380))
+        output_node.location = Vector((320, 300))
+        if ies:
+            ies_node: bpy.types.ShaderNodeTexIES = nodes.new("ShaderNodeTexIES")
+            ies_node.mode = "EXTERNAL"
+            ies_node.filepath = ies
+            nodeutils.set_node_input_value(ies_node, "Strength", 0.01)
+            nodeutils.link_nodes(links, ies_node, "Fac", emission_node, "Strength")
+            ies_node.location = Vector((-220, 200))
+        if cookie:
+            cookie_node: bpy.types.ShaderNodeTexImage = nodes.new("ShaderNodeTexImage")
+            cookie_node.image = imageutils.load_image(cookie, "sRGB")
+            nodeutils.link_nodes(links, cookie_node, "Color", emission_node, "Color")
+            cookie_node.location = Vector((-320, 520))
 

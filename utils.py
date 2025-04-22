@@ -20,7 +20,7 @@ import subprocess
 import time
 import difflib
 import random
-import re
+import re, json
 import traceback
 from mathutils import Vector, Quaternion, Matrix, Euler, Color
 from hashlib import md5
@@ -556,8 +556,9 @@ def remap(edge0, edge1, min, max, x):
     return min + ((x - edge0) * (max - min) / (edge1 - edge0))
 
 
-def lerp(v0, v1, t):
-    t = max(0, min(1, t))
+def lerp(v0, v1, t, clamp=True):
+    if clamp:
+        t = max(0, min(1, t))
     l = v0 + (v1 - v0) * t
     return l
 
@@ -2682,6 +2683,10 @@ def timestampns():
 
 def datetimes():
     return time.strftime("%Y%m%d%H%M%S")
+
+
+def json_dumps(json_data):
+    print(json.dumps(json_data, indent=4))
 
 
 def open_folder(folder_path):

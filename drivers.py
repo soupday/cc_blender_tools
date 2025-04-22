@@ -592,7 +592,7 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
         #    expr += f"/{len(shape_key_defs)}"
 
         # make driver
-        utils.log_info(f"Adding driver to {driver_id}: expr = {expr}")
+        utils.log_detail(f"Adding driver to {driver_id}: expr = {expr}")
         driver = make_driver(pose_bone, prop, "SCRIPTED", driver_expression=expr, index=index)
 
         # make driver vars
@@ -652,7 +652,7 @@ def add_body_shape_key_drivers(chr_cache, add_drivers, only_objects=None):
                         obj_key.driver_remove("value")
                         if add_drivers:
                             # make driver
-                            utils.log_info(f"Adding driver to {obj.name} for expression key: {obj_key.name}")
+                            utils.log_detail(f"Adding driver to {obj.name} for expression key: {obj_key.name}")
                             driver = make_driver(obj_key, "value", "SUM")
                             # make driver var
                             if driver:
@@ -664,3 +664,74 @@ def add_body_shape_key_drivers(chr_cache, add_drivers, only_objects=None):
                                                 target_type="MESH",
                                                 data_path=data_path)
 
+
+def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_defs, scale=1.0):
+    """driver_def = [driver_type, expression]\n
+       var_def = [var_name, "TRANSFORMS", bone_name, transform_prop, space]\n
+           driver_type = "SCRIPTED" or "SUM",\n
+           expression = "var1 + var2" or ""\n
+           transform_prop = "ROT_X"/"LOC_X"/"SCA_X" ...,\n
+           space = "WORLD_SPACE", "LOCAL_SPACE" ... """
+    if utils.object_mode():
+        shape_key = meshutils.find_shape_key(obj, shape_key_name)
+        if shape_key:
+            fcurve : bpy.types.FCurve
+            fcurve = shape_key.driver_add("value")
+            driver : bpy.types.Driver = fcurve.driver
+            driver.type = driver_def[0]
+            expression = driver_def[1]
+            if driver.type == "SCRIPTED":
+                if scale != 1.0:
+                    driver.expression = f"({expression})*{scale}"
+                else:
+                    driver.expression = expression
+            for var_def in var_defs:
+                var : bpy.types.DriverVariable = driver.variables.new()
+                var.name = var_def[0]
+                var.type = var_def[1]
+                if var_def[1] == "TRANSFORMS":
+                    #var.targets[0].id_type = "OBJECT"
+                    var.targets[0].id = rig.id_data
+                    var.targets[0].bone_target = var_def[2]
+                    var.targets[0].rotation_mode = "AUTO"
+                    var.targets[0].transform_type = var_def[3]
+                    var.targets[0].transform_space = var_def[4]
+            return driver
+    return None
+
+
+def add_bone_driver(rig, bone_name, driver_def, var_defs, scale=1.0):
+    """driver_def = [driver_type, prop, index, expression]\n
+       var_def = [var_name, "TRANSFORMS", bone_name, transform_prop, space]\n
+           driver_type = "SCRIPTED" or "SUM",\n
+           expression = "var1 + var2" or ""\n
+           transform_prop = "ROT_X"/"LOC_X"/"SCA_X" ...,\n
+           space = "WORLD_SPACE", "LOCAL_SPACE" ... """
+    if utils.object_mode():
+        if bone_name in rig.pose.bones:
+            pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
+            fcurve : bpy.types.FCurve
+            prop = driver_def[1]
+            index = driver_def[2]
+            expression = driver_def[3]
+            fcurve = pose_bone.driver_add(prop, index)
+            driver : bpy.types.Driver = fcurve.driver
+            driver.type = driver_def[0]
+            if driver.type == "SCRIPTED":
+                if scale != 1.0:
+                    driver.expression = f"({expression})*{scale}"
+                else:
+                    driver.expression = expression
+            for var_def in var_defs:
+                var : bpy.types.DriverVariable = driver.variables.new()
+                var.name = var_def[0]
+                var.type = var_def[1]
+                if var_def[1] == "TRANSFORMS":
+                    #var.targets[0].id_type = "OBJECT"
+                    var.targets[0].id = rig.id_data
+                    var.targets[0].bone_target = var_def[2]
+                    var.targets[0].rotation_mode = "AUTO"
+                    var.targets[0].transform_type = var_def[3]
+                    var.targets[0].transform_space = var_def[4]
+            return driver
+    return None

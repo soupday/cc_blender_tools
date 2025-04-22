@@ -17,8 +17,8 @@
 import bpy
 from mathutils import Vector, Matrix, Quaternion, Euler
 from random import random
-import re, time
-from . import springbones, bones, modifiers, rigify_mapping_data, utils, vars
+import re, time, os
+from . import springbones, bones, facerig, modifiers, rigify_mapping_data, utils, vars
 
 
 def edit_rig(rig):
@@ -526,9 +526,10 @@ def get_action_motion_id(action, default_name="Motion"):
 
 def get_motion_prefix(action, default_prefix=""):
     prefix, rig_id, type_id, obj_id, motion_id = decode_action_name(action)
-    prefix = prefix.strip()
-    if not prefix:
+    if prefix is None:
         return default_prefix
+    elif prefix:
+        return prefix.strip()
     else:
         return prefix
 
@@ -1043,6 +1044,10 @@ def is_skinned_rig(rig):
     return False
 
 
+def is_face_rig(rig):
+    return ("facerig" in rig.pose.bones)
+
+
 BASE_RIG_COLLECTION = ["Face", "Face (Primary)", "Face (Secondary)",
                        "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
                        "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
@@ -1057,7 +1062,8 @@ FULL_RIG_COLLECTION = ["Face", "Face (Primary)", "Face (Secondary)",
                        "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
                        "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
                        "Root",
-                       "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
+                       "Spring (IK)", "Spring (FK)", "Spring (Tweak)",
+                       "Face (Expressions)"]
 FULL_RIG_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,28]
 FULL_DEF_COLLECTION = ["DEF", "Spring (Edit)", "Spring (Root)"]
 FULL_DEF_LAYERS = [24, 25, 29]
@@ -1066,6 +1072,10 @@ SPRING_RIG_COLLECTION = ["Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
 SPRING_RIG_LAYERS = [19,20,21]
 SPRING_DEF_COLLECTION = ["Spring (Edit)", "Spring (Root)"]
 SPRING_DEF_LAYERS = [24, 25]
+
+FACE_RIG_COLLECTION = ["Face (Expressions)"]
+FACE_RIG_LAYERS = [0,1,2]
+FACE_RIG_HIDE = ["Face", "Face (Primary)", "Face (Secondary)"]
 
 
 def show_hide_collections_layers(rig, collections, layers, show=True):
@@ -1082,8 +1092,11 @@ def show_hide_collections_layers(rig, collections, layers, show=True):
 
 def is_full_rigify_rig_shown(rig):
     if rig:
+        face_rig = is_face_rig(rig)
         if utils.B400():
             for collection in rig.data.collections:
+                if face_rig and collection.name in FACE_RIG_HIDE:
+                    continue
                 if collection.name in FULL_RIG_COLLECTION and not collection.is_visible:
                     return False
         else:
@@ -1097,14 +1110,21 @@ def is_full_rigify_rig_shown(rig):
 
 def toggle_show_full_rig(rig):
     if rig:
+        face_rig = is_face_rig(rig)
         show = not is_full_rigify_rig_shown(rig)
         if utils.B400():
             if show:
                 for collection in rig.data.collections:
-                    collection.is_visible = collection.name in FULL_RIG_COLLECTION
+                    if face_rig and collection.name in FACE_RIG_HIDE:
+                        collection.is_visible = False
+                    else:
+                        collection.is_visible = collection.name in FULL_RIG_COLLECTION
             else:
                 for collection in rig.data.collections:
-                    collection.is_visible = collection.name in FULL_DEF_COLLECTION
+                    if face_rig and collection.name in FACE_RIG_HIDE:
+                        collection.is_visible = False
+                    else:
+                        collection.is_visible = collection.name in BASE_RIG_COLLECTION
         else:
             if show:
                 rig.data.layers[vars.ROOT_BONE_LAYER] = True
@@ -1119,8 +1139,11 @@ def toggle_show_full_rig(rig):
 
 def is_base_rig_shown(rig):
     if rig:
+        face_rig = is_face_rig(rig)
         if utils.B400():
             for collection in rig.data.collections:
+                if face_rig and collection.name in FACE_RIG_HIDE:
+                    continue
                 if collection.name in BASE_RIG_COLLECTION and not collection.is_visible:
                     return False
         else:
@@ -1135,6 +1158,7 @@ def is_base_rig_shown(rig):
 def toggle_show_base_rig(rig):
     if rig:
         show = True
+        face_rig = is_face_rig(rig)
         if is_full_rigify_rig_shown(rig):
             show = True
         elif is_base_rig_shown(rig):
@@ -1142,7 +1166,10 @@ def toggle_show_base_rig(rig):
         if utils.B400():
             if show:
                 for collection in rig.data.collections:
-                    collection.is_visible = collection.name in BASE_RIG_COLLECTION
+                    if face_rig and collection.name in FACE_RIG_HIDE:
+                        collection.is_visible = False
+                    else:
+                        collection.is_visible = collection.name in BASE_RIG_COLLECTION
             else:
                 for collection in rig.data.collections:
                     collection.is_visible = collection.name in BASE_DEF_COLLECTION
@@ -1200,16 +1227,56 @@ def toggle_show_spring_rig(rig):
                     rig.data.layers[i] = i in SPRING_DEF_LAYERS
 
 
+def is_only_face_rig_shown(rig):
+    only_shown = False
+    shown = True
+    if rig:
+        if utils.B400():
+            for collection in rig.data.collections:
+                if collection.name in FACE_RIG_COLLECTION:
+                    if collection.is_visible:
+                        only_shown = True
+                    else:
+                        shown = False
+            for collection in rig.data.collections:
+                if collection.name not in FACE_RIG_COLLECTION:
+                    if collection.is_visible:
+                        return shown, False
+    return shown, only_shown
+
+
+def toggle_show_only_face_rig(rig):
+    if rig:
+        face_rig = is_face_rig(rig)
+        show_only = False
+        if utils.B400():
+            for collection in rig.data.collections:
+                if collection.name not in FACE_RIG_COLLECTION and collection.is_visible:
+                    show_only = True
+        if utils.B400():
+            if show_only:
+                for collection in rig.data.collections:
+                    collection.is_visible = collection.name in FACE_RIG_COLLECTION
+            else:
+                for collection in rig.data.collections:
+                    if face_rig and collection.name in FACE_RIG_HIDE:
+                        collection.is_visible = False
+                    else:
+                        collection.is_visible = collection.name in BASE_RIG_COLLECTION
+
+
 def reset_pose(rig):
     if rig:
         utils.pose_mode_to(rig)
         rig.data.pose_position = "POSE"
         bones_data = {}
-        for bone in rig.data.bones:
+        for pose_bone in rig.pose.bones:
+            bone = pose_bone.bone
             bones_data[bone] = (bone.select, bone.hide, bone.hide_select)
             bone.select = True
             bone.hide = False
-            bone.hide_select = False
+            if bones.can_unlock(pose_bone):
+                bone.hide_select = False
         bpy.ops.pose.transforms_clear()
         for bone in rig.data.bones:
             bone.select, bone.hide, bone.hide_select = bones_data[bone]
@@ -1511,9 +1578,9 @@ def update_avatar_rig(rig):
             for pose_bone in rig.pose.bones:
                 if pose_bone.name in DISABLE_TWEAK_STRETCH_FOR:
                     if disable:
-                        bones.set_bone_color(pose_bone, "TWEAK_DISABLED")
+                        bones.set_bone_color(rig, pose_bone, "TWEAK_DISABLED")
                     else:
-                        bones.set_bone_color(pose_bone, "TWEAK")
+                        bones.set_bone_color(rig, pose_bone, "TWEAK")
                 elif prefs.datalink_disable_tweak_bones and pose_bone.name in DISABLE_TWEAK_STRETCH_IN:
                     for con in pose_bone.constraints:
                         if con.type == "STRETCH_TO":
@@ -1668,6 +1735,45 @@ def get_bone_orientation(rig, bone_set: set):
     return Euler((0,0,0), "XYZ")
 
 
+def get_lib_widget(object_name):
+    for obj in bpy.data.objects:
+        if object_name in obj.name and utils.prop(obj, "RL_Custom_Widget"):
+            return obj
+    path = os.path.dirname(os.path.realpath(__file__))
+    filename = "_LIB341.blend"
+    datablock = "Object"
+    file = os.path.join(path, filename)
+    appended_widget = None
+    if os.path.exists(file):
+        bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=True, link=False)
+        for obj in bpy.data.objects:
+            if object_name in obj.name and "RL_Custom_Widget" not in obj:
+                obj["RL_Custom_Widget"] = True
+                utils.log_info("Appended widget: " + path + " > " + object_name)
+                appended_widget = obj
+    return appended_widget
+
+
+def get_expression_widgets(chr_cache, collection_name):
+    WGT_LINES = get_lib_widget("WGT-RL_FaceRig_Ext_Control_Lines")
+    WGT_GROUPS = get_lib_widget("WGT-RL_FaceRig_Ext_Groups")
+    WGT_LABELS = get_lib_widget("WGT-RL_FaceRig_Ext_Labels")
+    WGT_OUTLINE = get_lib_widget("WGT-RL_FaceRig_Ext_Outline")
+    WGT_SLIDER = bones.make_line_widget("WGT-RL_FaceRig_Slider", 2.0)
+    WGT_RECT = bones.make_box_widget("WGT-RL_FaceRig_Rect", 2.0)
+    WGT_NUB = bones.make_sphere_widget("WGT-RL_FaceRig_Slider_Nub", 0.01666)
+    WGT_NAME = bones.make_text_widget("WGT-RL_FaceRig_" + chr_cache.character_name, chr_cache.character_name, 2.0, (0, 0.87, 0), 0.05)
+    bones.add_widget_to_collection(WGT_LINES, collection_name)
+    bones.add_widget_to_collection(WGT_GROUPS, collection_name)
+    bones.add_widget_to_collection(WGT_LABELS, collection_name)
+    bones.add_widget_to_collection(WGT_OUTLINE, collection_name)
+    bones.add_widget_to_collection(WGT_SLIDER, collection_name)
+    bones.add_widget_to_collection(WGT_RECT, collection_name)
+    bones.add_widget_to_collection(WGT_NUB, collection_name)
+    bones.add_widget_to_collection(WGT_NAME, collection_name)
+    return WGT_OUTLINE, WGT_GROUPS, WGT_LABELS, WGT_LINES, WGT_SLIDER, WGT_RECT, WGT_NUB, WGT_NAME
+
+
 def get_custom_widgets():
     wgt_pivot = bones.make_axes_widget("WGT-datalink_pivot", 1)
     wgt_mesh = bones.make_cone_widget("WGT-datalink_mesh", 1)
@@ -1803,13 +1909,13 @@ def custom_prop_rig(rig):
                     set_bone_shape_scale(pose_bone, 15)
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = False
-                bones.set_bone_color(pose_bone, "ROOT")
+                bones.set_bone_color(rig, pose_bone, "ROOT")
             elif pivot_bone:
                 pose_bone.custom_shape = widgets["pivot"]
                 bone.hide = True
                 pose_bone.use_custom_shape_bone_size = False
                 set_bone_shape_scale(pose_bone, 10)
-                bones.set_bone_color(pose_bone, "SPECIAL")
+                bones.set_bone_color(rig, pose_bone, "SPECIAL")
             elif skin_bone:
                 pose_bone.custom_shape = widgets["skin"]
                 bone.hide = prefs.datalink_hide_prop_bones
@@ -1817,31 +1923,31 @@ def custom_prop_rig(rig):
                 pose_bone.use
                 #pose_bone.bone.show_wire = True
                 pose_bone.custom_shape_rotation_euler = skin_bone_orientation
-                bones.set_bone_color(pose_bone, "SKIN")
+                bones.set_bone_color(rig, pose_bone, "SKIN")
             elif mesh_bone:
                 pose_bone.custom_shape = widgets["mesh"]
                 bone.hide = True
                 pose_bone.use_custom_shape_bone_size = False
                 set_bone_shape_scale(pose_bone, 10)
-                bones.set_bone_color(pose_bone, "SPECIAL")
+                bones.set_bone_color(rig, pose_bone, "SPECIAL")
             elif rigid_bone:
                 pose_bone.custom_shape = widgets["default"]
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = False
                 set_bone_shape_scale(pose_bone, 10)
-                bones.set_bone_color(pose_bone, "TWEAK")
+                bones.set_bone_color(rig, pose_bone, "TWEAK")
             elif dummy_bone:
                 pose_bone.custom_shape = widgets["pivot"]
                 bone.hide = True
                 pose_bone.use_custom_shape_bone_size = False
                 set_bone_shape_scale(pose_bone, 10)
-                bones.set_bone_color(pose_bone, "IK")
+                bones.set_bone_color(rig, pose_bone, "IK")
             elif node_bone:
                 pose_bone.custom_shape = widgets["default"]
                 bone.hide = prefs.datalink_hide_prop_bones
                 pose_bone.use_custom_shape_bone_size = False
                 set_bone_shape_scale(pose_bone, 10)
-                bones.set_bone_color(pose_bone, "SPECIAL")
+                bones.set_bone_color(rig, pose_bone, "SPECIAL")
 
 
 def custom_avatar_rig(rig):
@@ -1878,14 +1984,14 @@ def custom_avatar_rig(rig):
                     set_bone_shape_scale(pose_bone, 15)
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = False
-                bones.set_bone_color(pose_bone, "ROOT")
+                bones.set_bone_color(rig, pose_bone, "ROOT")
             else:
                 pose_bone.custom_shape = widgets["skin"]
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = True
                 #pose_bone.bone.show_wire = True
                 pose_bone.custom_shape_rotation_euler = skin_bone_orientation
-                bones.set_bone_color(pose_bone, "SKIN")
+                bones.set_bone_color(rig, pose_bone, "SKIN")
 
 
 def de_pivot(chr_cache):
@@ -2179,12 +2285,30 @@ class CCICRigUtils(bpy.types.Operator):
                     toggle_rig_rest_position(rig)
 
                 elif self.param == "TOGGLE_SHOW_SPRING_BONES":
-                    springbones.toggle_show_spring_bones(rig)
+                    springbones.toggle_show_spring_bones(chr_cache)
+
+                elif self.param == "TOGGLE_EXPRESSION_RIG_LOCK":
+                    facerig.toggle_lock_position(chr_cache, rig)
 
                 elif self.param == "BUTTON_RESET_POSE":
                     mode_selection = utils.store_mode_selection_state()
                     reset_pose(rig)
                     utils.restore_mode_selection_state(mode_selection)
+
+                elif self.param == "RESET_EXPRESSION_POSE":
+                    if chr_cache.rigified:
+                        mode_selection = utils.store_mode_selection_state()
+                        facerig.clear_expression_pose(chr_cache, rig)
+                        utils.restore_mode_selection_state(mode_selection)
+
+                elif self.param == "RESET_EXPRESSION_POSE_SELECTED":
+                    if chr_cache.rigified:
+                        mode_selection = utils.store_mode_selection_state()
+                        facerig.clear_expression_pose(chr_cache, rig, selected=True)
+                        utils.restore_mode_selection_state(mode_selection)
+
+                elif self.param == "TOGGLE_SHOW_FACE_RIG":
+                    toggle_show_only_face_rig(rig)
 
                 elif self.param == "SET_LIMB_FK":
                     if chr_cache.rigified:
@@ -2281,8 +2405,20 @@ class CCICRigUtils(bpy.types.Operator):
         elif properties.param == "TOGGLE_SHOW_RIG_POSE":
             return "Toggles the rig between pose mode and rest pose"
 
+        elif properties.param == "TOGGLE_SHOW_FACE_RIG":
+            return "Toggles showing just the face expression rig controls"
+
+        elif properties.param == "TOGGLE_EXPRESSION_RIG_LOCK":
+            return "Toggle locking the position of the expression rig and making unselectable"
+
         elif properties.param == "BUTTON_RESET_POSE":
             return "Clears all pose transforms"
+
+        elif properties.param == "RESET_EXPRESSION_POSE":
+            return "Clears the expression on all expression controls"
+
+        elif properties.param == "RESET_EXPRESSION_POSE_SELECTED":
+            return "Clears the expression on selected expression controls"
 
         elif properties.param == "LOAD_ACTION_SET":
             return "Loads the chosen motion set (armature and shape key actions) into the all the character objects"

@@ -29,6 +29,7 @@ from . import physics
 from . import drivers, bones
 from . import rigutils
 from . import rigify_mapping_data
+from . import facerig
 from mathutils import Vector, Matrix, Quaternion
 
 BONEMAP_METARIG_NAME = 0 # metarig bone name or rigify rig basename
@@ -147,12 +148,15 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
         scale = 1
         ref = None
         arg = None
+        arg2 = None
         if len(def_copy) > 6:
             scale = def_copy[6]
         if len(def_copy) > 7:
             ref = def_copy[7]
         if len(def_copy) > 8:
             arg = def_copy[8]
+        if len(def_copy) > 9:
+            arg2 = def_copy[9]
 
         utils.log_info(f"Adding/Processing: {dst_bone_name}")
 
@@ -162,6 +166,7 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             if reparented_bone and relation_flags:
                 bones.set_edit_bone_flags(reparented_bone, relation_flags, deform)
                 bones.set_bone_collection(rigify_rig, reparented_bone, collection, None, layer)
+                print(reparented_bone, collection)
 
         # add a custom DEF, ORG or MCH bone
         elif src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG" or src_bone_name[:3] == "MCH":
@@ -169,9 +174,13 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             if new_bone:
                 bones.set_edit_bone_flags(new_bone, relation_flags, deform)
                 bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
+                print(new_bone, collection)
             # partial rotation copy for share bones
             if ref and arg is not None:
                 bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, arg)
+                # additional copy location contraint (MCH-teeth_master)
+                if arg2:
+                    bones.add_copy_location_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, arg2)
 
         # or make a copy of a bone from the original character rig
         else:
@@ -179,6 +188,7 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             if new_bone:
                 bones.set_edit_bone_flags(new_bone, relation_flags, deform)
                 bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
+                print(new_bone, collection)
 
     utils.log_recess()
 
@@ -1202,9 +1212,9 @@ def add_shape_key_drivers(chr_cache, rig):
             scale = 0.5
         shape_key_name = skd_def[1]
         driver_def = skd_def[2]
-        var_def = skd_def[3]
+        var_defs = [skd_def[3]]
 
-        add_shape_key_driver(rig, head_body_obj, shape_key_name, driver_def, var_def, scale)
+        drivers.add_shape_key_driver(rig, head_body_obj, shape_key_name, driver_def, var_defs, scale)
 
     # drive the shape keys on any other body objects from the head body object
     drivers.add_body_shape_key_drivers(chr_cache, True)
@@ -1218,31 +1228,6 @@ def add_shape_key_drivers(chr_cache, rig):
     #                                                   constraint_type="STRETCH_TO", expression=expression)
     #    bones.add_constraint_scripted_influence_driver(rig, "DEF-foot.R", right_data_path, "ik_stretch",
     #                                                   constraint_type="STRETCH_TO", expression=expression)
-
-
-def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def, scale=1.0):
-    if utils.object_mode():
-        shape_key = meshutils.find_shape_key(obj, shape_key_name)
-        if shape_key:
-            fcurve : bpy.types.FCurve
-            fcurve = shape_key.driver_add("value")
-            driver : bpy.types.Driver = fcurve.driver
-            driver.type = driver_def[0]
-            if driver.type == "SCRIPTED":
-                if scale != 1.0:
-                    driver.expression = f"{driver_def[1]}*{scale}"
-                else:
-                    driver.expression = driver_def[1]
-            var : bpy.types.DriverVariable = driver.variables.new()
-            var.name = var_def[0]
-            var.type = var_def[1]
-            if var_def[1] == "TRANSFORMS":
-                #var.targets[0].id_type = "OBJECT"
-                var.targets[0].id = rig.id_data
-                var.targets[0].bone_target = var_def[2]
-                var.targets[0].rotation_mode = "AUTO"
-                var.targets[0].transform_type = var_def[3]
-                var.targets[0].transform_space = var_def[4]
 
 
 def adjust_rigify_constraints(chr_cache, rigify_rig):
@@ -1311,7 +1296,7 @@ def store_source_bone_data(cc3_rig, rigify_rig, rigify_data):
                     orig_dir_array = [orig_dir.x, orig_dir.y, orig_dir.z]
                     orig_z_axis = source_data[orig_bone_name][1]
                     orig_z_axis_array = [orig_z_axis.x, orig_z_axis.y, orig_z_axis.z]
-                    utils.log_info(f"storing source bone data in {name} from {orig_bone_name}")
+                    utils.log_detail(f"storing source bone data in {name} from {orig_bone_name}")
                     drivers.add_custom_float_array_property(edit_bone, "orig_dir", orig_dir_array)
                     drivers.add_custom_float_array_property(edit_bone, "orig_z_axis", orig_z_axis_array)
                     drivers.add_custom_string_property(edit_bone, "orig_name", orig_bone_name)
@@ -3524,8 +3509,13 @@ class CC3Rigifier(bpy.types.Operator):
     auto_weight_report = ""
     rigid_body_systems = {}
 
-    def is_full_face_rig(self, chr_cache):
-        return not self.no_face_rig and chr_cache.is_rig_full_face()
+    def use_rigify_face_rig(self, chr_cache):
+        prefs = vars.prefs()
+        return not self.no_face_rig and prefs.rigify_expression_rig == "RIGIFY"
+
+    def use_expression_rig(self, chr_cache):
+        prefs = vars.prefs()
+        return (chr_cache.can_expression_rig() and prefs.rigify_expression_rig == "META")
 
     def add_meta_rig(self, chr_cache):
 
@@ -3628,7 +3618,7 @@ class CC3Rigifier(bpy.types.Operator):
                 # fix the jaw pivot
                 fix_jaw_pivot(self.cc3_rig, self.meta_rig)
                 # map the face rig bones by UV map if possible
-                if self.is_full_face_rig(chr_cache):
+                if self.use_rigify_face_rig(chr_cache):
                     map_uv_targets(chr_cache, self.cc3_rig, self.meta_rig)
                 else: # or hide them
                     hide_face_bones(self.meta_rig)
@@ -3669,11 +3659,13 @@ class CC3Rigifier(bpy.types.Operator):
 
                 if utils.object_exists_is_armature(self.rigify_rig):
 
-                    if self.is_full_face_rig(chr_cache):
+                    if self.use_rigify_face_rig(chr_cache):
                         chr_cache.rigified_full_face_rig = True
                     else:
                         convert_to_basic_face_rig(self.rigify_rig)
                         chr_cache.rigified_full_face_rig = False
+                    if self.use_expression_rig(chr_cache):
+                        facerig.build_expression_rig(chr_cache, self.rigify_rig, self.meta_rig, self.cc3_rig)
                     modify_rigify_controls(self.cc3_rig, self.rigify_rig, self.rigify_data)
                     prep_envelope_deform(self.rigify_rig, self.meta_rig)
                     face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
@@ -3683,7 +3675,10 @@ class CC3Rigifier(bpy.types.Operator):
                     add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
                     store_source_bone_data(self.cc3_rig, self.rigify_rig, self.rigify_data)
                     rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
-                    add_shape_key_drivers(chr_cache, self.rigify_rig)
+                    if self.use_expression_rig(chr_cache):
+                        facerig.build_expression_rig_drivers(chr_cache, self.rigify_rig)
+                    else:
+                        add_shape_key_drivers(chr_cache, self.rigify_rig)
                     adjust_rigify_constraints(chr_cache, self.rigify_rig)
                     rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
                     clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig, remove_meta = False) #not advanced_mode)
@@ -3738,11 +3733,13 @@ class CC3Rigifier(bpy.types.Operator):
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
 
                 if utils.object_exists_is_armature(self.rigify_rig):
-                    if self.is_full_face_rig(chr_cache):
+                    if self.use_rigify_face_rig(chr_cache):
                         chr_cache.rigified_full_face_rig = True
                     else:
                         convert_to_basic_face_rig(self.rigify_rig)
                         chr_cache.rigified_full_face_rig = False
+                    if self.use_expression_rig(chr_cache):
+                        facerig.build_expression_rig(chr_cache, self.rigify_rig, self.meta_rig, self.cc3_rig)
                     modify_rigify_controls(self.cc3_rig, self.rigify_rig, self.rigify_data)
                     prep_envelope_deform(self.rigify_rig, self.meta_rig)
                     if chr_cache.rigified_full_face_rig:
@@ -3755,7 +3752,10 @@ class CC3Rigifier(bpy.types.Operator):
                     add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
                     store_source_bone_data(self.cc3_rig, self.rigify_rig, self.rigify_data)
                     rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
-                    add_shape_key_drivers(chr_cache, self.rigify_rig)
+                    if self.use_expression_rig(chr_cache):
+                        facerig.build_expression_rig_drivers(chr_cache, self.rigify_rig)
+                    else:
+                        add_shape_key_drivers(chr_cache, self.rigify_rig)
                     adjust_rigify_constraints(chr_cache, self.rigify_rig)
                     rigutils.set_ik_stretch_control(self.rigify_rig, 0.0)
                     utils.hide(self.cc3_rig)

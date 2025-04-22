@@ -19,7 +19,7 @@ import socket
 import os, tempfile
 from mathutils import Vector
 
-from . import addon_updater_ops, colorspace, utils, vars
+from . import addon_updater_ops, colorspace, vars
 
 
 def reset_cycles():
@@ -81,11 +81,13 @@ def reset_rigify():
     prefs.rigify_export_t_pose = True
     prefs.rigify_export_mode = "MOTION"
     prefs.rigify_export_naming = "METARIG"
-    prefs.rigify_build_face_rig = True
+    prefs.rigify_expression_rig = "NONE"
+    prefs.rigify_build_face_rig = False
     prefs.rigify_auto_retarget = True
     prefs.rigify_preview_retarget_fk_ik = "BOTH"
     prefs.rigify_bake_nla_fk_ik = "BOTH"
     prefs.rigify_align_bones = "CC"
+    prefs.rigify_face_control_color = (1.0, 0.95, 0.4, 1.0)
 
 
 def reset_datalink():
@@ -144,8 +146,6 @@ def reset_preferences():
     prefs.build_armature_edit_modifier = True
     prefs.build_armature_preserve_volume = False
     prefs.physics_weightmap_curve = 5.0
-    prefs.rigify_build_face_rig = True
-    prefs.rigify_auto_retarget = True
     prefs.convert_non_standard_type = "PROP"
     reset_cycles()
     reset_rigify()
@@ -466,7 +466,16 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                         "*Warning*: Does not import correctly back into CC4!"),
                         #("RIGIFY","Rigify","Use custom Rigify_ bone names"),
                     ], default="METARIG", name = "Bone names to use when exporting Rigify characters and motions.")
-    rigify_build_face_rig: bpy.props.BoolProperty(default=True,
+    rigify_expression_rig: bpy.props.EnumProperty(items=[
+                        ("NONE","None","No expression rig, just eye and jaw controls"),
+                        ("RIGIFY","Rigify","Rigify full face rig"),
+                        ("META","Meta","Metahuman style expression rig"),
+                    ], default="NONE", name="Expression Rig")
+    rigify_face_control_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                                                default=(1.0, 0.95, 0.4, 1.0),
+                                                min = 0.0, max = 1.0,
+                                                name="Rig Color")
+    rigify_build_face_rig: bpy.props.BoolProperty(default=False,
                                                   description="Build full face rig (CC3(+) standard characters only)")
     rigify_auto_retarget: bpy.props.BoolProperty(default=True,
                                                  description="Auto retarget any animation currently on the character armature")
@@ -481,8 +490,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("BOTH","Both","Bake both FK and IK and controls"),
                     ], default="BOTH", name = "Bake NLA to FK/IK")
     rigify_align_bones: bpy.props.EnumProperty(items=[
-                        ("CC","CC/iC Align","Align metarig bones to the CC/iC source rig"),
-                        ("METARIG","Metarig Align","Keep the metarig bone alignments"),
+                        ("CC","CC/iC","Align metarig bones to the CC/iC source rig"),
+                        ("METARIG","Metarig","Keep the metarig bone alignments"),
                     ], default="METARIG", name="Align Metarig Bones", description="Metarig bone alignments")
 
     temp_folder: bpy.props.StringProperty(default="", subtype="DIR_PATH", name="Temp Folder",
