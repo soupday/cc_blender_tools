@@ -2483,6 +2483,11 @@ def adv_retarget_remove_pair(op, chr_cache):
     # clear any animated shape keys
     reset_shape_keys(chr_cache)
 
+    # clean up face rig key proxies and drivers
+    if rigutils.is_face_rig(rigify_rig):
+        facerig.remove_expression_rig_retarget_drivers(chr_cache, rigify_rig)
+        rigutils.clean_up_shape_key_action_objects()
+
 
 def adv_preview_retarget(op, chr_cache):
     props = vars.props()
@@ -2492,7 +2497,7 @@ def adv_preview_retarget(op, chr_cache):
     source_rig = props.armature_list_object
     source_action = props.action_list_action
 
-    retarget_rig = adv_retarget_pair_rigs(op, chr_cache)
+    retarget_rig = adv_retarget_pair_rigs(op, chr_cache, source_rig, source_action)
     if retarget_rig and source_action:
         start_frame = int(source_action.frame_range[0])
         end_frame = int(source_action.frame_range[1])
@@ -2503,19 +2508,15 @@ def adv_preview_retarget(op, chr_cache):
             adv_retarget_shape_keys(op, chr_cache)
 
 
-def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=None, to_original_rig=False):
+def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, to_original_rig=False):
     props = vars.props()
     rigify_rig = chr_cache.get_armature()
-    if rig_override:
-        source_rig = rig_override
-        source_action = utils.safe_get_action(source_rig)
-    else:
+    if not source_rig:
         source_rig = props.armature_list_object
         source_action = props.action_list_action
-        utils.safe_set_action(source_rig, source_action)
-    if action_override:
-        source_action = action_override
-        utils.safe_set_action(source_rig, source_action)
+    if not source_action:
+        source_action = utils.safe_get_action(source_rig)
+    utils.safe_set_action(source_rig, source_action)
 
     if not source_rig:
         if op: op.report({'ERROR'}, "No source Armature!")
@@ -2526,13 +2527,12 @@ def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=Non
     if not rigutils.is_rigify_armature(rigify_rig):
             if op: op.report({'ERROR'}, "Character Armature is not a Rigify armature!")
             return None
-    if not rig_override:
-        if not source_action:
-            if op: op.report({'ERROR'}, "No Source Action!")
-            return None
-        if not check_armature_action(source_rig, source_action):
-            if op: op.report({'ERROR'}, "Source Action does not match Source Armature!")
-            return None
+    if not source_action:
+        if op: op.report({'ERROR'}, "No Source Action!")
+        return None
+    if not check_armature_action(source_rig, source_action):
+        if op: op.report({'ERROR'}, "Source Action does not match Source Armature!")
+        return None
 
     source_type, source_label = rigutils.get_armature_action_source_type(source_rig, source_action)
     retarget_data = rigify_mapping_data.get_retarget_for_source(source_type)
@@ -2553,6 +2553,9 @@ def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=Non
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_retargeting_rig(chr_cache, source_rig, rigify_rig,
                                             retarget_data, to_original_rig=to_original_rig)
+    if rigutils.is_face_rig(rigify_rig):
+        objects = rigutils.get_shape_key_action_objects(rigify_rig, source_rig, source_action)
+        facerig.build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, objects)
     chr_cache.rig_retarget_rig = retarget_rig
     chr_cache.rig_retarget_source_rig = source_rig
     rigutils.select_rig(rigify_rig)
@@ -2653,7 +2656,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
     utils.safe_set_action(source_rig, source_action)
 
     # generate (or re-use) retargeting rig
-    retarget_rig = adv_retarget_pair_rigs(op, chr_cache, rig_override=source_rig, action_override=source_action)
+    retarget_rig = adv_retarget_pair_rigs(op, chr_cache, source_rig, source_action)
 
     armature_action = None
     shape_key_actions = None
@@ -2814,6 +2817,8 @@ def adv_retarget_shape_keys(op, chr_cache,
         source_rig = props.armature_list_object
     if not source_action:
         source_action = props.action_list_action
+
+
 
     if not source_rig:
         if op: op.report({'ERROR'}, "No source Armature!")

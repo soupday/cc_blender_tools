@@ -23,14 +23,19 @@ def make_driver_var(driver, var_type, var_name, target, target_type = "OBJECT", 
     """
     var_type = "SINGLE_PROP", "TRANSFORMS"\n
     var_name = variable name\n
-    target = target object/bone\n
-    target_type = "OBJECT", "MESH"...
-    target_data_path = "..."
+    target = target object/rig\n
+    SINGLE_PROP:\n
+    target_type = "OBJECT", "MESH"...\n
+    target_data_path = "shape_keys.key_blocks[\"key_name\"].value"\n
+    TRANSFORMS:\n
+    bone_target = pose bone name\n
+    transform_type = "LOC_X", "ROT_X" ...\n
+    transform_space = "LOCAL", "WORLD" ...
     """
     var : bpy.types.DriverVariable = driver.variables.new()
     var.name = var_name
+    var.type = var_type
     if var_type == "SINGLE_PROP":
-        var.type = var_type
         var.targets[0].id_type = target_type
         var.targets[0].id = target.id_data
         var.targets[0].data_path = data_path
@@ -461,21 +466,24 @@ def clear_facial_shape_key_bone_drivers(chr_cache):
     utils.object_mode_to(arm)
 
     # remove existing drivers
-    for key_name in SHAPE_KEY_DRIVERS.keys():
-        bone_names = SHAPE_KEY_DRIVERS[key_name]["bone"]
-        for bone_name in bone_names:
-            if bone_name in arm.pose.bones:
-                if bone_name not in bone_names_done:
-                    bone_names_done.append(bone_name)
-                    pose_bone = arm.pose.bones[bone_name]
-                    utils.log_info(f"Removing drivers for: {bone_name}")
-                    pose_bone.driver_remove("location", 0)
-                    pose_bone.driver_remove("location", 1)
-                    pose_bone.driver_remove("location", 2)
-                    pose_bone.driver_remove("rotation_euler", 0)
-                    pose_bone.driver_remove("rotation_euler", 1)
-                    pose_bone.driver_remove("rotation_euler", 2)
-                    pose_bone.rotation_mode = "QUATERNION"
+    if "facerig" in arm.pose.bones:
+        ...
+    else:
+        for key_name in SHAPE_KEY_DRIVERS.keys():
+            bone_names = SHAPE_KEY_DRIVERS[key_name]["bone"]
+            for bone_name in bone_names:
+                if bone_name in arm.pose.bones:
+                    if bone_name not in bone_names_done:
+                        bone_names_done.append(bone_name)
+                        pose_bone = arm.pose.bones[bone_name]
+                        utils.log_info(f"Removing drivers for: {bone_name}")
+                        pose_bone.driver_remove("location", 0)
+                        pose_bone.driver_remove("location", 1)
+                        pose_bone.driver_remove("location", 2)
+                        pose_bone.driver_remove("rotation_euler", 0)
+                        pose_bone.driver_remove("rotation_euler", 1)
+                        pose_bone.driver_remove("rotation_euler", 2)
+                        pose_bone.rotation_mode = "QUATERNION"
 
 
 def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
@@ -531,7 +539,7 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
             (key_name.startswith("Head_") and not head)):
             continue
 
-        # find the bone specified by the shape_key driver def
+        # find the bone specified from the list of possible bones in the shape_key driver def
         pose_bone_name = None
         for bone_name in bone_names:
             if bone_name in arm.pose.bones:
@@ -607,6 +615,13 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
                                         body.data,
                                         target_type="MESH",
                                         data_path=data_path)
+
+
+def get_shape_key(obj, key_name) -> bpy.types.ShapeKey:
+    try:
+        return obj.data.shape_keys.key_blocks[key_name]
+    except:
+        return None
 
 
 def clear_body_shape_key_drivers(chr_cache):

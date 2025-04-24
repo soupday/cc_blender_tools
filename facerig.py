@@ -16,6 +16,7 @@
 
 import bpy
 import math
+import copy
 from . import utils, vars
 from . import drivers, bones
 from . import rigutils
@@ -32,10 +33,107 @@ def shrink_slider_coords(coords, by_length):
     coords[1] = v1
 
 
+def objects_have_shape_key(objects, shape_key_name):
+    for obj in objects:
+        if obj.type == "MESH":
+            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                if shape_key_name in obj.data.shape_keys.key_blocks:
+                    return True
+    return False
+
+
+def is_valid_control_def(control_def, rigify_rig, objects):
+    bone_collection = rigify_rig.data.edit_bones if utils.get_mode() == "EDIT" else rigify_rig.pose.bones
+    if control_def["widget_type"] == "slider":
+        if "blendshapes" in control_def:
+            blendshapes = control_def["blendshapes"]
+            for shape_key_name in blendshapes:
+                if not objects_have_shape_key(objects, shape_key_name):
+                    return False
+        if "rigify" in control_def:
+            control_bones = control_def["rigify"]
+            for bone_def in control_bones:
+                bone_name = bone_def["bone"]
+                if bone_name not in bone_collection:
+                    print(f"MISSING BONE {bone_name}")
+                    return False
+        #if "bones" in control_def:
+        #    control_bones = control_def["bones"]
+        #    for bone_def in control_bones:
+        #        bone_name = bone_def["bone"]
+        #        if bone_name not in rigify_rig.pose.bones:
+        #            return False
+    elif control_def["widget_type"] == "rect":
+        if "blendshapes" in control_def:
+            blendshapes_x = control_def["blendshapes"]["x"]
+            blendshapes_y = control_def["blendshapes"]["y"]
+            for shape_key_name in blendshapes_x:
+                if not objects_have_shape_key(objects, shape_key_name):
+                    return False
+            for shape_key_name in blendshapes_y:
+                if not objects_have_shape_key(objects, shape_key_name):
+                    return False
+        if "rigify" in control_def:
+            control_bones_x = control_def["rigify"]["horizontal"]
+            control_bones_y = control_def["rigify"]["horizontal"]
+            for bone_def in control_bones_x:
+                bone_name = bone_def["bone"]
+                if bone_name not in bone_collection:
+                    return False
+            for bone_def in control_bones_y:
+                bone_name = bone_def["bone"]
+                if bone_name not in bone_collection:
+                    return False
+        #if "bones" in control_def:
+        #    control_bones_x = control_def["bones"]["horizontal"]
+        #    control_bones_y = control_def["bones"]["horizontal"]
+        #    for bone_def in control_bones_x:
+        #        bone_name = bone_def["bone"]
+        #        if bone_name not in rigify_rig.pose.bones:
+        #            return False
+        #    for bone_def in control_bones_y:
+        #        bone_name = bone_def["bone"]
+        #        if bone_name not in rigify_rig.pose.bones:
+        #            return False
+    return True
+
+
+def generate_facerig_config(chr_cache, rigify_rig):
+
+    objects = chr_cache.get_cache_objects()
+
+    FACERIG_CONFIG = copy.deepcopy(FACERIG_EXT_CC3PLUS)
+
+    for control_name, control_def in FACERIG_CONFIG:
+
+        if control_def["widget_type"] == "slider":
+
+            blendshapes = control_def["blendshapes"]
+            control_bones = control_def["bones"]
+
+            num_keys = len(blendshapes)
+            del_keys = []
+            for i, (shape_key_name, shape_key_value) in enumerate(blendshapes.items()):
+                if not objects_have_shape_key(objects, shape_key_name):
+                    if num_keys == 2:
+                        control_def["range"][i] = 0.0
+                        del_keys.append(shape_key_name)
+                        num_keys -= 1
+                    elif num_keys == 1:
+                        control_def["range"][1] = 0.0
+                        del_keys.append(shape_key_name)
+                        num_keys -= 1
+            if num_keys == 0:
+                del(control_def["blendshapes"])
+            for shape_key_name in del_keys:
+                del(control_def["blendshapes"][shape_key_name])
+
+
 def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
     prefs = vars.prefs()
 
     chr_cache.rigify_face_control_color = prefs.rigify_face_control_color
+    objects = chr_cache.get_cache_objects()
     wgt_collection = f"WGTS_{cc3_rig.name}_rig"
     WGT_OUTLINE, WGT_GROUPS, WGT_LABELS, WGT_LINES, WGT_SLIDER, WGT_RECT, WGT_NUB, WGT_NAME = \
                                                 rigutils.get_expression_widgets(chr_cache, wgt_collection)
@@ -71,6 +169,10 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
         jaw_master.parent = jaw_move
 
         for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
+
+            if not is_valid_control_def(control_def, rigify_rig, objects):
+                    continue
+
             if control_def["widget_type"] == "slider":
                 zero = utils.inverse_lerp(control_def["range"][0], control_def["range"][1], 0.0)
                 indices = control_def["indices"]
@@ -118,6 +220,7 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
                 rect_controls[control_name] = (control_def, box_bone.name, nub_bone.name, width, height, zero_x, zero_y)
 
     if rigutils.select_rig(rigify_rig):
+
         bones.set_bone_collection(rigify_rig, "MCH-jaw_move", "MCH", None, None)
         bones.set_bone_collection(rigify_rig, "MCH-facerig", "MCH", None, None)
         bones.set_bone_collection(rigify_rig, "MCH-facerig_controls", "MCH", None, None)
@@ -195,28 +298,19 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
                 min_y = (height * zero_y) * control_range_y[0]
                 max_y = height * (1 - zero_y) * control_range_y[1]
 
-            drivers.add_custom_float_property(line_bone, "rect_width", width)
-            drivers.add_custom_float_property(line_bone, "rect_height", height)
-            bones.add_limit_location_constraint(rigify_rig, nub_bone_name, min_x, min_y, 0, max_x, max_y, 0, space="LOCAL")
+            drivers.add_custom_float_property(line_bone, "x_slider_length", width)
+            drivers.add_custom_float_property(line_bone, "y_slider_length", height)
+            bones.add_limit_location_constraint(rigify_rig, nub_bone_name, min_x, min_y, 0, max_x, max_y, 0, True, space="LOCAL")
 
 
-def build_expression_rig_drivers(chr_cache, rigify_rig):
+def get_generated_controls(chr_cache, rigify_rig):
     slider_controls = {}
     rect_controls = {}
 
-    # drive the shape keys on any other body objects from the head body object
-    drivers.add_body_shape_key_drivers(chr_cache, True)
-
-    objects = chr_cache.get_cache_objects()
-    #head_body_obj = meshutils.get_head_body_object(chr_cache)
-    #tongue_obj = meshutils.get_tongue_object(chr_cache)
-    #eye_obj = meshutils.get_eye_object(chr_cache)
-
     for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
 
-        BONE_CLEAR_CONSTRAINTS = [
-            "MCH-eye.L", "MCH-eye.R"
-        ]
+        if control_name not in rigify_rig.pose.bones:
+            continue
 
         if control_def["widget_type"] == "slider":
             zero_point = utils.inverse_lerp(control_def["range"][0], control_def["range"][1], 0.0)
@@ -226,15 +320,6 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
             line_bone = line_pose_bone.bone
             length = line_pose_bone["slider_length"] if "slider_length" in line_pose_bone else line_bone.length * 2
             slider_controls[control_name] = (control_def, line_bone_name, nub_bone_name, length, zero_point)
-            if "bones" in control_def:
-                for bone_def in control_def["bones"]:
-                    bone_name = bone_def["bone"]
-                    if bone_name in rigify_rig.pose.bones:
-                        pose_bone = rigify_rig.pose.bones[bone_name]
-                        pose_bone.rotation_mode = "XYZ"
-                        if bone_name in BONE_CLEAR_CONSTRAINTS:
-                            bones.clear_constraints(rigify_rig, bone_name)
-
 
         if control_def["widget_type"] == "rect":
             zero_x = utils.inverse_lerp(control_def["x_range"][0], control_def["x_range"][1], 0.0)
@@ -243,11 +328,157 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
             nub_bone_name = control_name
             box_pose_bone = rigify_rig.pose.bones[box_bone_name]
             box_bone = box_pose_bone.bone
-            width = box_pose_bone["rect_width"] if "rect_width" in box_pose_bone else box_bone.length * 2
-            height = box_pose_bone["rect_height"] if "rect_height" in box_pose_bone else box_bone.length * 2
+            width = box_pose_bone["x_slider_length"] if "x_slider_length" in box_pose_bone else box_bone.length * 2
+            height = box_pose_bone["y_slider_length"] if "y_slider_length" in box_pose_bone else box_bone.length * 2
             rect_controls[control_name] = (control_def, box_bone_name, nub_bone_name, width, height, zero_x, zero_y)
-            if "bones" in control_def:
-                for axis_dir, bone_list in control_def["bones"].items():
+
+    return slider_controls, rect_controls
+
+
+def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
+
+    shape_key_driver_defs = {}
+    bone_driver_defs = {}
+
+    # collect slider control data into shapekey and bone driver defs
+    for slider_name, slider_def in slider_controls.items():
+
+        control_def, line_bone_name, nub_bone_name, length, zero_point = slider_def
+        control_range_y = control_def["range"]
+        min_y = (length * zero_point) * control_range_y[0]
+        max_y = length * (1 - zero_point) * control_range_y[1]
+
+        if "blendshapes" in control_def:
+
+            num_keys = len(control_def["blendshapes"])
+            for i, (shape_key_name, shape_key_value) in enumerate(control_def["blendshapes"].items()):
+                distance = min_y if shape_key_value == control_range_y[0] else max_y
+                var_axis = LOC_AXES.get("y")[1]
+                if shape_key_name not in shape_key_driver_defs:
+                    shape_key_driver_defs[shape_key_name] = {}
+                key_control_def = {
+                    "value": abs(shape_key_value),
+                    "distance": distance,
+                    "var_axis": var_axis,
+                }
+                shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
+
+        rigify_bones = control_def.get("rigify")
+
+        if rigify_bones:
+            for i, bone_def in enumerate(rigify_bones):
+                bone_name = bone_def["bone"]
+                if bone_name in rigify_rig.pose.bones:
+                    # slider controls translate by default
+                    if bone_def.get("mode", "position") == "position":
+                        prop, axis, index = LOC_AXES.get(bone_def["axis"], (None, None, None))
+                    else:
+                        prop, axis, index = ROT_AXES.get(bone_def["axis"], (None, None, None))
+                    if axis:
+                        driver_id = (bone_name, prop, index)
+                        var_axis = LOC_AXES.get("y")[1]
+                        bone_control_def = {
+                            "bone": bone_def["bone"],
+                            "offset": bone_def["offset"] / 100, # convert from
+                            "scalar": bone_def["scalar"] / 100, # cm to m
+                            "distance": [min_y, max_y],
+                            "var_axis": var_axis
+                        }
+                        if driver_id not in bone_driver_defs:
+                            bone_driver_defs[driver_id] = {}
+                        bone_driver_defs[driver_id][nub_bone_name] = bone_control_def
+
+    # collect rect control data into shape key and bone driver defs
+    for rect_name, rect_def in rect_controls.items():
+
+        control_def, box_bone_name, nub_bone_name, width, height, zero_x, zero_y = rect_def
+        control_range_x = control_def["x_range"]
+        control_range_y = control_def["y_range"]
+        min_x = (width * zero_x) * control_range_x[0]
+        max_x = width * (1 - zero_x) * control_range_x[1]
+        min_y = -(height * zero_y) * control_range_y[0]
+        max_y = -height * (1 - zero_y) * control_range_y[1]
+
+        ctrl_axes = [
+            ("horizontal", "x", min_x, max_x, control_range_x),
+            ("vertical", "y", min_y, max_y, control_range_y)
+        ]
+
+        if "blendshapes" in control_def:
+
+            for ctrl_dir, ctrl_axis, min_d, max_d, control_range in ctrl_axes:
+
+                num_keys = len(control_def["blendshapes"][ctrl_axis])
+                for i, (shape_key_name, shape_key_value) in enumerate(control_def["blendshapes"][ctrl_axis].items()):
+                    distance = min_d if utils.same_sign(shape_key_value, control_range[0]) else max_d
+                    var_axis = LOC_AXES.get(ctrl_axis)[1]
+                    if shape_key_name not in shape_key_driver_defs:
+                        shape_key_driver_defs[shape_key_name] = {}
+                    key_control_def = {
+                        "value": abs(shape_key_value),
+                        "distance": distance,
+                        "var_axis": var_axis,
+                    }
+                    shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
+
+        rigify_bones = control_def.get("rigify")
+
+        if rigify_bones:
+
+            for ctrl_dir, ctrl_axis, min_d, max_d, control_range in ctrl_axes:
+                for bone_def in rigify_bones[ctrl_dir]:
+                    bone_name = bone_def["bone"]
+                    if bone_name in rigify_rig.pose.bones:
+                        # rect controls rotate by default
+                        if bone_def.get("mode", "rotation") == "position":
+                            prop, axis, index = LOC_AXES.get(bone_def["axis"], (None, None, None))
+                        else:
+                            prop, axis, index = ROT_AXES.get(bone_def["axis"], (None, None, None))
+                        if axis:
+                            driver_id = (bone_name, prop, index)
+                            var_axis = LOC_AXES.get(ctrl_axis)[1]
+                            bone_control_def = {
+                                "bone": bone_def["bone"],
+                                "offset": bone_def["offset"] * math.pi/180, # convert angles
+                                "scalar": bone_def["scalar"] * math.pi/180, # to radians
+                                "distance": [min_d, max_d],
+                                "var_axis": var_axis
+                            }
+                            if driver_id not in bone_driver_defs:
+                                bone_driver_defs[driver_id] = {}
+                            bone_driver_defs[driver_id][nub_bone_name] = bone_control_def
+
+    return shape_key_driver_defs, bone_driver_defs
+
+
+def build_expression_rig_drivers(chr_cache, rigify_rig):
+
+    # first drive the shape keys on any other body objects from the head body object
+    # expression rig will then override these
+    drivers.add_body_shape_key_drivers(chr_cache, True)
+
+    BONE_CLEAR_CONSTRAINTS = [
+            "MCH-eye.L", "MCH-eye.R"
+        ]
+
+    # initialize target bone rotation modes and clear unwanted constraints
+    for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
+
+        if control_def["widget_type"] == "slider":
+            rigify_bones = control_def.get("rigify")
+            if rigify_bones:
+                for bone_def in rigify_bones:
+                    bone_name = bone_def["bone"]
+                    if bone_name in rigify_rig.pose.bones:
+                        pose_bone = rigify_rig.pose.bones[bone_name]
+                        pose_bone.rotation_mode = "XYZ"
+                        if bone_name in BONE_CLEAR_CONSTRAINTS:
+                            bones.clear_constraints(rigify_rig, bone_name)
+
+        if control_def["widget_type"] == "rect":
+            rigify_bones = control_def.get("rigify")
+            if rigify_bones:
+                for axis_dir, bone_list in rigify_bones.items():
                     for bone_def in bone_list:
                         bone_name = bone_def["bone"]
                         if bone_name in rigify_rig.pose.bones:
@@ -255,6 +486,9 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
                             pose_bone.rotation_mode = "XYZ"
                             if bone_name in BONE_CLEAR_CONSTRAINTS:
                                 bones.clear_constraints(rigify_rig, bone_name)
+
+    slider_controls, rect_controls = get_generated_controls(chr_cache, rigify_rig)
+    objects = chr_cache.get_cache_objects()
 
     if rigutils.select_rig(rigify_rig):
 
@@ -280,125 +514,8 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
         bones.add_constraint_scripted_influence_driver(rigify_rig, "MCH-facerig", data_path, "rf", rot_con1)
         bones.add_constraint_scripted_influence_driver(rigify_rig, "MCH-facerig", data_path, "rf", rot_con2, expression="(rf - 1)")
 
-        shape_key_driver_defs = {}
-        bone_driver_defs = {}
-
-        LOC_AXES = {
-            "x": ("location", "LOC_X", 0),
-            "y": ("location", "LOC_Y", 1),
-            "z": ("location", "LOC_Z", 2),
-        }
-
-        ROT_AXES = {
-            "x": ("rotation_euler", "ROT_X", 0),
-            "y": ("rotation_euler", "ROT_Y", 1),
-            "z": ("rotation_euler", "ROT_Z", 2),
-        }
-
-        # collect slider control data into shapekey and bone driver defs
-        for slider_name, slider_def in slider_controls.items():
-
-            control_def, line_bone_name, nub_bone_name, length, zero_point = slider_def
-            control_range = control_def["range"]
-            min_y = (length * zero_point) * control_range[0]
-            max_y = length * (1 - zero_point) * control_range[1]
-
-            if "blendshapes" in control_def:
-
-                num_keys = len(control_def["blendshapes"])
-                for i, (shape_key_name, shape_key_value) in enumerate(control_def["blendshapes"].items()):
-                    distance = min_y if shape_key_value == control_range[0] else max_y
-                    var_axis = LOC_AXES.get("y")[1]
-                    if shape_key_name not in shape_key_driver_defs:
-                        shape_key_driver_defs[shape_key_name] = {}
-                    key_control_def = {
-                        "value": shape_key_value,
-                        "distance": distance,
-                        "var_axis": var_axis,
-                    }
-                    shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
-
-            if "bones" in control_def:
-
-                for bone_def in control_def["bones"]:
-                    bone_name = bone_def["bone"]
-                    if bone_name in rigify_rig.pose.bones:
-                        # slider controls translate by default
-                        if bone_def.get("mode", "position") == "position":
-                            prop, axis, index = LOC_AXES.get(bone_def["axis"], (None, None, None))
-                        else:
-                            prop, axis, index = ROT_AXES.get(bone_def["axis"], (None, None, None))
-                        if axis:
-                            driver_id = (bone_name, prop, index)
-                            var_axis = LOC_AXES.get("y")[1]
-                            bone_control_def = {
-                                "bone": bone_def["bone"],
-                                "offset": bone_def["offset"] / 100, # convert from
-                                "scalar": bone_def["scalar"] / 100, # cm to m
-                                "distance": [min_y, max_y],
-                                "var_axis": var_axis
-                            }
-                            if driver_id not in bone_driver_defs:
-                                bone_driver_defs[driver_id] = {}
-                            bone_driver_defs[driver_id][nub_bone_name] = bone_control_def
-
-        # collect rect control data into shape key and bone driver defs
-        for rect_name, rect_def in rect_controls.items():
-
-            control_def, box_bone_name, nub_bone_name, width, height, zero_x, zero_y = rect_def
-            control_range = control_def["x_range"]
-            control_range_y = control_def["y_range"]
-            min_x = (width * zero_x) * control_range[0]
-            max_x = width * (1 - zero_x) * control_range[1]
-            min_y = -(height * zero_y) * control_range_y[0]
-            max_y = -height * (1 - zero_y) * control_range_y[1]
-
-            ctrl_axes = [
-                ("horizontal", "x", min_x, max_x, control_range),
-                ("vertical", "y", min_y, max_y, control_range_y)
-            ]
-
-            if "blendshapes" in control_def:
-
-                for ctrl_dir, ctrl_axis, min_d, max_d, control_range in ctrl_axes:
-
-                    num_keys = len(control_def["blendshapes"][ctrl_axis])
-                    for i, (shape_key_name, shape_key_value) in enumerate(control_def["blendshapes"][ctrl_axis].items()):
-                        distance = min_d if shape_key_value == control_range[0] else max_d
-                        var_axis = LOC_AXES.get(ctrl_axis)[1]
-                        if shape_key_name not in shape_key_driver_defs:
-                            shape_key_driver_defs[shape_key_name] = {}
-                        key_control_def = {
-                            "value": shape_key_value,
-                            "distance": distance,
-                            "var_axis": var_axis,
-                        }
-                        shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
-
-            if "bones" in control_def:
-
-                for ctrl_dir, ctrl_axis, min_d, max_d, control_range in ctrl_axes:
-                    for bone_def in control_def["bones"][ctrl_dir]:
-                        bone_name = bone_def["bone"]
-                        if bone_name in rigify_rig.pose.bones:
-                            # rect controls rotate by default
-                            if bone_def.get("mode", "rotation") == "position":
-                                prop, axis, index = LOC_AXES.get(bone_def["axis"], (None, None, None))
-                            else:
-                                prop, axis, index = ROT_AXES.get(bone_def["axis"], (None, None, None))
-                            if axis:
-                                driver_id = (bone_name, prop, index)
-                                var_axis = LOC_AXES.get(ctrl_axis)[1]
-                                bone_control_def = {
-                                    "bone": bone_def["bone"],
-                                    "offset": bone_def["offset"] * math.pi/180, # convert angles
-                                    "scalar": bone_def["scalar"] * math.pi/180, # to radians
-                                    "distance": [min_d, max_d],
-                                    "var_axis": var_axis
-                                }
-                                if driver_id not in bone_driver_defs:
-                                    bone_driver_defs[driver_id] = {}
-                                bone_driver_defs[driver_id][nub_bone_name] = bone_control_def
+        shape_key_driver_defs, bone_driver_defs = collect_driver_defs(chr_cache, rigify_rig,
+                                                                      slider_controls, rect_controls)
 
         # build shape key drivers from shape key driver defs
         for shape_key_name, shape_key_driver_def in shape_key_driver_defs.items():
@@ -409,11 +526,12 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
                 if nub_bone_name in rigify_rig.pose.bones:
                     var_axis = key_control_def["var_axis"]
                     distance = key_control_def["distance"]
+                    value = key_control_def["value"]
                     var_name = f"var{vidx}"
                     vidx += 1
                     if expression:
                         expression += "+"
-                    expression += f"max({var_name}/{distance}, 0)"
+                    expression += f"max({value:0.6f}*{var_name}/{distance:0.6f},0)"
                     var_def = [var_name,
                                "TRANSFORMS",
                                nub_bone_name,
@@ -425,12 +543,6 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
             for obj in objects:
                 if utils.object_has_shape_keys(obj):
                     drivers.add_shape_key_driver(rigify_rig, obj, shape_key_name, driver_def, var_defs, 1.0)
-            #if head_body_obj:
-            #    drivers.add_shape_key_driver(rigify_rig, head_body_obj, shape_key_name, driver_def, var_defs, 1.0)
-            #if tongue_obj:
-            #    drivers.add_shape_key_driver(rigify_rig, tongue_obj, shape_key_name, driver_def, var_defs, 1.0)
-            #if eye_obj:
-            #    drivers.add_shape_key_driver(rigify_rig, eye_obj, shape_key_name, driver_def, var_defs, 1.0)
 
         # build bone transform drivers from bone driver defs
         for driver_id, bone_driver_def in bone_driver_defs.items():
@@ -448,7 +560,10 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
                 if expression:
                     expression += "+"
                 #expression += f"({offset}+{scalar}*(max({var_name}/{distance[1]},0)-max({var_name}/{distance[0]},0)))"
-                expression += f"({offset}+{scalar}*({var_name}/{distance[1]}))"
+                if offset != 0.0:
+                    expression += f"({offset:0.6f}+{scalar:0.6f}*({var_name}/{distance[1]:0.6f}))"
+                else:
+                    expression += f"({scalar:0.6f}*({var_name}/{distance[1]:0.6f}))"
                 var_def = [var_name,
                            "TRANSFORMS",
                            nub_bone_name,
@@ -458,6 +573,230 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
             driver_def = ["SCRIPTED", prop, index, expression]
 
             drivers.add_bone_driver(rigify_rig, bone_name, driver_def, var_defs, 1.0)
+
+
+def get_key_object(objects, shape_key_name):
+    for obj in objects:
+        key = drivers.get_shape_key(obj, shape_key_name)
+        if key:
+            return obj
+    return None
+
+
+def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects):
+
+    bone_drivers = {}
+    bone_retarget_defs = {}
+
+    if rigutils.select_rig(rigify_rig):
+
+        for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
+
+            if control_def["widget_type"] == "rect":
+                prefixes = [ ("x_", "x", "horizontal", "_box",  0, "rotation"),
+                             ("y_", "y", "vertical",   "_box",  1, "rotation") ]
+            else:
+                prefixes = [ ("",   "",  "",           "_line", 1, "position") ]
+
+            for prefix, key_group, bone_group, line_suffix, index, default_mode in prefixes:
+                method = control_def.get(f"{prefix}method", "SUM")
+                parent = control_def.get(f"{prefix}parent", "NONE")
+                control_range = control_def.get(f"{prefix}range")
+                control_scale = 1 / abs(control_range[1] - control_range[0])
+                blend_shapes = control_def.get("blendshapes")
+                if blend_shapes and key_group:
+                    blend_shapes = blend_shapes[key_group]
+                rl_bones = control_def.get("bones")
+                if rl_bones and bone_group:
+                    rl_bones = rl_bones[bone_group]
+                line_bone_name = control_name + line_suffix
+                line_bone = bones.get_pose_bone(rigify_rig, line_bone_name)
+                slider_length = line_bone[f"{prefix}slider_length"] if f"{prefix}slider_length" in line_bone else line_bone.bone.length * 2
+                #inv = -1 if control_def.get(f"{prefix}invert") else 1
+                inv = 1
+                if key_group == "y":
+                    inv *= -1
+                slider_length *= control_scale * inv
+
+                driver_id = (control_name, "location", index)
+
+                if rl_bones and len(rl_bones) > 0:
+
+                    bone_drivers[driver_id] = { "method": method,
+                                                "parent": parent,
+                                                "length": slider_length,
+                                                "bones": [] }
+
+                    for bone_def in rl_bones:
+                        source_name = bone_def["bone"]
+                        if source_name in source_rig.pose.bones:
+                            if bone_def.get("mode", default_mode) == "position":
+                                prop, prop_axis, prop_index = LOC_AXES.get(bone_def["axis"], (None, None, None))
+                                offset = bone_def["offset"]
+                                scalar = bone_def["scalar"]
+                            else:
+                                prop, prop_axis, prop_index = ROT_AXES.get(bone_def["axis"], (None, None, None))
+                                offset = bone_def["offset"] * math.pi / 180
+                                scalar = bone_def["scalar"] * math.pi / 180
+                            bone_drivers[driver_id]["bones"].append({ "bone": source_name,
+                                                                        "scale": slider_length/(control_range[1] * scalar),
+                                                                        "offset": offset,
+                                                                        "axis": prop_axis })
+                else:
+
+                    left_shape = right_shape = None
+                    for i, (blend_shape_name, blend_shape_value) in enumerate(blend_shapes.items()):
+                        # if 'retarget' list exists in control def, only retarget blendshapes
+                        # in the list, to avoid uncontrolled duplicate retargets
+                        if "retarget" in control_def:
+                            if blend_shape_name not in control_def["retarget"]:
+                                continue
+                        if utils.same_sign(blend_shape_value, control_range[0]):
+                            left_shape = (blend_shape_name, abs(blend_shape_value), slider_length/control_range[0])
+                        elif utils.same_sign(blend_shape_value, control_range[1]):
+                            right_shape = (blend_shape_name, abs(blend_shape_value), slider_length/control_range[1])
+
+                    bone_drivers[driver_id] = { "method": method,
+                                                "parent": parent,
+                                                "length": slider_length,
+                                                "shape_keys": [] }
+                    if left_shape:
+                        bone_drivers[driver_id]["shape_keys"].append({ "shape_key": left_shape[0],
+                                                                        "value": left_shape[1],
+                                                                        "scale": left_shape[2] })
+                    if right_shape:
+                        bone_drivers[driver_id]["shape_keys"].append({ "shape_key": right_shape[0],
+                                                                        "value": right_shape[1],
+                                                                        "scale": right_shape[2] })
+
+        for driver_id, driver_def in bone_drivers.items():
+            bone_name, prop, index = driver_id
+            parent = driver_def["parent"]
+
+            if parent != "NONE":
+                parent_id = (parent, prop, index)
+                parent_def = bone_drivers[parent_id]
+                expression, var_defs = build_retarget_driver(chr_cache, rigify_rig, parent_id, parent_def,
+                                                             source_rig, source_objects,
+                                                             no_driver=True, length_override=driver_def["length"])
+                build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def,
+                                      source_rig, source_objects,
+                                      pre_expression=expression, pre_var_defs=var_defs)
+            else:
+                build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_rig, source_objects)
+
+
+def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_rig, source_objects,
+                                     no_driver=False, pre_expression=None,
+                                     pre_var_defs=None, length_override=None):
+    bone_name, prop, index = driver_id
+    method = driver_def["method"]
+    parent = driver_def["parent"]
+    length = driver_def["length"]
+    pose_bone = bones.get_pose_bone(rigify_rig, bone_name)
+
+    expression = ""
+    var_defs = []
+
+    vidx = 0 if not pre_var_defs else len(pre_var_defs)
+
+    if "shape_keys" in driver_def:
+
+        count = 0
+        shape_key_defs = driver_def["shape_keys"]
+        for key_def in shape_key_defs:
+            scale = key_def["scale"]
+            value = key_def["value"]
+            if length_override:
+                scale *= length_override / length
+            shape_key_name = key_def["shape_key"]
+            obj = get_key_object(source_objects, shape_key_name)
+            if obj:
+                var_name = f"var{vidx}"
+                if count > 0:
+                    expression += "+"
+                expression += f"({var_name}*{scale:0.6f}/{value:0.6f})"
+                var_defs.append((var_name, shape_key_name))
+                vidx += 1
+                count += 1
+
+        if expression:
+            expression = f"({expression})"
+
+        if expression and method == "AVERAGE" and count > 1:
+            expression = f"({expression}/{count})"
+
+        if expression and parent != "NONE" and pre_expression and pre_var_defs:
+            expression = f"{expression} - min(max({pre_expression},-1),1)"
+            var_defs.extend(pre_var_defs)
+
+        if expression and not no_driver:
+            driver = drivers.make_driver(pose_bone, prop, "SCRIPTED", driver_expression=expression, index=index)
+            if driver:
+                for var_name, shape_key_name in var_defs:
+                    for obj in source_objects:
+                        key = drivers.get_shape_key(obj, shape_key_name)
+                        if key:
+                            # target_type="MESH", data_path="shape_keys.key_blocks[\"{shape_key}\"].value"
+                            data_path = "shape_keys." + key.path_from_id("value")
+                            var = drivers.make_driver_var(driver,
+                                                        "SINGLE_PROP",
+                                                        var_name,
+                                                        obj.data,
+                                                        target_type="MESH",
+                                                        data_path=data_path)
+                            break
+
+    if "bones" in driver_def:
+
+        count = 0
+        bone_defs = driver_def["bones"]
+        for bone_def in bone_defs:
+            scale = bone_def["scale"]
+            axis = bone_def["axis"]
+            offset = bone_def["offset"]
+            source_name = bone_def["bone"]
+            if source_name in source_rig.pose.bones:
+                var_name = f"var{vidx}"
+                if count > 0:
+                    expression += "+"
+                expression += f"(({var_name}+{offset:0.6f})*{scale:0.6f})"
+                var_defs.append((var_name, source_name, axis))
+                vidx += 1
+                count += 1
+
+        if expression:
+            expression = f"min(1,max(-1,{expression}))"
+
+        if expression and method == "AVERAGE" and count > 1:
+            expression = f"({expression}/{count})"
+
+        if expression and parent != "NONE" and pre_expression and pre_var_defs:
+            expression = f"{expression} - {pre_expression}"
+            var_defs.extend(pre_var_defs)
+
+        if expression and not no_driver:
+            driver = drivers.make_driver(pose_bone, prop, "SCRIPTED", driver_expression=expression, index=index)
+            if driver:
+                for var_name, source_name, axis in var_defs:
+                    var = drivers.make_driver_var(driver,
+                                                    "TRANSFORMS",
+                                                    var_name,
+                                                    source_rig,
+                                                    bone_target=source_name,
+                                                    transform_type=axis,
+                                                    transform_space="LOCAL_SPACE")
+
+    return expression, var_defs
+
+
+def remove_expression_rig_retarget_drivers(chr_cache, rigify_rig: bpy.types.Object):
+    if rigutils.select_rig(rigify_rig):
+        for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
+            if control_name in rigify_rig.pose.bones:
+                pose_bone = rigify_rig.pose.bones[control_name]
+                pose_bone.driver_remove("location", 0)
+                pose_bone.driver_remove("location", 1)
 
 
 def clear_expression_pose(chr_cache, rigify_rig, selected=False):
@@ -528,6 +867,18 @@ def toggle_lock_position(chr_cache, rig):
             pose_bone.bone.hide_select = True
 
 
+LOC_AXES = {
+        "x": ("location", "LOC_X", 0),
+        "y": ("location", "LOC_Y", 1),
+        "z": ("location", "LOC_Z", 2),
+    }
+
+ROT_AXES = {
+    "x": ("rotation_euler", "ROT_X", 0),
+    "y": ("rotation_euler", "ROT_Y", 1),
+    "z": ("rotation_euler", "ROT_Z", 2),
+}
+
 FACERIG_EXT_CC3PLUS = {
     "CTRL_L_eye_blink":
     {
@@ -594,6 +945,8 @@ FACERIG_EXT_CC3PLUS = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "x_parent": "CTRL_C_eye",
+        "y_parent": "CTRL_C_eye",
         "indices": [188, 189, 190, 191],
         "blendshapes":
         {
@@ -615,13 +968,7 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "z",
-                    "offset": -90.0,
-                    "scalar": 20.0
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "z",
-                    "offset": 0,
+                    "offset": 0, # -90.0,
                     "scalar": 20.0
                 }
             ],
@@ -630,17 +977,35 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "x",
-                    "offset": -90.0,
+                    "offset": 0, # -90.0,
                     "scalar": 20.0
-                },
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "MCH-eye.L",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
                 {
                     "bone": "MCH-eye.L",
                     "axis": "x",
+                    "cc_axis": "x",
                     "offset": 0,
                     "scalar": -20.0
                 }
             ]
         }
+
     },
     "CTRL_R_eye":
     {
@@ -648,6 +1013,8 @@ FACERIG_EXT_CC3PLUS = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "x_parent": "CTRL_C_eye",
+        "y_parent": "CTRL_C_eye",
         "indices": [175, 174, 173, 172],
         "blendshapes":
         {
@@ -669,13 +1036,7 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_R_Eye",
                     "axis": "z",
-                    "offset": -90.0,
-                    "scalar": 20.0
-                },
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "offset": 0,
+                    "offset": 0, # -90.0,
                     "scalar": 20.0
                 }
             ],
@@ -684,12 +1045,29 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_R_Eye",
                     "axis": "x",
-                    "offset": -90.0,
+                    "offset": 0, # -90.0,
                     "scalar": 20.0
-                },
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
                 {
                     "bone": "MCH-eye.R",
                     "axis": "x",
+                    "cc_axis": "x",
                     "offset": 0,
                     "scalar": -20.0
                 }
@@ -702,6 +1080,8 @@ FACERIG_EXT_CC3PLUS = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "x_method": "AVERAGE",
+        "y_method": "AVERAGE",
         "indices": [176, 177, 178, 179],  #+172
         "blendshapes":
         {
@@ -727,25 +1107,13 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_R_Eye",
                     "axis": "z",
-                    "offset": -90.0,
+                    "offset": 0, # -90.0,
                     "scalar": 20.0
                 },
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "z",
-                    "offset": -90.0,
-                    "scalar": 20.0
-                },
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "offset": 0,
-                    "scalar": 20.0
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "z",
-                    "offset": 0,
+                    "offset": 0, # -90.0,
                     "scalar": 20.0
                 }
             ],
@@ -754,24 +1122,49 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_R_Eye",
                     "axis": "x",
-                    "offset": -90.0,
+                    "offset": 0, # -90.0,
                     "scalar": 20.0
                 },
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "x",
-                    "offset": -90.0,
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
                     "scalar": 20.0
                 },
                 {
+                    "bone": "MCH-eye.L",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
                     "bone": "MCH-eye.R",
                     "axis": "x",
+                    "cc_axis": "x",
                     "offset": 0,
                     "scalar": -20.0
                 },
                 {
                     "bone": "MCH-eye.L",
                     "axis": "x",
+                    "cc_axis": "x",
                     "offset": 0,
                     "scalar": -20.0
                 }
@@ -797,11 +1190,6 @@ FACERIG_EXT_CC3PLUS = {
                 "Mouth_Up": -1.0,
                 "Mouth_Down": 1.0
             }
-        },
-        "bones":
-        {
-            "horizontal":[],
-            "vertical":[]
         }
     },
     "CTRL_C_jaw":
@@ -832,12 +1220,6 @@ FACERIG_EXT_CC3PLUS = {
                     "axis": "y",
                     "offset": 0,
                     "scalar": -15.0
-                },
-                {
-                    "bone": "jaw_master",
-                    "axis": "y",
-                    "offset": 0,
-                    "scalar": 15.0
                 }
             ],
             "vertical":
@@ -845,12 +1227,29 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_JawRoot",
                     "axis": "z",
-                    "offset": 90.0,
+                    "offset": 0, # 90.0,
                     "scalar": 30.0
-                },
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "jaw_master",
+                    "axis": "y",
+                    "cc_axis": "y",
+                    "offset": 0,
+                    "scalar": 15.0
+                }
+            ],
+            "vertical":
+            [
                 {
                     "bone": "jaw_master",
                     "axis": "x",
+                    "cc_axis": "z",
                     "offset": 0.0,
                     "scalar": 30.0
                 }
@@ -1015,11 +1414,6 @@ FACERIG_EXT_CC3PLUS = {
                 "Nose_Nostril_Raise_R": -1.0,
                 "Nose_Nostril_Down_R": 1.0
             }
-        },
-        "bones":
-        {
-            "horizontal": [],
-            "vertical": []
         }
     },
     "CTRL_L_nose":
@@ -1041,11 +1435,6 @@ FACERIG_EXT_CC3PLUS = {
                 "Nose_Nostril_Raise_L": -1.0,
                 "Nose_Nostril_Down_L": 1.0
             }
-        },
-        "bones":
-        {
-            "horizontal": [],
-            "vertical": []
         }
     },
     "CTRL_L_mouth_lowerLipDepress":
@@ -1063,8 +1452,6 @@ FACERIG_EXT_CC3PLUS = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [27, 33],
-        "line_orientation": "BottomLeftToUpperRight",
-        "knot_origin": "FromRight",
         "blendshapes":
         {
             "Mouth_Down_Lower_R": 1.0
@@ -1155,8 +1542,6 @@ FACERIG_EXT_CC3PLUS = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [125, 131],
-        "line_orientation": "UpperLeftToBottomRight",
-        "knot_origin": "FromLeft",
         "blendshapes":
         {
             "Mouth_Stretch_L": 1.0
@@ -1167,8 +1552,6 @@ FACERIG_EXT_CC3PLUS = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [26, 32],
-        "line_orientation": "BottomLeftToUpperRight",
-        "knot_origin": "FromRight",
         "blendshapes":
         {
             "Mouth_Stretch_R": 1.0
@@ -1398,13 +1781,17 @@ FACERIG_EXT_CC3PLUS = {
         [
             {
                 "bone": "CC_Base_JawRoot",
-                "axis": "y",
-                "offset": 1.8288450241088867,
+                "axis": "x",
+                "offset": 0, # 1.8288450241088867,
                 "scalar": 1.0
-            },
+            }
+        ],
+        "rigify":
+        [
             {
                 "bone": "MCH-jaw_move",
                 "axis": "y",
+                "cc_axis": "x",
                 "offset": 0,
                 "scalar": 1.0
             }
@@ -1413,6 +1800,7 @@ FACERIG_EXT_CC3PLUS = {
     "CTRL_L_mouth_suckBlow":
     {
         "widget_type": "slider",
+        "retarget": ["Cheek_Suck_L"],
         "range": [-1.0, 1.0],
         "indices": [44, 42],
         "blendshapes":
@@ -1423,6 +1811,7 @@ FACERIG_EXT_CC3PLUS = {
     },
     "CTRL_R_mouth_suckBlow": {
         "widget_type": "slider",
+        "retarget": ["Cheek_Suck_R"],
         "range": [-1.0, 1.0],
         "indices": [43, 45],
         "blendshapes":
@@ -1619,6 +2008,7 @@ FACERIG_EXT_CC3PLUS = {
     "CTRL_R_mouth_lipsRollU":
     {
         "widget_type": "slider",
+        "retarget": ["Mouth_Roll_Out_Upper_R"],
         "range": [-1.0, 1.0],
         "indices": [34, 36],
         "blendshapes":
@@ -1630,6 +2020,7 @@ FACERIG_EXT_CC3PLUS = {
     "CTRL_R_mouth_lipsRollD":
     {
         "widget_type": "slider",
+        "retarget": ["Mouth_Roll_Out_Lower_R"],
         "range": [-1.0, 1.0],
         "indices": [38, 40],
         "blendshapes":
@@ -1641,6 +2032,7 @@ FACERIG_EXT_CC3PLUS = {
     "CTRL_L_mouth_lipsRollU":
     {
         "widget_type": "slider",
+        "retarget": ["Mouth_Roll_Out_Upper_L"],
         "range": [-1.0, 1.0],
         "indices": [35, 37],
         "blendshapes":
@@ -1652,6 +2044,7 @@ FACERIG_EXT_CC3PLUS = {
     "CTRL_L_mouth_lipsRollD":
     {
         "widget_type": "slider",
+        "retarget": ["Mouth_Roll_Out_Lower_L"],
         "range": [-1.0, 1.0],
         "indices": [39, 41],
         "blendshapes":
@@ -1666,6 +2059,7 @@ FACERIG_EXT_CC3PLUS = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "retarget": [],
         "indices": [206, 207, 208, 209],
         "blendshapes":
         {
@@ -1687,6 +2081,7 @@ FACERIG_EXT_CC3PLUS = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "retarget": [],
         "indices": [210, 211, 212, 213],
         "blendshapes":
         {
@@ -1775,11 +2170,6 @@ FACERIG_EXT_CC3PLUS = {
         "y_range": [-1.0, 1.0],
         "y_invert": False,
         "indices": [198, 199, 200, 201],
-        "blendshapes":
-        {
-            "x": {},
-            "y": {}
-        },
         "bones":
         {
             "horizontal":
@@ -1787,14 +2177,7 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_Teeth02",
                     "axis": "z",
-                    "offset": -0.04119798541069031,
-                    "scalar": 1.0,
-                    "mode": "position"
-                },
-                {
-                    "bone": "teeth.B",
-                    "axis": "x",
-                    "offset": 0,
+                    "offset": 0, # -0.04119798541069031,
                     "scalar": 1.0,
                     "mode": "position"
                 }
@@ -1804,13 +2187,31 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_Teeth02",
                     "axis": "y",
-                    "offset": 1.249316930770874,
+                    "offset": 0, # 1.249316930770874,
                     "scalar": 1.0,
                     "mode": "position"
-                },
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "teeth.B",
+                    "axis": "x",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
                 {
                     "bone": "teeth.B",
                     "axis": "z",
+                    "cc_axis": "y",
                     "offset": 0,
                     "scalar": -1.0,
                     "mode": "position"
@@ -1825,11 +2226,6 @@ FACERIG_EXT_CC3PLUS = {
         "y_range": [-1.0, 1.0],
         "y_invert": False,
         "indices": [194, 195, 196, 197],
-        "blendshapes":
-        {
-            "x": {},
-            "y": {}
-        },
         "bones":
         {
             "horizontal":
@@ -1837,14 +2233,7 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_Teeth01",
                     "axis": "z",
-                    "offset": -0.03492468595504761,
-                    "scalar": 1.0,
-                    "mode": "position"
-                },
-                {
-                    "bone": "teeth.T",
-                    "axis": "x",
-                    "offset": 0,
+                    "offset": 0, # -0.03492468595504761,
                     "scalar": 1.0,
                     "mode": "position"
                 }
@@ -1854,13 +2243,31 @@ FACERIG_EXT_CC3PLUS = {
                 {
                     "bone": "CC_Base_Teeth01",
                     "axis": "y",
-                    "offset": -0.06047694757580757,
+                    "offset": 0, # -0.06047694757580757,
                     "scalar": 1.0,
                     "mode": "position"
-                },
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "teeth.T",
+                    "axis": "x",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
                 {
                     "bone": "teeth.T",
                     "axis": "z",
+                    "cc_axis": "y",
                     "offset": 0,
                     "scalar": -1.0,
                     "mode": "position"
@@ -1873,18 +2280,21 @@ FACERIG_EXT_CC3PLUS = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [117, 134],
-        "blendshapes": {},
         "bones":
         [
             {
                 "bone": "CC_Base_Teeth02",
                 "axis": "x",
-                "offset": 2.879988670349121,
+                "offset": 0, # 2.879988670349121,
                 "scalar": 1.0
-            },
+            }
+        ],
+        "rigify":
+        [
             {
                 "bone": "teeth.B",
                 "axis": "y",
+                "cc_axis": "x",
                 "offset": 0,
                 "scalar": -1.0
             }
@@ -1895,18 +2305,21 @@ FACERIG_EXT_CC3PLUS = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [118, 135],
-        "blendshapes": {},
         "bones":
         [
             {
                 "bone": "CC_Base_Teeth01",
                 "axis": "x",
-                "offset": -0.16094255447387695,
+                "offset": 0, # -0.16094255447387695,
                 "scalar": 1.0
-            },
+            }
+        ],
+        "rigify":
+        [
             {
                 "bone": "teeth.T",
                 "axis": "y",
+                "cc_axis": "x",
                 "offset": 0,
                 "scalar": -1.0
             }

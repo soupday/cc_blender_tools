@@ -523,6 +523,14 @@ def clean_up_unused():
         clean_collection(bpy.data.node_groups)
 
 
+def same_sign(a, b):
+    if a < 0 and b < 0:
+        return True
+    if a > 0 and b > 0:
+        return True
+    return False
+
+
 def clamp(x, min = 0.0, max = 1.0):
     if x < min:
         x = min
@@ -1102,26 +1110,30 @@ def try_select_child_objects(obj):
         return False
 
 
-def add_child_objects(obj, objects, follow_armatures = False):
+def add_child_objects(obj, objects, follow_armatures=False, of_type=None):
     for child in obj.children:
         if child not in objects:
             if child.type == "ARMATURE" and not follow_armatures:
                 continue
-            objects.append(child)
+            if not of_type or obj.type == of_type:
+                objects.append(child)
             if child.children:
-                add_child_objects(child, objects, follow_armatures)
+                add_child_objects(child, objects, follow_armatures, of_type)
 
 
-def expand_with_child_objects(objects):
+def expand_with_child_objects(objects, follow_armatures=False, of_type=None):
     for obj in objects:
-        add_child_objects(obj, objects)
+        if obj.type == "ARMATURE" and not follow_armatures:
+            continue
+        add_child_objects(obj, objects, follow_armatures, of_type)
 
 
-def get_child_objects(obj, include_parent = False, follow_armatures = False):
+def get_child_objects(obj, include_parent=False, follow_armatures=False, of_type=None):
     objects = []
     if include_parent:
-        objects.append(obj)
-    add_child_objects(obj, objects, follow_armatures)
+        if not of_type or obj.type == of_type:
+            objects.append(obj)
+    add_child_objects(obj, objects, follow_armatures, of_type)
     return objects
 
 

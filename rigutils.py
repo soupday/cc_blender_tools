@@ -282,6 +282,7 @@ def find_source_actions(source_action, source_rig=None):
         "count": 0,
         "armature": None,
         "keys": {},
+        "objects": {},
     }
 
     # try matching actions by set_id (disabled for now: testing name patterns first)
@@ -332,6 +333,7 @@ def find_source_actions(source_action, source_rig=None):
                 if action:
                     utils.log_info(f" - Found shape-key action: {action.name} for {obj_id}")
                     actions["keys"][obj_id] = action
+                    actions["objects"][obj_id] = obj
         return actions
 
     return actions
@@ -732,6 +734,64 @@ def push_motion_set(rig: bpy.types.Object, set_armature_action, push_index = 0):
                     track = obj.data.shape_keys.animation_data.nla_tracks.new()
                     strip = track.strips.new(action.name, frame, action)
                 strip.name = f"{action.name}|{push_index:03d}"
+
+
+def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=None):
+    # create object
+    bpy.ops.mesh.primitive_cube_add(size=0.1, enter_editmode=False,
+                                    align='WORLD',
+                                    location=(0, 0, 0),
+                                    scale=(1, 1, 1))
+    obj: bpy.types.Object = utils.get_active_object()
+    name = f"Key_Proxy_{obj_id}"
+    obj.name = name
+    obj.data.name = name
+    obj["key_proxy"] = "WqebNXksi9wLQwco1hyFQMlIYcbqWGZF"
+
+    if action:
+        for fcurve in action.fcurves:
+            data_path = fcurve.data_path
+            if data_path.startswith("key_blocks["):
+                key_name = data_path[12:-8]
+                key = obj.shape_key_add(name=key_name)
+                key.slider_max = 1.5
+                key.slider_min = -1.5
+
+    elif shape_keys:
+        for key_name in shape_keys:
+            key = obj.shape_key_add(name=key_name)
+            key.slider_max = 1.5
+            key.slider_min = -1.5
+
+    return obj
+
+
+def get_shape_key_action_objects(rigify_rig, source_rig=None, source_action=None, shape_keys=None):
+    objects = []
+
+    if source_rig and source_action:
+
+        source_actions = find_source_actions(source_action, source_rig)
+        for obj_id, obj_action in source_actions["keys"].items():
+            # we don't need all the objects, just these three
+            if obj_id in ["Body", "Tongue", "Eye"]:
+                obj = create_key_proxy_object(obj_id, obj_action)
+                utils.safe_set_action(obj.data.shape_keys, obj_action)
+                objects.append(obj)
+
+    elif shape_keys:
+
+        obj = create_key_proxy_object(f"Key_Proxy_{rigify_rig.name}", shape_keys=shape_keys)
+        utils.safe_set_action(obj.data.shape_keys, obj_action)
+        objects.append(obj)
+
+    return objects
+
+
+def clean_up_shape_key_action_objects():
+    for obj in bpy.data.objects:
+        if utils.prop(obj, "key_proxy") == "WqebNXksi9wLQwco1hyFQMlIYcbqWGZF":
+            utils.delete_object(obj)
 
 
 def get_nla_tracks(data):

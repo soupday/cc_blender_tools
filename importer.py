@@ -20,7 +20,7 @@ import bpy
 from enum import IntEnum, IntFlag
 
 from . import (rlx, characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
-               modifiers, wrinkle, drivers, meshutils, nodeutils, physics,
+               facerig, modifiers, wrinkle, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
                basic, properties, utils, vars)
 
@@ -1278,8 +1278,12 @@ class CC3Import(bpy.types.Operator):
             chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
 
             if chr_cache.rigified:
+                rigify_rig = chr_cache.get_armature()
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
-                rigging.add_shape_key_drivers(chr_cache, chr_cache.get_armature())
+                if rigutils.is_face_rig(rigify_rig):
+                    facerig.build_expression_rig_drivers(chr_cache, rigify_rig)
+                else:
+                    rigging.add_shape_key_drivers(chr_cache, chr_cache.get_armature())
             else:
                 objects = chr_cache.get_all_objects(include_armature=False,
                                                     of_type="MESH")
@@ -1323,12 +1327,19 @@ class CC3Import(bpy.types.Operator):
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
 
-            drivers.clear_facial_shape_key_bone_drivers(chr_cache)
-
-            driver_objects = chr_cache.get_all_objects(include_armature=False,
-                                                       of_type="MESH",
-                                                       only_selected=(props.build_mode=="SELECTED"))
-            drivers.add_body_shape_key_drivers(chr_cache, False, driver_objects)
+            if chr_cache.rigified:
+                # TODO removing drivers from a rigify rig is not a good idea ... ?
+                rigify_rig = chr_cache.get_armature()
+                if rigutils.is_face_rig(rigify_rig):
+                    ...
+                else:
+                    ...
+            else:
+                drivers.clear_facial_shape_key_bone_drivers(chr_cache)
+                driver_objects = chr_cache.get_all_objects(include_armature=False,
+                                                        of_type="MESH",
+                                                        only_selected=(props.build_mode=="SELECTED"))
+                drivers.add_body_shape_key_drivers(chr_cache, False, driver_objects)
 
         utils.log_timer("Done Build.", "s")
 

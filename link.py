@@ -741,9 +741,8 @@ def make_datalink_import_rig(actor: LinkActor):
         # (data on the original bones is added the ORG bones during rigify process)
         rigging.adv_retarget_remove_pair(None, chr_cache)
         if not chr_cache.rig_retarget_rig:
-            rigging.adv_retarget_pair_rigs(None, chr_cache,
-                                        rig_override=datalink_rig,
-                                        to_original_rig=True)
+            rigging.adv_retarget_pair_rigs(None, chr_cache, datalink_rig,
+                                                 to_original_rig=True)
 
     return datalink_rig
 
