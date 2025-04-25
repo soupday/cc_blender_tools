@@ -2535,7 +2535,7 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, t
     #    if op: op.report({'ERROR'}, "No Source Action!")
     #    utils.log_error("No Source Action!")
     #    return None
-    if source_action and not check_armature_action(source_rig, source_action):
+    if source_action and not check_armature_action(source_rig, source_action, fix_rotation_mode=True):
         if op: op.report({'ERROR'}, "Source Action does not match Source Armature!")
         utils.log_error("Source Action does not match Source Armature!")
         return None
@@ -2849,7 +2849,7 @@ def adv_retarget_shape_keys(op, chr_cache,
     if not rigutils.is_rigify_armature(rigify_rig):
         if op: op.report({'ERROR'}, "Character Armature is not a Rigify armature!")
         return
-    if not check_armature_action(source_rig, source_action):
+    if not check_armature_action(source_rig, source_action, fix_rotation_mode=False):
         if op: op.report({'ERROR'}, "Source Action does not match Source Armature!")
         return
 
@@ -3476,14 +3476,23 @@ def unify_cc3_bone_name(name):
     return name
 
 
-def check_armature_action(armature, action):
+def check_armature_action(rig, action, fix_rotation_mode=True):
     total = 0
     matching = 0
     if action.fcurves:
         for fcurve in action.fcurves:
             total += 1
-            bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
-            if bone_name and bone_name in armature.data.bones:
+            data_path = fcurve.data_path
+            bone_name = bones.get_bone_name_from_data_path(data_path)
+            if bone_name and bone_name in rig.pose.bones:
+                pose_bone = rig.pose.bones[bone_name]
+                if fix_rotation_mode:
+                    if data_path.endswith("rotation_quaternion") and pose_bone.rotation_mode != "QUATERNION":
+                        pose_bone.rotation_mode = "QUATERNION"
+                    elif data_path.endswith("rotation_euler") and pose_bone.rotation_mode not in [ "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX" ]:
+                        pose_bone.rotation_mode = "XYZ"
+                    elif data_path.endswith("rotation_axis_angle") and pose_bone.rotation_mode != "AXIS_ANGLE":
+                        pose_bone.rotation_mode = "AXIS_ANGLE"
                 matching += 1
     if total == 0 or matching == 0:
         return False
