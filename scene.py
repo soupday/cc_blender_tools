@@ -2020,12 +2020,8 @@ def align_to_head(context, container, use_delta_rot=True):
             loc = delta_rot @ loc
         child.location = loc + delta_loc
         if use_delta_rot:
-            if child.rotation_mode == "XYZ":
-                rot = child.rotation_euler.to_quaternion()
-            elif child.rotation_mode == "QUATERNION":
-                rot = child.rotation_quaternion
-            child.rotation_mode = "QUATERNION"
-            child.rotation_quaternion = delta_rot @ rot
+            rot = utils.get_transform_rotation(child)
+            utils.set_transform_rotation(child, delta_rot @ rot)
 
 
 def dump_location(o, delta_loc=None):
@@ -2361,8 +2357,7 @@ def create_backdrop(container, color, roughness):
             backdrop.parent = container
             backdrop.matrix_parent_inverse = container.matrix_world.inverted()
         backdrop.location = Vector((0.000, -0.994, 0.000))
-        backdrop.rotation_mode = "XYZ"
-        backdrop.rotation_euler = Euler((0.000, -0.000, 0.000), "XYZ")
+        utils.set_transform_rotation(backdrop, Euler((0, 0, 0), "XYZ"))
         backdrop[backdrop_prop] = True
     # Material
     material: bpy.types.Material = None

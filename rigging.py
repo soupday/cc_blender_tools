@@ -30,7 +30,7 @@ from . import drivers, bones
 from . import rigutils
 from . import rigify_mapping_data
 from . import facerig
-from mathutils import Vector, Matrix, Quaternion
+from mathutils import Vector, Matrix, Quaternion, Euler
 
 BONEMAP_METARIG_NAME = 0 # metarig bone name or rigify rig basename
 BONEMAP_CC_HEAD = 1      # CC rig source bone and (head) postion of head bone
@@ -1950,7 +1950,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                     continue
 
                 org_parent_bone_name = retarget_def[1]
-                utils.log_info(f"Generating retarget ORG bone: {org_bone_name}")
+                utils.log_detail(f"Generating retarget ORG bone: {org_bone_name}")
                 flags = retarget_def[4]
                 head_pos = rigify_rig.matrix_world @ Vector((0,0,0))
                 tail_pos = rigify_rig.matrix_world @ Vector((0,0,0.01))
@@ -1998,7 +1998,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                 # parent retarget correction, add corrective parent pivot bone and insert into parent chain
                 if "P" in flags or "T" in flags:
                     pivot_bone_name = org_bone_name + "_pivot"
-                    utils.log_info(f"Adding parent correction pivot: {pivot_bone_name} -> {org_bone_name}")
+                    utils.log_detail(f"Adding parent correction pivot: {pivot_bone_name} -> {org_bone_name}")
                     ORG_BONES[pivot_bone_name] = [org_parent_bone_name,
                             head_pos, tail_pos, parent_pos,
                             use_connect,
@@ -2213,7 +2213,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
 
                 # very important to align the roll of the source and ORG bones.
                 if len(bone_def) >= 11:
-                    utils.log_info(f"Aligning bone roll: {org_bone_name}")
+                    utils.log_detail(f"Aligning bone roll: {org_bone_name}")
                     b.align_roll(bone_def[10])
                 else:
                     utils.log_warn(f"Bone roll axis not stored for {org_bone_name}")
@@ -2231,7 +2231,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
 
             # add the rigify control rig bones we want to retarget to:
             for rigify_bone_name in RIGIFY_BONES:
-                utils.log_info(f"Adding Rigify target control bone {rigify_bone_name}")
+                utils.log_detail(f"Adding Rigify target control bone {rigify_bone_name}")
                 bone_def = RIGIFY_BONES[rigify_bone_name]
                 b = retarget_rig.data.edit_bones.new(rigify_bone_name)
                 b.parent = bones.get_edit_bone(retarget_rig, bone_def[0])
@@ -2508,7 +2508,8 @@ def adv_preview_retarget(op, chr_cache):
             adv_retarget_shape_keys(op, chr_cache)
 
 
-def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, to_original_rig=False):
+def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, to_original_rig=False,
+                           objects: list=None, shape_keys: list=None):
     props = vars.props()
     rigify_rig = chr_cache.get_armature()
     if not source_rig:
@@ -2520,18 +2521,23 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, t
 
     if not source_rig:
         if op: op.report({'ERROR'}, "No source Armature!")
+        utils.log_error("No source Armature!")
         return None
     if not rigify_rig:
         if op: op.report({'ERROR'}, "No Rigify Armature!")
+        utils.log_error("No Rigify Armature!")
         return None
     if not rigutils.is_rigify_armature(rigify_rig):
             if op: op.report({'ERROR'}, "Character Armature is not a Rigify armature!")
+            utils.log_error("Character Armature is not a Rigify armature!")
             return None
-    if not source_action:
-        if op: op.report({'ERROR'}, "No Source Action!")
-        return None
-    if not check_armature_action(source_rig, source_action):
+    #if not source_action:
+    #    if op: op.report({'ERROR'}, "No Source Action!")
+    #    utils.log_error("No Source Action!")
+    #    return None
+    if source_action and not check_armature_action(source_rig, source_action):
         if op: op.report({'ERROR'}, "Source Action does not match Source Armature!")
+        utils.log_error("Source Action does not match Source Armature!")
         return None
 
     source_type, source_label = rigutils.get_armature_action_source_type(source_rig, source_action)
@@ -2549,13 +2555,21 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, t
 
     utils.reset_object_transform(rigify_rig)
     utils.reset_object_transform(source_rig)
+    # reset the pose on the rigify rig as non animated bones/shape keys will retain their values
+    # (and only the animated bones/keys are present in motion exports)
+    rigutils.reset_pose(rigify_rig)
 
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_retargeting_rig(chr_cache, source_rig, rigify_rig,
                                             retarget_data, to_original_rig=to_original_rig)
+
     if rigutils.is_face_rig(rigify_rig):
-        objects = rigutils.get_shape_key_action_objects(rigify_rig, source_rig, source_action)
-        facerig.build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, objects)
+        shape_key_only = shape_keys is not None
+        proxy_objects = rigutils.get_shape_key_action_objects(rigify_rig, source_rig, source_action, shape_keys)
+        facerig.build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, proxy_objects, shape_key_only)
+        if proxy_objects and objects is not None:
+            objects.extend(proxy_objects)
+
     chr_cache.rig_retarget_rig = retarget_rig
     chr_cache.rig_retarget_source_rig = source_rig
     rigutils.select_rig(rigify_rig)
@@ -2624,7 +2638,7 @@ def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None
 
 
 FK_BONE_GROUPS = ["FK", "Special", "Tweak", "Extra", "Root"]
-FK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
+FK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)", "Face (Expressions)",
                        "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
                        "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (FK)", "Leg.L (Tweak)",
                        "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (FK)", "Leg.R (Tweak)",
@@ -2632,20 +2646,15 @@ FK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
                        "Spring (FK)", "Spring (Tweak)"]
 
 IK_BONE_GROUPS = ["IK", "Special", "Tweak", "Extra", "Root"]
-IK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
+IK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)", "Face (Expressions)",
                        "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
                        "Arm.L (IK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (Tweak)",
                        "Arm.R (IK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (Tweak)",
                        "Root",
                        "Spring (IK)", "Spring (Tweak)"]
 
-BOTH_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
-BOTH_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
-                         "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
-                         "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
-                         "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
-                         "Root",
-                         "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
+EXTRA_FK_BAKE_COLLECTIONS = [ "Face (Expressions)" ]
+EXTRA_IK_BAKE_COLLECTIONS = [ "Face (Expressions)" ]
 
 
 def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
@@ -2666,16 +2675,20 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
 
         rigify_settings = bones.store_armature_settings(rigify_rig)
 
-        BONE_COLLECTIONS = BOTH_BONE_COLLECTIONS
-        BONE_GROUPS = BOTH_BONE_GROUPS
         if prefs.rigify_preview_retarget_fk_ik == "FK":
             BONE_COLLECTIONS = FK_BONE_COLLECTIONS
             BONE_GROUPS = FK_BONE_GROUPS
+            EXTRA_BAKE = EXTRA_FK_BAKE_COLLECTIONS
             rigutils.set_rigify_ik_fk_influence(rigify_rig, 1.0)
         elif prefs.rigify_preview_retarget_fk_ik == "IK":
             BONE_COLLECTIONS = IK_BONE_COLLECTIONS
             BONE_GROUPS = IK_BONE_GROUPS
+            EXTRA_BAKE = EXTRA_IK_BAKE_COLLECTIONS
             rigutils.set_rigify_ik_fk_influence(rigify_rig, 0.0)
+        else:
+            BONE_COLLECTIONS = utils.merge(FK_BONE_COLLECTIONS, IK_BONE_COLLECTIONS)
+            BONE_GROUPS = utils.merge(FK_BONE_GROUPS, IK_BONE_GROUPS)
+            EXTRA_BAKE = utils.merge(EXTRA_FK_BAKE_COLLECTIONS, EXTRA_IK_BAKE_COLLECTIONS)
 
         # select just the retargeted bones in the rigify rig, to bake:
         if rigutils.select_rig(rigify_rig):
@@ -2688,6 +2701,9 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
                                                     BONE_COLLECTIONS,
                                                     BONE_GROUPS):
                         bone.select = True
+
+                elif bones.is_bone_in_collections(rigify_rig, bone, EXTRA_BAKE):
+                    bone.select = True
 
 
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action,
@@ -2718,8 +2734,6 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
     armature_action = None
     shape_key_actions = None
 
-    BONE_COLLECTIONS = BOTH_BONE_COLLECTIONS
-    BONE_GROUPS = BOTH_BONE_GROUPS
     if prefs.rigify_bake_nla_fk_ik == "FK":
         BONE_COLLECTIONS = FK_BONE_COLLECTIONS
         BONE_GROUPS = FK_BONE_GROUPS
@@ -2728,6 +2742,9 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
         BONE_COLLECTIONS = IK_BONE_COLLECTIONS
         BONE_GROUPS = IK_BONE_GROUPS
         rigutils.set_rigify_ik_fk_influence(rigify_rig, 0.0)
+    else:
+        BONE_COLLECTIONS = utils.merge(FK_BONE_COLLECTIONS, IK_BONE_COLLECTIONS)
+        BONE_GROUPS = utils.merge(FK_BONE_GROUPS, IK_BONE_GROUPS)
 
     if rigutils.select_rig(rigify_rig):
 
@@ -3070,12 +3087,8 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
             if left_arm_name in export_rig.pose.bones and right_arm_name in export_rig.pose.bones:
                 left_arm_bone : bpy.types.PoseBone = export_rig.pose.bones[left_arm_name]
                 right_arm_bone : bpy.types.PoseBone  = export_rig.pose.bones[right_arm_name]
-                left_arm_bone.rotation_mode = "XYZ"
-                left_arm_bone.rotation_euler = [0,0,angle]
-                left_arm_bone.rotation_mode = "QUATERNION"
-                right_arm_bone.rotation_mode = "XYZ"
-                right_arm_bone.rotation_euler = [0,0,-angle]
-                right_arm_bone.rotation_mode = "QUATERNION"
+                utils.set_transform_rotation(left_arm_bone, Euler((0,0,angle)))
+                utils.set_transform_rotation(right_arm_bone, Euler((0,0,-angle)))
 
         if t_pose_action:
             # make first keyframe
@@ -3199,8 +3212,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
 
     rigify_rig = chr_cache.get_armature()
     rigify_rig.location = (0,0,0)
-    rigify_rig.rotation_mode = "XYZ"
-    rigify_rig.rotation_euler = (0,0,0)
+    utils.set_transform_rotation(rigify_rig, Euler(0,0,0))
 
     action_name = "Export_NLA"
     export_bake_action, export_bake_source_type = get_bake_action(chr_cache)
@@ -3220,8 +3232,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
                                                                        link_target=False,
                                                                        bone_naming=bone_naming)
     export_rig.location = (0,0,0)
-    export_rig.rotation_mode = "XYZ"
-    export_rig.rotation_euler = (0,0,0)
+    utils.set_transform_rotation(export_rig, Euler(0,0,0))
 
     if rigutils.select_rig(export_rig):
         export_rig.data.pose_position = "POSE"
@@ -3392,7 +3403,7 @@ def bake_rig_animation(chr_cache, rig, source_action,
                          only_selected=True,
                          visual_keying=True,
                          use_current_action=False,
-                         clear_constraints=clear_constraints,
+                         #clear_constraints=clear_constraints,
                          clean_curves=False,
                          bake_types={'POSE'})
 

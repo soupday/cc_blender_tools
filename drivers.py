@@ -483,7 +483,17 @@ def clear_facial_shape_key_bone_drivers(chr_cache):
                         pose_bone.driver_remove("rotation_euler", 0)
                         pose_bone.driver_remove("rotation_euler", 1)
                         pose_bone.driver_remove("rotation_euler", 2)
-                        pose_bone.rotation_mode = "QUATERNION"
+                        pose_bone.driver_remove("rotation_quaternion", 0)
+                        pose_bone.driver_remove("rotation_quaternion", 1)
+                        pose_bone.driver_remove("rotation_quaternion", 2)
+                        pose_bone.driver_remove("rotation_quaternion", 3)
+                        pose_bone.driver_remove("rotation_axis_angle", 0)
+                        pose_bone.driver_remove("rotation_axis_angle", 1)
+                        pose_bone.driver_remove("rotation_axis_angle", 2)
+                        pose_bone.driver_remove("rotation_axis_angle", 3)
+                        pose_bone.driver_remove("scale", 0)
+                        pose_bone.driver_remove("scale", 1)
+                        pose_bone.driver_remove("scale", 2)
 
 
 def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
@@ -517,7 +527,17 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
                     pose_bone.driver_remove("rotation_euler", 0)
                     pose_bone.driver_remove("rotation_euler", 1)
                     pose_bone.driver_remove("rotation_euler", 2)
-                    pose_bone.rotation_mode = "QUATERNION"
+                    pose_bone.driver_remove("rotation_quaternion", 0)
+                    pose_bone.driver_remove("rotation_quaternion", 1)
+                    pose_bone.driver_remove("rotation_quaternion", 2)
+                    pose_bone.driver_remove("rotation_quaternion", 3)
+                    pose_bone.driver_remove("rotation_axis_angle", 0)
+                    pose_bone.driver_remove("rotation_axis_angle", 1)
+                    pose_bone.driver_remove("rotation_axis_angle", 2)
+                    pose_bone.driver_remove("rotation_axis_angle", 3)
+                    pose_bone.driver_remove("scale", 0)
+                    pose_bone.driver_remove("scale", 1)
+                    pose_bone.driver_remove("scale", 2)
 
     # refactor shape key driver list by bone_name, property and array property index
     for key_name in SHAPE_KEY_DRIVERS.keys():

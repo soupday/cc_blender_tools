@@ -4,7 +4,7 @@ import atexit
 from enum import IntEnum
 import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
-from mathutils import Vector, Quaternion, Matrix, Color
+from mathutils import Vector, Quaternion, Matrix, Color, Euler
 from . import (rlx, importer, exporter, bones, geom, colorspace,
                world, rigging, rigutils, drivers, modifiers,
                jsonutils, utils, vars)
@@ -312,8 +312,7 @@ class LinkActor():
         for id, id_def in self.id_map.items():
             if id_def["mesh"]:
                 obj = bpy.data.objects[id_def["name"]]
-                obj.rotation_mode = "QUATERNION"
-                skin_meshes[id] = [obj, obj.location.copy(), obj.rotation_quaternion.copy(), obj.scale.copy()]
+                skin_meshes[id] = [obj, Vector((0,0,0), Quaternion((1,0,0,0)), Vector(1,1,1))]
         self.skin_meshes = skin_meshes
 
     def set_id_tree(self, bones, ids, id_tree):
@@ -664,7 +663,7 @@ def convert_id_tree(arm, id_tree_root):
     return id_tree, id_map
 
 
-def make_datalink_import_rig(actor: LinkActor):
+def make_datalink_import_rig(actor: LinkActor, objects: list):
     """Creates or re-uses and existing datalink pose rig for the character.
        This uses a pre-generated character template (list of bones in the character)
        sent from CC/iC to avoid encoding the bone names into the pose data stream."""
@@ -688,6 +687,10 @@ def make_datalink_import_rig(actor: LinkActor):
         actor.rig_bones = actor.bones.copy()
         utils.unhide(chr_cache.rig_datalink_rig)
         #utils.log_info(f"Using existing datalink transfer rig: {chr_cache.rig_datalink_rig.name}")
+        # add child proxy objects
+        for obj in chr_cache.rig_datalink_rig.children:
+            if utils.object_exists_is_mesh(obj):
+                objects.append(obj)
         return chr_cache.rig_datalink_rig
 
     rig_name = f"{chr_cache.character_name}_Link_Rig"
@@ -716,7 +719,7 @@ def make_datalink_import_rig(actor: LinkActor):
 
         utils.object_mode_to(datalink_rig)
 
-        # constraint character armature if not rigified
+        # constrain character armature if not rigified
         if not chr_cache.rigified:
             for i, rig_bone_name in enumerate(rig_bones):
                 sk_bone_name = actor.bones[i]
@@ -742,8 +745,9 @@ def make_datalink_import_rig(actor: LinkActor):
         rigging.adv_retarget_remove_pair(None, chr_cache)
         if not chr_cache.rig_retarget_rig:
             rigging.adv_retarget_pair_rigs(None, chr_cache, datalink_rig,
-                                                 to_original_rig=True)
-
+                                                 to_original_rig=True,
+                                                 objects=objects,
+                                                 shape_keys=actor.expressions)
     return datalink_rig
 
 
@@ -835,12 +839,26 @@ def prev_frame(current_frame=None):
     return current_frame
 
 
-def create_fcurves_cache(count, indices, defaults):
+def create_rotation_fcurves_cache(obj, count):
+    if obj.rotation_mode == "QUATERNION":
+        indices = 4
+        defaults = [1,0,0,0]
+    elif obj.rotation_mode == "AXIS_ANGLE":
+        indices = 4
+        defaults = [0,0,1,0]
+    else: # transform_object.rotation_mode in [ "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX" ]:
+        indices = 3
+        defaults = [0,0,0]
+    return create_fcurves_cache(count, indices, defaults, cache_type=obj.rotation_mode)
+
+
+def create_fcurves_cache(count, indices, defaults, cache_type="VALUE"):
     curves = []
     cache = {
         "count": count,
         "indices": indices,
         "curves": curves,
+        "type": cache_type,
     }
     for i in range(0, indices):
         d = defaults[i]
@@ -920,7 +938,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
             }
 
             transform_cache["loc"] = create_fcurves_cache(count, 3, [0,0,0])
-            transform_cache["rot"] = create_fcurves_cache(count, 4, [1,0,0,0])
+            transform_cache["rot"] = create_rotation_fcurves_cache(actor.object, count)
             transform_cache["sca"] = create_fcurves_cache(count, 3, [1,1,1])
             light_cache["color"] = create_fcurves_cache(count, 3, [1,1,1])
             light_cache["energy"] = create_fcurves_cache(count, 1, [1])
@@ -957,7 +975,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
             }
 
             transform_cache["loc"] = create_fcurves_cache(count, 3, [0,0,0])
-            transform_cache["rot"] = create_fcurves_cache(count, 4, [1,0,0,0])
+            transform_cache["rot"] = create_rotation_fcurves_cache(actor.object, count)
             transform_cache["sca"] = create_fcurves_cache(count, 3, [1,1,1])
             camera_cache["lens"] = create_fcurves_cache(count, 1, [50])
             camera_cache["dof"] = create_fcurves_cache(count, 1, [1])
@@ -1029,6 +1047,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
 
                 BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Root"] #not Tweak and Extra
                 BAKE_BONE_COLLECTIONS = ["Face", #"Face (Primary)", "Face (Secondary)",
+                                         "Face (Expressions)",
                                          "Torso", "Torso (Tweak)",
                                          "Fingers", "Fingers (Detail)",
                                          "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)",
@@ -1036,6 +1055,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                                          "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)",
                                          "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
                                          "Root"]
+                SHOW_BONE_COLLECTIONS = [ "Face (UI)" ].extend(BAKE_BONE_COLLECTIONS)
                 # TODO These bones may need to have their pose reset as they are damped tracked in the rig
                 BAKE_BONE_EXCLUSIONS = [
                     "thigh_ik.L", "thigh_ik.R", "thigh_parent.L", "thigh_parent.R",
@@ -1045,7 +1065,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                 if utils.object_mode_to(rig):
                     bone: bpy.types.Bone
                     pose_bone: bpy.types.PoseBone
-                    bones.make_bones_visible(rig, collections=BAKE_BONE_COLLECTIONS, layers=BAKE_BONE_LAYERS)
+                    bones.make_bones_visible(rig, collections=SHOW_BONE_COLLECTIONS, layers=BAKE_BONE_LAYERS)
                     for pose_bone in rig.pose.bones:
                         bone = pose_bone.bone
                         bone.select = False
@@ -1056,7 +1076,6 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                                 if bones.can_unlock(pose_bone):
                                     bone.hide_select = False
                                 bone.select = True
-                                pose_bone.rotation_mode = "QUATERNION"
             else:
                 if utils.object_mode_to(rig):
                     bone: bpy.types.Bone
@@ -1067,7 +1086,6 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                         if bones.can_unlock(pose_bone):
                             bone.hide_select = False
                         bone.select = True
-                        #pose_bone.rotation_mode = "QUATERNION"
 
             # create keyframe cache for animation sequences
             if LINK_DATA.set_keyframes:
@@ -1092,7 +1110,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                     if bone.select:
                         loc_cache = create_fcurves_cache(count, 3, [0,0,0])
                         sca_cache = create_fcurves_cache(count, 3, [1,1,1])
-                        rot_cache = create_fcurves_cache(count, 4, [1,0,0,0])
+                        rot_cache = create_rotation_fcurves_cache(pose_bone, count)
                         bone_cache[bone_name] = {
                             "loc": loc_cache,
                             "sca": sca_cache,
@@ -1130,7 +1148,33 @@ def key_frame_pose_visual():
 def store_cache_curves_frame(cache, prop, frame, start, value):
     T = type(value)
     index = (frame - start) * 2
-    if T is Vector or T is Color or T is Quaternion or T is tuple or T is list:
+    if T is Quaternion:
+        cache_type = cache[prop]["type"]
+        if cache_type == "QUATERNION":
+            l = len(value)
+            for i in range(0, l):
+                curve = cache[prop]["curves"][i]
+                curve[index] = frame
+                curve[index + 1] = value[i]
+        elif cache_type == "AXIS_ANGLE":
+            # convert quaternion to angle axis
+            v,a = value.to_axis_angle()
+            l = len(v)
+            for i in range(0, l):
+                curve = cache[prop]["curves"][i]
+                curve[index] = frame
+                curve[index + 1] = v[i]
+            curve = cache[prop]["curves"][3]
+            curve[index] = frame
+            curve[index + 1] = a
+        else:
+            euler = value.to_euler(cache_type)
+            l = len(euler)
+            for i in range(0, l):
+                curve = cache[prop]["curves"][i]
+                curve[index] = frame
+                curve[index + 1] = euler[i]
+    elif T is Vector or T is Color or T is tuple or T is list:
         l = len(value)
         for i in range(0, l):
             curve = cache[prop]["curves"][i]
@@ -1238,6 +1282,24 @@ def store_camera_cache_keyframes(actor: LinkActor, frame):
     store_cache_curves_frame(camera_cache, "f_stop", frame, start, data.dof.aperture_fstop)
 
 
+def write_action_rotation_cache_curve(action: bpy.types.Action, cache, prop, obj, num_frames, group_name=None, slot=None):
+    cache_type = cache[prop]["type"]
+    data_path = None
+    if cache_type == "QUATERNION":
+        data_path = obj.path_from_id("rotation_quaternion")
+        if not group_name:
+            group_name = "Rotation Quaternion"
+    elif cache_type == "AXIS_ANGLE":
+        data_path = obj.path_from_id("rotation_axis_angle")
+        if not group_name:
+            group_name = "Rotation Axis-Angle"
+    else:
+        data_path = obj.path_from_id("rotation_euler")
+        if not group_name:
+            group_name = "Rotation Euler"
+    write_action_cache_curve(action, cache, prop, data_path, num_frames, group_name, slot=slot)
+
+
 def write_action_cache_curve(action: bpy.types.Action, cache, prop, data_path, num_frames, group_name, slot=None):
     if not LINK_DATA.set_keyframes: return
     prop_cache = cache[prop]
@@ -1266,28 +1328,20 @@ def write_sequence_actions(actor: LinkActor, num_frames):
             rig = actor.cache["rig"]
             rig_action = utils.safe_get_action(rig)
             objects, none_objects = actor.get_sequence_objects()
-            set_count = num_frames * 2
 
             if rig_action:
                 utils.clear_action(rig_action, "OBJECT", rig_action.name)
                 bone_cache = actor.cache["bones"]
                 for bone_name in bone_cache:
                     pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
-                    loc_cache = bone_cache[bone_name]["loc"]
-                    sca_cache = bone_cache[bone_name]["sca"]
-                    rot_cache = bone_cache[bone_name]["rot"]
-                    if LINK_DATA.set_keyframes:
-                        write_action_cache_curve(rig_action, bone_cache[bone_name], "loc",
-                                                 pose_bone.path_from_id("location"), num_frames, bone_name)
-                        write_action_cache_curve(rig_action, bone_cache[bone_name], "rot",
-                                                 pose_bone.path_from_id("rotation_quaternion"), num_frames, bone_name)
-                        write_action_cache_curve(rig_action, bone_cache[bone_name], "sca",
-                                                 pose_bone.path_from_id("scale"), num_frames, bone_name)
-                    else:
-                        pose_bone.location = [x[1] for x in loc_cache["curves"]][0:3]
-                        pose_bone.scale = [x[1] for x in sca_cache["curves"]][0:3]
-                        pose_bone.rotation_quaternion = [x[1] for x in rot_cache["curves"]][0:4]
-                utils.safe_set_action(rig, rig_action) # re-apply action to fix slot
+                    write_action_cache_curve(rig_action, bone_cache[bone_name], "loc",
+                                                pose_bone.path_from_id("location"), num_frames, bone_name)
+                    write_action_rotation_cache_curve(rig_action, bone_cache[bone_name], "rot",
+                                                pose_bone, num_frames, group_name=bone_name)
+                    write_action_cache_curve(rig_action, bone_cache[bone_name], "sca",
+                                                pose_bone.path_from_id("scale"), num_frames, bone_name)
+                # re-apply action to fix slot
+                utils.safe_set_action(rig, rig_action)
 
             expression_cache = actor.cache["expressions"]
             viseme_cache = actor.cache["visemes"]
@@ -1297,23 +1351,16 @@ def write_sequence_actions(actor: LinkActor, num_frames):
                     utils.clear_action(obj_action, "KEY", obj_action.name)
                     for expression_name in expression_cache:
                         if expression_name in obj.data.shape_keys.key_blocks:
-                            key_cache = expression_cache[expression_name]
                             key = obj.data.shape_keys.key_blocks[expression_name]
-                            if LINK_DATA.set_keyframes:
-                                write_action_cache_curve(obj_action, expression_cache, expression_name,
-                                                         key.path_from_id("value"), num_frames, "Expression")
-                            else:
-                                key.value = key_cache["curves"][0][:set_count][1]
+                            write_action_cache_curve(obj_action, expression_cache, expression_name,
+                                                        key.path_from_id("value"), num_frames, "Expression")
                     for viseme_name in viseme_cache:
                         if viseme_name in obj.data.shape_keys.key_blocks:
-                            key_cache = viseme_cache[viseme_name]
                             key = obj.data.shape_keys.key_blocks[viseme_name]
-                            if LINK_DATA.set_keyframes:
-                                write_action_cache_curve(obj_action, viseme_cache, viseme_name,
-                                                         key.path_from_id("value"), num_frames, "Viseme")
-                            else:
-                                key.value = key_cache["curves"][0][:set_count][1]
+                            write_action_cache_curve(obj_action, viseme_cache, viseme_name,
+                                                        key.path_from_id("value"), num_frames, "Viseme")
                     utils.safe_set_action(obj.data.shape_keys, obj_action) # re-apply action to fix slot
+
             # remove actions from non sequence objects
             for obj in none_objects:
                 utils.safe_set_action(obj.data.shape_keys, None)
@@ -1326,7 +1373,7 @@ def write_sequence_actions(actor: LinkActor, num_frames):
             ob_slot = utils.get_action_slot(ob_action, "OBJECT")
             light_slot = utils.get_action_slot(light_action, "LIGHT")
             write_action_cache_curve(ob_action, actor.cache["transform"], "loc", "location", num_frames, "Location", slot=ob_slot)
-            write_action_cache_curve(ob_action, actor.cache["transform"], "rot", "rotation_quaternion", num_frames, "Rotation Quaternion", slot=ob_slot)
+            write_action_rotation_cache_curve(ob_action, actor.cache["transform"], "rot", light, num_frames, slot=ob_slot)
             write_action_cache_curve(ob_action, actor.cache["transform"], "sca", "scale", num_frames, "Scale", slot=ob_slot)
             write_action_cache_curve(light_action, actor.cache["light"], "color", "color", num_frames, "Light", slot=light_slot)
             write_action_cache_curve(light_action, actor.cache["light"], "energy", "energy", num_frames, "Light", slot=light_slot)
@@ -1334,8 +1381,9 @@ def write_sequence_actions(actor: LinkActor, num_frames):
             if light.type == "SPOT":
                 write_action_cache_curve(light_action, actor.cache["light"], "spot_blend", "spot_blend", num_frames, "Spotlight", slot=light_slot)
                 write_action_cache_curve(light_action, actor.cache["light"], "spot_size", "spot_size", num_frames, "Spotlight", slot=light_slot)
-            utils.safe_set_action(light, ob_action) # re-apply action to fix slot
-            utils.safe_set_action(light.data, light_action) # re-apply action to fix slot
+            # re-apply actions to fix slot
+            utils.safe_set_action(light, ob_action)
+            utils.safe_set_action(light.data, light_action)
 
         elif actor.get_type() == "CAMERA":
 
@@ -1345,14 +1393,15 @@ def write_sequence_actions(actor: LinkActor, num_frames):
             ob_slot = utils.get_action_slot(ob_action, "OBJECT")
             cam_slot = utils.get_action_slot(cam_action, "CAMERA")
             write_action_cache_curve(ob_action, actor.cache["transform"], "loc", "location", num_frames, "Location", slot=ob_slot)
-            write_action_cache_curve(ob_action, actor.cache["transform"], "rot", "rotation_quaternion", num_frames, "Rotation Quaternion", slot=ob_slot)
+            write_action_rotation_cache_curve(ob_action, actor.cache["transform"], "rot", camera, num_frames, slot=ob_slot)
             write_action_cache_curve(ob_action, actor.cache["transform"], "sca", "scale", num_frames, "Scale", slot=ob_slot)
             write_action_cache_curve(cam_action, actor.cache["camera"], "lens", "lens", num_frames, "Light", slot=cam_slot)
             write_action_cache_curve(cam_action, actor.cache["camera"], "dof", "dof.use_dof", num_frames, "Light", slot=cam_slot)
             write_action_cache_curve(cam_action, actor.cache["camera"], "focus_distance", "dof.focus_distance", num_frames, "Light", slot=cam_slot)
             write_action_cache_curve(cam_action, actor.cache["camera"], "f_stop", "dof.aperture_f_stop", num_frames, "Light", slot=cam_slot)
-            utils.safe_set_action(camera, ob_action) # re-apply action to fix slot
-            utils.safe_set_action(camera.data, cam_action) # re-apply action to fix slot
+            # re-apply actions to fix slot
+            utils.safe_set_action(camera, ob_action)
+            utils.safe_set_action(camera.data, cam_action)
 
         actor.clear_cache()
 
@@ -2894,8 +2943,7 @@ class LinkService():
             if rig:
                 rig.location = Vector((0, 0, 0))
                 rot_mode = rig.rotation_mode
-                rig.rotation_mode = "QUATERNION"
-                rig.rotation_quaternion = Quaternion((1, 0, 0, 0))
+                utils.set_transform_rotation(rig, Quaternion((1, 0, 0, 0)))
                 if actor.get_chr_cache().rigified:
                     rig.scale = Vector((1, 1, 1))
                 else:
@@ -2904,7 +2952,7 @@ class LinkService():
 
             if character_type == "PROP" or character_type == "AVATAR":
 
-                datalink_rig = make_datalink_import_rig(actor) if actor_ready else None
+                datalink_rig = make_datalink_import_rig(actor, objects) if actor_ready else None
 
                 # unpack bone transforms
                 num_bones = struct.unpack_from("!I", pose_data, offset)[0]
@@ -2929,12 +2977,9 @@ class LinkService():
                                 loc = Vector((tx, ty, tz)) * 0.01
                                 rot = Quaternion((rw, rx, ry, rz))
                                 sca = Vector((sx, sy, sz))
-                                #rot_mode = pose_bone.rotation_mode
-                                pose_bone.rotation_mode = "QUATERNION"
-                                pose_bone.rotation_quaternion = rot
+                                utils.set_transform_rotation(pose_bone, rot)
                                 pose_bone.location = loc
                                 pose_bone.scale = sca
-                                #pose_bone.rotation_mode = rot_mode
 
                 # unpack the expression shape keys into the mesh objects
                 num_weights = struct.unpack_from("!I", pose_data, offset)[0]

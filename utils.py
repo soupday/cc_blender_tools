@@ -1889,10 +1889,7 @@ def align_object_to_view(obj, context):
         v = Vector((0,0,1)) * D
 
         obj.location = loc + rot @ v
-        if obj.rotation_mode == "XYZ":
-            obj.rotation_euler = rot.to_euler()
-        elif obj.rotation_mode == "QUATERNION":
-            obj.rotation_quaternion = rot.copy()
+        set_transform_rotation(obj, rot)
 
 
 def copy_action(action: bpy.types.Action, new_name):
@@ -2523,6 +2520,46 @@ def make_transform_matrix(loc: Vector, rot: Quaternion, sca: Vector):
     return Matrix.Translation(loc) @ (rot.to_matrix().to_4x4()) @ Matrix.Diagonal(sca).to_4x4()
 
 
+def set_transform_rotation(obj: bpy.types.Object, rotation: Quaternion):
+    if obj and rotation:
+        T = type(rotation)
+        if T is Euler:
+            rotation_quaternion = Quaternion(rotation)
+        elif T is tuple and len(rotation) == 2:
+            axis, angle = rotation
+            rotation_quaternion = axis_angle_to_quaternion(axis, angle)
+        elif T is Quaternion:
+            rotation_quaternion = rotation.copy()
+        else:
+            return
+
+        if obj.rotation_mode == "QUATERNION":
+            obj.rotation_quaternion = rotation_quaternion
+        elif obj.rotation_mode == "AXIS_ANGLE":
+            axis_angle = rotation_quaternion.to_axis_angle()
+            obj.rotation_axis_angle = axis_angle
+        else:
+            euler = rotation_quaternion.to_euler(obj.rotation_mode)
+            obj.rotation_euler = euler
+
+
+def axis_angle_to_quaternion(axis: Vector, angle: float):
+    return Matrix.Rotation(angle, 4, axis).to_quaternion()
+
+
+def get_transform_rotation(obj: bpy.types.Object) -> Quaternion:
+    if obj:
+        if obj.rotation_mode == "QUATERNION":
+            return obj.rotation_quaternion.copy()
+        elif obj.rotation_mode == "AXIS_ANGLE":
+            axis = obj.rotation_axis_angle[0:3]
+            angle = obj.rotation_axis_angle[3]
+            return axis_angle_to_quaternion(axis, angle)
+        else:
+            return Quaternion(obj.rotation_euler)
+    return None
+
+
 def is_local_view(context):
     try:
         return context.space_data.local_view is not None
@@ -2570,8 +2607,7 @@ def make_empty(name, loc=None, rot=None, scale=None, matrix=None):
         if loc:
             ob.location = loc
         if rot:
-            ob.rotation_mode = "QUATERNION"
-            ob.rotation_quaternion = rot
+            set_transform_rotation(ob, rot)
         if scale:
             ob.scale = scale
     bpy.context.scene.collection.objects.link(ob)
@@ -2632,6 +2668,14 @@ def prop(obj, prop_name, default=None):
     if obj and prop_name in obj:
         return obj[prop_name]
     return default
+
+
+def merge(a: list, b: list):
+    c = a.copy()
+    for i in b:
+        if i not in c:
+            c.append(i)
+    return c
 
 
 def fix_texture_rel_path(rel_path: str):

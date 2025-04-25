@@ -736,7 +736,7 @@ def push_motion_set(rig: bpy.types.Object, set_armature_action, push_index = 0):
                 strip.name = f"{action.name}|{push_index:03d}"
 
 
-def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=None):
+def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=None, parent=None):
     # create object
     bpy.ops.mesh.primitive_cube_add(size=0.1, enter_editmode=False,
                                     align='WORLD',
@@ -747,6 +747,9 @@ def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=No
     obj.name = name
     obj.data.name = name
     obj["key_proxy"] = "WqebNXksi9wLQwco1hyFQMlIYcbqWGZF"
+    if parent:
+        obj.parent = parent
+    obj.hide_set(True)
 
     if action:
         for fcurve in action.fcurves:
@@ -766,7 +769,7 @@ def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=No
     return obj
 
 
-def get_shape_key_action_objects(rigify_rig, source_rig=None, source_action=None, shape_keys=None):
+def get_shape_key_action_objects(rigify_rig, source_rig, source_action=None, shape_keys=None):
     objects = []
 
     if source_rig and source_action:
@@ -775,14 +778,13 @@ def get_shape_key_action_objects(rigify_rig, source_rig=None, source_action=None
         for obj_id, obj_action in source_actions["keys"].items():
             # we don't need all the objects, just these three
             if obj_id in ["Body", "Tongue", "Eye"]:
-                obj = create_key_proxy_object(obj_id, obj_action)
+                obj = create_key_proxy_object(obj_id, obj_action, parent=source_rig)
                 utils.safe_set_action(obj.data.shape_keys, obj_action)
                 objects.append(obj)
 
     elif shape_keys:
 
-        obj = create_key_proxy_object(f"Key_Proxy_{rigify_rig.name}", shape_keys=shape_keys)
-        utils.safe_set_action(obj.data.shape_keys, obj_action)
+        obj = create_key_proxy_object(f"Key_Proxy_{rigify_rig.name}", shape_keys=shape_keys, parent=source_rig)
         objects.append(obj)
 
     return objects
@@ -1123,7 +1125,7 @@ FULL_RIG_COLLECTION = ["Face", "Face (Primary)", "Face (Secondary)",
                        "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
                        "Root",
                        "Spring (IK)", "Spring (FK)", "Spring (Tweak)",
-                       "Face (Expressions)"]
+                       "Face (Expressions)", "Face (UI)"]
 FULL_RIG_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,28]
 FULL_DEF_COLLECTION = ["DEF", "Spring (Edit)", "Spring (Root)"]
 FULL_DEF_LAYERS = [24, 25, 29]
@@ -1133,7 +1135,7 @@ SPRING_RIG_LAYERS = [19,20,21]
 SPRING_DEF_COLLECTION = ["Spring (Edit)", "Spring (Root)"]
 SPRING_DEF_LAYERS = [24, 25]
 
-FACE_RIG_COLLECTION = ["Face (Expressions)"]
+FACE_RIG_COLLECTION = ["Face (Expressions)", "Face (UI)"]
 FACE_RIG_LAYERS = [0,1,2]
 FACE_RIG_HIDE = ["Face", "Face (Primary)", "Face (Secondary)"]
 

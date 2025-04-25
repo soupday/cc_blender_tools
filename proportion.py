@@ -105,7 +105,6 @@ def prep_rig(chr_cache):
             bones.clear_pose(rig)
             utils.pose_mode_to(rig)
             hide_sub_bones(rig)
-            rigutils.reset_rotation_modes(rig)
             rig.show_in_front = True
             # reset all shape keys
             objects = chr_cache.get_all_objects(include_armature=False,

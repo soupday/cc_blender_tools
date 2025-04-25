@@ -418,8 +418,7 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
     utils.safe_set_action(light.data, light_action)
 
     light.location = loc
-    light.rotation_mode = "QUATERNION"
-    light.rotation_quaternion = rot
+    utils.set_transform_rotation(light, rot)
     light.scale = sca
     light.data.color = color
 
@@ -476,8 +475,7 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
 
 def apply_light_pose(light, loc, rot, sca, color, active, multiplier, range, angle, falloff, attenuation, darkness):
     light.location = loc
-    light.rotation_mode = "QUATERNION"
-    light.rotation_quaternion = rot
+    utils.set_transform_rotation(light, rot)
     light.scale = sca
     light.data.color = color
     if not active:
@@ -539,8 +537,7 @@ def decode_rlx_camera(camera_data, camera):
     utils.safe_set_action(camera.data, cam_action)
 
     camera.location = loc
-    camera.rotation_mode = "QUATERNION"
-    camera.rotation_quaternion = rot
+    utils.set_transform_rotation(camera, rot)
     camera.scale = sca
     camera.data.lens = focal_length
     camera.data.sensor_fit = fit
@@ -568,8 +565,7 @@ def apply_camera_pose(camera, loc, rot, sca, focal_length,
                       dof_far_blur, dof_near_blur,
                       dof_far_transition, dof_near_transition, dof_min_blend_distance):
     camera.location = loc
-    camera.rotation_mode = "QUATERNION"
-    camera.rotation_quaternion = rot
+    utils.set_transform_rotation(camera, rot)
     camera.scale = sca
     camera.data.lens = focal_length
     # depth of field

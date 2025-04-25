@@ -232,7 +232,7 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
         for i, bone_name in enumerate(bone_names):
             pose_bone = bones.get_pose_bone(rigify_rig, bone_name)
             if pose_bone:
-                bones.set_bone_collection(rigify_rig, pose_bone, "Face (Expressions)", None, None)
+                bones.set_bone_collection(rigify_rig, pose_bone, "Face (UI)", None, None)
                 bones.set_bone_color(rigify_rig, pose_bone, bone_colors[i])
                 pose_bone.custom_shape = bone_shapes[i]
                 pose_bone.custom_shape_scale_xyz = bone_scale
@@ -257,7 +257,7 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             nub_bone.lock_rotation = [True, True, True]
             nub_bone.lock_scale = [True, True, True]
             bones.keep_locks(nub_bone)
-            bones.set_bone_collection(rigify_rig, line_bone, "Face (Expressions)", None, None)
+            bones.set_bone_collection(rigify_rig, line_bone, "Face (UI)", None, None)
             bones.set_bone_color(rigify_rig, line_bone, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
             bones.set_bone_collection(rigify_rig, nub_bone, "Face (Expressions)", None, None)
             bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
@@ -283,7 +283,7 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             nub_bone.lock_rotation = [True, True, True]
             nub_bone.lock_scale = [True, True, True]
             bones.keep_locks(nub_bone)
-            bones.set_bone_collection(rigify_rig, box_bone, "Face (Expressions)", None, None)
+            bones.set_bone_collection(rigify_rig, box_bone, "Face (UI)", None, None)
             bones.set_bone_color(rigify_rig, box_bone, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
             bones.set_bone_collection(rigify_rig, nub_bone, "Face (Expressions)", None, None)
             bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
@@ -583,7 +583,7 @@ def get_key_object(objects, shape_key_name):
     return None
 
 
-def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects):
+def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects, shape_key_only=False):
 
     bone_drivers = {}
     bone_retarget_defs = {}
@@ -620,7 +620,7 @@ def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, sou
 
                 driver_id = (control_name, "location", index)
 
-                if rl_bones and len(rl_bones) > 0:
+                if not shape_key_only and rl_bones and len(rl_bones) > 0:
 
                     bone_drivers[driver_id] = { "method": method,
                                                 "parent": parent,
@@ -642,7 +642,7 @@ def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, sou
                                                                         "scale": slider_length/(control_range[1] * scalar),
                                                                         "offset": offset,
                                                                         "axis": prop_axis })
-                else:
+                elif blend_shapes:
 
                     left_shape = right_shape = None
                     for i, (blend_shape_name, blend_shape_value) in enumerate(blend_shapes.items()):
