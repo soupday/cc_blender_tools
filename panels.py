@@ -2036,6 +2036,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                 rig = chr_cache.get_armature()
                 is_face_rig = rigutils.is_face_rig(rig)
+                face_profile, viseme_profile = chr_cache.get_facial_profile_names(update=False)
 
                 box = layout.box()
                 split = box.split(factor=0.4)
@@ -2045,11 +2046,15 @@ class CC3RigifyPanel(bpy.types.Panel):
                 col_2.label(text = chr_cache.character_name)
                 col_1.label(text = "Generation:")
                 col_2.label(text = chr_cache.generation)
+                col_1.label(text = "Face Profile:")
+                col_2.label(text = face_profile)
+                col_1.label(text = "Viseme:")
+                col_2.label(text = viseme_profile)
                 if chr_cache.rigified:
                     col_1.label(text = "Rig Type:")
                     col_2.label(text = "Rigify")
                     col_1.label(text = "Face Rig:")
-                    col_2.label(text = "Full" if chr_cache.rigified_full_face_rig else "Basic")
+                    col_2.label(text = utils.get_enum_prop_name(chr_cache, "rigify_expression_rig"))
 
                 if chr_cache.generation == "ActorCore":
                     box.row().operator("cc3.character", icon="MATERIAL", text="Match Existing Materials").param = "MATCH_MATERIALS"

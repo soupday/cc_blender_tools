@@ -1055,7 +1055,8 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                                          "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)",
                                          "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
                                          "Root"]
-                SHOW_BONE_COLLECTIONS = [ "Face (UI)" ].extend(BAKE_BONE_COLLECTIONS)
+                SHOW_BONE_COLLECTIONS = [ "Face (UI)" ]
+                SHOW_BONE_COLLECTIONS.extend(BAKE_BONE_COLLECTIONS)
                 # TODO These bones may need to have their pose reset as they are damped tracked in the rig
                 BAKE_BONE_EXCLUSIONS = [
                     "thigh_ik.L", "thigh_ik.R", "thigh_parent.L", "thigh_parent.R",

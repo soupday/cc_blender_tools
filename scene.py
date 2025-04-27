@@ -1487,7 +1487,7 @@ def setup_scene_default(context, scene_type):
                 shading.use_scene_world = False
                 shading.use_scene_lights_render = True
                 shading.use_scene_world_render = False
-                shading.studio_light = "redWall.hdr"
+                shading.studio_light = "courtyard.exr"
                 shading.studiolight_rotate_z = 2.356194391846657
                 shading.studiolight_intensity = 0.25
                 shading.studiolight_background_alpha = 0.05

@@ -308,25 +308,26 @@ def get_viseme_profile(objects):
 
 
 def get_facial_profile(objects):
-    expressionProfile = "None"
-    visemeProfile = "None"
+    expressionProfile = "UNKNOWN"
+    visemeProfile = "UNKNOWN"
 
     for obj in objects:
+
+        if obj.type != "MESH": continue
 
         if (find_shape_key(obj, "Move_Jaw_Down") or
             find_shape_key(obj, "Turn_Jaw_Down") or
             find_shape_key(obj, "Move_Jaw_Down") or
             find_shape_key(obj, "Move_Jaw_Down")):
-            expressionProfile = "Traditional"
+            expressionProfile = "TRA"
 
         if (find_shape_key(obj, "A01_Brow_Inner_Up") or
             find_shape_key(obj, "A06_Eye_Look_Up_Left") or
             find_shape_key(obj, "A15_Eye_Blink_Right") or
             find_shape_key(obj, "A25_Jaw_Open") or
             find_shape_key(obj, "A37_Mouth_Close")):
-            if (expressionProfile == "None" or
-                expressionProfile == "Traditional"):
-                expressionProfile = "ExPlus"
+            if (expressionProfile == "UNKNOWN"):
+                expressionProfile = "TRA"
 
         if (find_shape_key(obj, "Ear_Up_L") or
             find_shape_key(obj, "Ear_Up_R") or
@@ -334,9 +335,9 @@ def get_facial_profile(objects):
             find_shape_key(obj, "Eyelash_Upper_Up_R") or
             find_shape_key(obj, "Eye_L_Look_L") or
             find_shape_key(obj, "Eye_R_Look_R")):
-            if (expressionProfile == "None" or
-                expressionProfile == "Std"):
-                expressionProfile = "Ext"
+            if (expressionProfile == "UNKNOWN" or
+                expressionProfile == "STD"):
+                expressionProfile = "EXT"
 
         if (find_shape_key(obj, "Mouth_L") or
             find_shape_key(obj, "Mouth_R") or
@@ -344,38 +345,73 @@ def get_facial_profile(objects):
             find_shape_key(obj, "Eye_Wide_R") or
             find_shape_key(obj, "Mouth_Smile") or
             find_shape_key(obj, "Eye_Blink")):
-            if expressionProfile == "None":
-                expressionProfile = "Std"
-
+            if expressionProfile == "UNKNOWN":
+                expressionProfile = "STD"
 
         if (find_shape_key(obj, "V_Open") or
             find_shape_key(obj, "V_Tight") or
             find_shape_key(obj, "V_Tongue_up") or
             find_shape_key(obj, "V_Tongue_Raise")):
-            visemeProfile = "PairsCC4"
+            visemeProfile = "PAIRS4"
 
         if (find_shape_key(obj, "Open") or
             find_shape_key(obj, "Tight") or
             find_shape_key(obj, "Tongue_up") or
             find_shape_key(obj, "Tongue_Raise")):
-            if (visemeProfile == "PairsCC4" or
-                visemeProfile == "Direct"):
-                visemeProfile = "PairsCC3"
+            if (visemeProfile == "PAIRS4" or
+                visemeProfile == "DIRECT"):
+                visemeProfile = "PAIRS3"
 
         if (find_shape_key(obj, "AE") or
             find_shape_key(obj, "EE") or
             find_shape_key(obj, "Er") or
             find_shape_key(obj, "Oh")):
-            if visemeProfile == "None":
-                visemeProfile = "Direct"
-
-        if (find_shape_key(obj, "Brow_Raise_Inner_Left") or
-            find_shape_key(obj, "Brow_Raise_Outer_Left") or
-            find_shape_key(obj, "Brow_Drop_Left") or
-            find_shape_key(obj, "Brow_Raise_Right")):
-            corrections = True
+            if visemeProfile == "UNKNOWN":
+                visemeProfile = "DIRECT"
 
     return expressionProfile, visemeProfile
+
+
+def set_facial_profile(objects, facial_profile, viseme_profile):
+    for obj in objects:
+        if obj.type != "MESH": continue
+        if facial_profile != "NONE" and facial_profile != "UNKNOWN":
+            if (find_shape_key(obj, "Move_Jaw_Down") or
+                find_shape_key(obj, "Turn_Jaw_Down") or
+                find_shape_key(obj, "Move_Jaw_Down") or
+                find_shape_key(obj, "Move_Jaw_Down") or
+                find_shape_key(obj, "A01_Brow_Inner_Up") or
+                find_shape_key(obj, "A06_Eye_Look_Up_Left") or
+                find_shape_key(obj, "A15_Eye_Blink_Right") or
+                find_shape_key(obj, "A25_Jaw_Open") or
+                find_shape_key(obj, "A37_Mouth_Close") or
+                find_shape_key(obj, "Ear_Up_L") or
+                find_shape_key(obj, "Ear_Up_R") or
+                find_shape_key(obj, "Eyelash_Upper_Up_L") or
+                find_shape_key(obj, "Eyelash_Upper_Up_R") or
+                find_shape_key(obj, "Eye_L_Look_L") or
+                find_shape_key(obj, "Eye_R_Look_R") or
+                find_shape_key(obj, "Mouth_L") or
+                find_shape_key(obj, "Mouth_R") or
+                find_shape_key(obj, "Eye_Wide_L") or
+                find_shape_key(obj, "Eye_Wide_R") or
+                find_shape_key(obj, "Mouth_Smile") or
+                find_shape_key(obj, "Eye_Blink")):
+                utils.set_prop(obj, "rl_facial_profile", facial_profile)
+        if viseme_profile != "NONE" and viseme_profile != "UNKNOWN":
+            if (find_shape_key(obj, "V_Open") or
+                find_shape_key(obj, "V_Tight") or
+                find_shape_key(obj, "V_Tongue_up") or
+                find_shape_key(obj, "V_Tongue_Raise") or
+                find_shape_key(obj, "Open") or
+                find_shape_key(obj, "Tight") or
+                find_shape_key(obj, "Tongue_up") or
+                find_shape_key(obj, "Tongue_Raise") or
+                find_shape_key(obj, "AE") or
+                find_shape_key(obj, "EE") or
+                find_shape_key(obj, "Er") or
+                find_shape_key(obj, "Oh")):
+                utils.set_prop(obj, "rl_viseme_profile", viseme_profile)
 
 
 def set_shading(obj, smooth=True):

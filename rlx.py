@@ -25,8 +25,8 @@ class RLXCodes(IntEnum):
 
 RECTANGULAR_AS_AREA = False
 TUBE_AS_AREA = True
-ENERGY_SCALE = 35
-SUN_SCALE = 2
+ENERGY_SCALE = 35 * 0.7
+SUN_SCALE = 2 * 0.7
 
 class BinaryData():
     data: bytearray = None

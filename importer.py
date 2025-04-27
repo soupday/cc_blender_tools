@@ -575,14 +575,6 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             arm["rl_import_file"] = file_path
             rigutils.fix_cc3_standard_rig(arm)
 
-            # link_id
-            json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
-            if not link_id and json_link_id:
-                link_id = json_link_id
-            if multi_import or not link_id:
-                link_id = utils.generate_random_id(20)
-            chr_cache.set_link_id(link_id)
-
             # root bones
             process_root_bones(arm, json_data, name)
 
@@ -602,6 +594,14 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             chr_cache.add_object_cache(arm)
             # assign bone collections
             bones.assign_rl_base_collections(arm)
+
+            # link_id
+            json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            if not link_id and json_link_id:
+                link_id = json_link_id
+            if multi_import or not link_id:
+                link_id = utils.generate_random_id(20)
+            chr_cache.set_link_id(link_id)
 
             # delete accessory colliders, currently they are useless as
             # accessories don't export with any physics data or weightmaps.
@@ -1211,6 +1211,9 @@ class CC3Import(bpy.types.Operator):
             if self.param == "BUILD":
                 chr_cache.check_material_types(chr_json)
 
+            # update character data props
+            chr_cache.check_ids()
+
             if prefs.import_deduplicate:
                 processed_images = []
                 processed_materials = []
@@ -1277,6 +1280,9 @@ class CC3Import(bpy.types.Operator):
             json_data = self.read_json_data(chr_cache.import_file, stage=1)
             chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
 
+            # update character data props
+            chr_cache.check_ids()
+
             if chr_cache.rigified:
                 rigify_rig = chr_cache.get_armature()
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
@@ -1285,12 +1291,11 @@ class CC3Import(bpy.types.Operator):
                 else:
                     rigging.add_shape_key_drivers(chr_cache, chr_cache.get_armature())
             else:
-                objects = chr_cache.get_all_objects(include_armature=False,
-                                                    of_type="MESH")
-                facial_profile, viseme_profile = meshutils.get_facial_profile(objects)
-                utils.log_info(f"Facial Profile: {facial_profile}")
-                utils.log_info(f"Viseme Profile: {viseme_profile}")
-                if facial_profile == "Std" or facial_profile == "Ext" or facial_profile == "ExPlus":
+                facial_profile, viseme_profile = chr_cache.get_facial_profile()
+                facial_name, viseme_name = chr_cache.get_facial_profile_names()
+                utils.log_info(f"Facial Profile: {facial_name}")
+                utils.log_info(f"Viseme Profile: {viseme_name}")
+                if facial_profile == "STD" or facial_profile == "EXT" or facial_profile == "TRA":
                     drivers.add_facial_shape_key_bone_drivers(chr_cache,
                                                prefs.build_shape_key_bone_drivers_jaw,
                                                prefs.build_shape_key_bone_drivers_eyes,
@@ -1326,6 +1331,9 @@ class CC3Import(bpy.types.Operator):
         for chr_cache in imported_characters:
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
+
+            # update character data props
+            chr_cache.check_ids()
 
             if chr_cache.rigified:
                 # TODO removing drivers from a rigify rig is not a good idea ... ?

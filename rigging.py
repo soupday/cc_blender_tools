@@ -1442,6 +1442,7 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig, remove_meta = False):
     rigify_rig["rl_generation"] = chr_cache.generation
 
 
+
 # Skinning face rigs
 #
 #
@@ -2557,6 +2558,7 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, t
     utils.reset_object_transform(source_rig)
     # reset the pose on the rigify rig as non animated bones/shape keys will retain their values
     # (and only the animated bones/keys are present in motion exports)
+    # TODO dont reset the facerig outline...
     rigutils.reset_pose(rigify_rig)
 
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
@@ -3653,6 +3655,7 @@ class CC3Rigifier(bpy.types.Operator):
                 set_rigify_params(self.meta_rig)
 
     def rigify_meta_rig(self, chr_cache, advanced_mode = False):
+        prefs = vars.prefs()
 
         utils.start_timer()
 
@@ -3710,6 +3713,9 @@ class CC3Rigifier(bpy.types.Operator):
                     rigutils.set_ik_stretch_control(self.rigify_rig, 0.0)
                     utils.hide(self.cc3_rig)
                     utils.hide(self.meta_rig)
+                    # update face rig type
+                    chr_cache.rigify_expression_rig = prefs.rigify_expression_rig
+                    utils.set_prop(self.rigify_rig, "rl_face_rig", chr_cache.rigify_expression_rig)
                     #self.restore_rigify_rigid_body_systems(chr_cache)
 
         utils.log_timer("Done Rigify Process!")
@@ -3726,6 +3732,7 @@ class CC3Rigifier(bpy.types.Operator):
 
 
     def re_rigify_meta_rig(self, chr_cache, advanced_mode = False):
+        prefs = vars.prefs()
 
         utils.start_timer()
 
@@ -3785,6 +3792,9 @@ class CC3Rigifier(bpy.types.Operator):
                     rigutils.set_ik_stretch_control(self.rigify_rig, 0.0)
                     utils.hide(self.cc3_rig)
                     utils.hide(self.meta_rig)
+                    # update face rig type
+                    chr_cache.rigify_expression_rig = prefs.rigify_expression_rig
+                    utils.set_prop(self.rigify_rig, "rl_face_rig", chr_cache.rigify_expression_rig)
 
         utils.log_timer("Done Rigify Process!")
 
@@ -3821,6 +3831,9 @@ class CC3Rigifier(bpy.types.Operator):
         if chr_cache:
 
             props.store_ui_list_indices()
+
+            # update character data props
+            chr_cache.check_ids()
 
             if chr_cache.rigified:
                 self.cc3_rig = chr_cache.rig_original_rig

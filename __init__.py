@@ -121,6 +121,9 @@ bl_info = {
 vars.set_version_string(bl_info)
 
 classes = (
+    preferences.CC3ToolsAddonPreferences,
+    preferences.MATERIAL_UL_weightedmatslots,
+
     channel_mixer.CC3RGBMixer,
     channel_mixer.CC3IDMixer,
     channel_mixer.CC3MixerSettings,
@@ -226,10 +229,6 @@ classes = (
     panels.CC3SpringControlPanel,
     # test panels
     panels.CC3ToolsUtilityPanel,
-
-    preferences.CC3ToolsAddonPreferences,
-    preferences.MATERIAL_UL_weightedmatslots,
-
 )
 
 def register():

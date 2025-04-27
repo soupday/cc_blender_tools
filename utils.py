@@ -2628,9 +2628,16 @@ def generate_random_id(length):
     return id
 
 
-def set_rl_link_id(obj, link_id):
+def set_prop(obj, prop_name, value):
+    obj[prop_name] = value
+
+
+def set_rl_link_id(obj, link_id=None):
+    if link_id is None:
+        link_id = generate_random_id(20)
     if obj:
         obj["rl_link_id"] = link_id
+    return link_id
 
 
 def get_rl_link_id(obj):
@@ -2645,7 +2652,9 @@ def get_rl_link_id(obj):
     return None
 
 
-def set_rl_object_id(obj, new_id):
+def set_rl_object_id(obj, new_id=None):
+    if new_id is None:
+        new_id = generate_random_id(20)
     if obj:
         if obj.type == "ARMATURE":
             obj["rl_armature_id"] = new_id
@@ -2653,6 +2662,7 @@ def set_rl_object_id(obj, new_id):
                 del(obj["rl_object_id"])
         else:
             obj["rl_object_id"] = new_id
+    return new_id
 
 
 def get_rl_object_id(obj):
@@ -2747,3 +2757,15 @@ def json_dumps(json_data):
 
 def open_folder(folder_path):
     os.startfile(folder_path)
+
+
+def get_enum_prop_name(obj, prop_name, enum_value=None):
+    try:
+        prop = type(obj).bl_rna.properties[prop_name]
+        if enum_value is None:
+            enum_value = getattr(obj, prop_name)
+        print(obj, prop_name, enum_value)
+        return prop.enum_items[enum_value].name
+    except:
+        return prop_name
+

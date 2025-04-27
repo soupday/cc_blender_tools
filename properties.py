@@ -1472,6 +1472,21 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     build_count: bpy.props.IntProperty(default=0)
     # auto index
     auto_index: bpy.props.IntProperty(default=0)
+    # facial profile
+    facial_profile: bpy.props.EnumProperty(items=[
+                        ("NONE","None","None"),
+                        ("UNKNOWN","Unknown","Unknown"),
+                        ("TRA","Traditional",""),
+                        ("STD","Standard",""),
+                        ("EXT","Extended","")
+                    ], default="NONE")
+    viseme_profile: bpy.props.EnumProperty(items=[
+                        ("NONE","None","None"),
+                        ("UNKNOWN","Unknown","Unknown"),
+                        ("DIRECT","Direct",""),
+                        ("PAIRS3","Pairs (CC3)",""),
+                        ("PAIRS4","Pairs (CC4)",""),
+                    ], default="NONE")
 
     setup_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic","Build basic PBR materials."),
@@ -1488,6 +1503,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     rigified: bpy.props.BoolProperty(default=False)
     rigified_full_face_rig: bpy.props.BoolProperty(default=False)
+    rigify_expression_rig: bpy.props.EnumProperty(items=[
+                        ("NONE","None","No expression rig, just eye and jaw controls"),
+                        ("RIGIFY","Rigify","Rigify full face rig"),
+                        ("META","Meta","Metahuman style expression rig"),
+                    ], default="NONE", name="Expression Rig")
     rig_mode: bpy.props.EnumProperty(items=[
                         ("QUICK","Quick","Rig the character all in one go."),
                         ("ADVANCED","Advanced","Split the process so that user adjustments can be made to the meta rig before generating."),
@@ -1761,6 +1781,21 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             self.generation == "G3Plus"):
             return True
         return False
+
+    def get_facial_profile(self, update=True):
+        if self.facial_profile != "NONE" and self.viseme_profile != "NONE":
+            return self.facial_profile, self.viseme_profile
+        else:
+            objects = self.get_cache_objects()
+            facial_profile, viseme_profile = meshutils.get_facial_profile(objects)
+            if update:
+                meshutils.set_facial_profile(objects, facial_profile, viseme_profile)
+            return facial_profile, viseme_profile
+
+    def get_facial_profile_names(self, update=True):
+        facial_profile, viseme_profile = self.get_facial_profile(update)
+        return utils.get_enum_prop_name(self, "facial_profile", facial_profile), \
+               utils.get_enum_prop_name(self, "viseme_profile", viseme_profile),
 
     def get_rig_mapping_data(self):
         return rigify_mapping_data.get_mapping_for_generation(self.generation)
@@ -2122,6 +2157,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         # update the object id
                         obj_cache.object_id = utils.generate_random_id(20)
                         utils.set_rl_object_id(new_arm, obj_cache.object_id)
+                        utils.set_rl_link_id(new_arm, self.link_id)
         except:
             pass
 
@@ -2329,6 +2365,28 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_character_json(self):
         json_data = self.get_json_data()
         return jsonutils.get_character_json(json_data, self.get_character_id())
+
+    def check_ids(self):
+        rig = self.get_armature()
+        # ensure link id is on rig
+        if not utils.get_rl_link_id(rig):
+            if not self.link_id:
+                self.link_id = utils.generate_random_id(20)
+            utils.set_rl_link_id(rig, self.link_id)
+        # if rigified, ensure the face rig type is on the rig
+        if self.rigified:
+            if not utils.prop(rig, "rl_face_rig"):
+                bone_collection = rig.data.edit_bones if utils.get_mode() == "EDIT" else rig.pose.bones
+                if "facerig" in bone_collection:
+                    self.rigify_expression_rig = "META"
+                elif "nose" in bone_collection:
+                    self.rigify_expression_rig = "RIGIFY"
+                else:
+                    self.rigify_expression_rig = "NONE"
+                utils.set_prop(rig, self.rigify_expression_rig)
+        # ensure the facial profile & viseme profile types are in the character data
+        self.get_facial_profile()
+
 
     def recast_type(self, collection, index, chr_json):
         mat_cache = collection[index]
