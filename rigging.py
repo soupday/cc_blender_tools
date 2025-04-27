@@ -2558,8 +2558,7 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, t
     utils.reset_object_transform(source_rig)
     # reset the pose on the rigify rig as non animated bones/shape keys will retain their values
     # (and only the animated bones/keys are present in motion exports)
-    # TODO dont reset the facerig outline...
-    rigutils.reset_pose(rigify_rig)
+    rigutils.reset_pose(rigify_rig, exceptions="facerig")
 
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_retargeting_rig(chr_cache, source_rig, rigify_rig,

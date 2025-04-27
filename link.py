@@ -685,7 +685,7 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
 
     if utils.object_exists_is_armature(chr_cache.rig_datalink_rig):
         actor.rig_bones = actor.bones.copy()
-        utils.unhide(chr_cache.rig_datalink_rig)
+        utils.hide(chr_cache.rig_datalink_rig)
         #utils.log_info(f"Using existing datalink transfer rig: {chr_cache.rig_datalink_rig.name}")
         # add child proxy objects
         for obj in chr_cache.rig_datalink_rig.children:
@@ -700,6 +700,9 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
     datalink_rig = utils.get_armature(rig_name)
     if not datalink_rig:
         datalink_rig = utils.create_reuse_armature(rig_name)
+        chr_rig = chr_cache.get_armature()
+        chr_collections = utils.get_object_scene_collections(chr_rig)
+        utils.move_object_to_scene_collections(datalink_rig, chr_collections)
         edit_bone: bpy.types.EditBone
         arm: bpy.types.Armature = datalink_rig.data
         rig_bones = []
@@ -718,6 +721,8 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
                         edit_bone.length = 0.1
 
         utils.object_mode_to(datalink_rig)
+        datalink_rig.show_in_front = False
+        datalink_rig.data.display_type = "STICK"
 
         # constrain character armature if not rigified
         if not chr_cache.rigified:
@@ -1057,7 +1062,10 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                                          "Root"]
                 SHOW_BONE_COLLECTIONS = [ "Face (UI)" ]
                 SHOW_BONE_COLLECTIONS.extend(BAKE_BONE_COLLECTIONS)
-                # TODO These bones may need to have their pose reset as they are damped tracked in the rig
+                if rigutils.is_face_rig(rig):
+                    SHOW_BONE_COLLECTIONS.remove("Face")
+                # These bones may need to have their pose reset as they are damped tracked in the rig:
+                #    - adv pair rigs now resets all pose bones.
                 BAKE_BONE_EXCLUSIONS = [
                     "thigh_ik.L", "thigh_ik.R", "thigh_parent.L", "thigh_parent.R",
                     "upper_arm_ik.L", "upper_arm_ik.R", "upper_arm_parent.L", "upper_arm_parent.R"

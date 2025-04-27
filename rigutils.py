@@ -1327,12 +1327,15 @@ def toggle_show_only_face_rig(rig):
                         collection.is_visible = collection.name in BASE_RIG_COLLECTION
 
 
-def reset_pose(rig):
+def reset_pose(rig, exceptions=None):
     if rig:
         utils.pose_mode_to(rig)
         rig.data.pose_position = "POSE"
         bones_data = {}
         for pose_bone in rig.pose.bones:
+            if exceptions and pose_bone.name in exceptions:
+                bone.select = False
+                continue
             bone = pose_bone.bone
             bones_data[bone] = (bone.select, bone.hide, bone.hide_select)
             bone.select = True
@@ -1341,7 +1344,8 @@ def reset_pose(rig):
                 bone.hide_select = False
         bpy.ops.pose.transforms_clear()
         for bone in rig.data.bones:
-            bone.select, bone.hide, bone.hide_select = bones_data[bone]
+            if bone in bones_data:
+                bone.select, bone.hide, bone.hide_select = bones_data[bone]
 
 
 def reset_shape_keys(mesh):
