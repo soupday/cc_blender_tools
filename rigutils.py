@@ -1821,10 +1821,20 @@ def get_lib_widget(object_name):
 
 
 def get_expression_widgets(chr_cache, collection_name):
-    WGT_LINES = get_lib_widget("WGT-RL_FaceRig_Ext_Control_Lines")
-    WGT_GROUPS = get_lib_widget("WGT-RL_FaceRig_Ext_Groups")
-    WGT_LABELS = get_lib_widget("WGT-RL_FaceRig_Ext_Labels")
-    WGT_OUTLINE = get_lib_widget("WGT-RL_FaceRig_Ext_Outline")
+    facial_profile, viseme_profile = chr_cache.get_facial_profile()
+    tag = ""
+    if facial_profile == "EXT":
+        tag = "Ext"
+    elif facial_profile == "STD":
+        tag = "Std"
+    elif facial_profile == "TRA":
+        tag = "Tra"
+    else:
+        raise Exception("Unknown facial profile!")
+    WGT_LINES = get_lib_widget(f"WGT-RL_FaceRig_{tag}_Control_Lines")
+    WGT_GROUPS = get_lib_widget(f"WGT-RL_FaceRig_{tag}_Groups")
+    WGT_LABELS = get_lib_widget(f"WGT-RL_FaceRig_{tag}_Labels")
+    WGT_OUTLINE = get_lib_widget(f"WGT-RL_FaceRig_{tag}_Outline")
     WGT_SLIDER = bones.make_line_widget("WGT-RL_FaceRig_Slider", 2.0)
     WGT_RECT = bones.make_box_widget("WGT-RL_FaceRig_Rect", 2.0)
     WGT_NUB = bones.make_sphere_widget("WGT-RL_FaceRig_Slider_Nub", 0.01666)

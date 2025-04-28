@@ -2615,7 +2615,6 @@ class LinkService():
                     t = T.to_translation() * 100
                     r = T.to_quaternion()
                     s = T.to_scale()
-                    #print(rig.name, t, r, s)
                     data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
 
                     # pack all the bone data
@@ -2627,7 +2626,6 @@ class LinkService():
                             t = T.to_translation()
                             r = T.to_quaternion()
                             s = T.to_scale()
-                            #print(pose_bone.name, t, r, s)
                             data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
 
                 # pack mesh transforms (actor.meshes is sanitized by encode_actor_templates)
@@ -2641,7 +2639,6 @@ class LinkService():
                             t = T.to_translation()
                             r = T.to_quaternion()
                             s = T.to_scale()
-                            #print(mesh_obj.name, t, r, s)
                             data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
 
                 # pack shape_keys

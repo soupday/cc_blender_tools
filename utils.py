@@ -2764,7 +2764,6 @@ def get_enum_prop_name(obj, prop_name, enum_value=None):
         prop = type(obj).bl_rna.properties[prop_name]
         if enum_value is None:
             enum_value = getattr(obj, prop_name)
-        print(obj, prop_name, enum_value)
         return prop.enum_items[enum_value].name
     except:
         return prop_name

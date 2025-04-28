@@ -516,7 +516,7 @@ def update_rig_target(self, context):
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         if self.hair_rig_target == "CC4":
-            self.hair_rig_bone_length = 7.5
+            self.hair_rig_bone_length = 5.0
             self.hair_rig_bind_skip_length = 0.0
             self.hair_rig_bind_trunc_length = 0.5
             self.hair_rig_bind_bone_radius = 11.25
@@ -525,7 +525,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
-            self.hair_rig_bind_bone_variance = 0.75
+            self.hair_rig_bind_bone_variance = 0.85
         elif self.hair_rig_target == "UNITY":
             self.hair_rig_bone_length = 7.5
             self.hair_rig_bind_skip_length = 7.5
@@ -536,7 +536,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
-            self.hair_rig_bind_bone_variance = 0.75
+            self.hair_rig_bind_bone_variance = 0.85
         elif self.hair_rig_target == "BLENDER":
             self.hair_rig_bone_length = 7.5
             self.hair_rig_bind_skip_length = 7.5/2.0
@@ -547,7 +547,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
-            self.hair_rig_bind_bone_variance = 0.75
+            self.hair_rig_bind_bone_variance = 0.85
 
 
 def update_facerig_color(self, context):

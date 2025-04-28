@@ -333,18 +333,16 @@ def get_facial_profile(objects):
             find_shape_key(obj, "Ear_Up_R") or
             find_shape_key(obj, "Eyelash_Upper_Up_L") or
             find_shape_key(obj, "Eyelash_Upper_Up_R") or
-            find_shape_key(obj, "Eye_L_Look_L") or
-            find_shape_key(obj, "Eye_R_Look_R")):
+            find_shape_key(obj, "Mouth_Up") or
+            find_shape_key(obj, "Mouth_Down")):
             if (expressionProfile == "UNKNOWN" or
                 expressionProfile == "STD"):
                 expressionProfile = "EXT"
 
         if (find_shape_key(obj, "Mouth_L") or
             find_shape_key(obj, "Mouth_R") or
-            find_shape_key(obj, "Eye_Wide_L") or
-            find_shape_key(obj, "Eye_Wide_R") or
-            find_shape_key(obj, "Mouth_Smile") or
-            find_shape_key(obj, "Eye_Blink")):
+            find_shape_key(obj, "Mouth_Pucker") or
+            find_shape_key(obj, "Mouth_Funnel")):
             if expressionProfile == "UNKNOWN":
                 expressionProfile = "STD"
 

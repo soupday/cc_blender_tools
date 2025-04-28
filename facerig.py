@@ -55,7 +55,6 @@ def is_valid_control_def(control_def, rigify_rig, objects):
             for bone_def in control_bones:
                 bone_name = bone_def["bone"]
                 if bone_name not in bone_collection:
-                    print(f"MISSING BONE {bone_name}")
                     return False
         #if "bones" in control_def:
         #    control_bones = control_def["bones"]
@@ -98,35 +97,15 @@ def is_valid_control_def(control_def, rigify_rig, objects):
     return True
 
 
-def generate_facerig_config(chr_cache, rigify_rig):
-
-    objects = chr_cache.get_cache_objects()
-
-    FACERIG_CONFIG = copy.deepcopy(FACERIG_EXT_CC3PLUS)
-
-    for control_name, control_def in FACERIG_CONFIG:
-
-        if control_def["widget_type"] == "slider":
-
-            blendshapes = control_def["blendshapes"]
-            control_bones = control_def["bones"]
-
-            num_keys = len(blendshapes)
-            del_keys = []
-            for i, (shape_key_name, shape_key_value) in enumerate(blendshapes.items()):
-                if not objects_have_shape_key(objects, shape_key_name):
-                    if num_keys == 2:
-                        control_def["range"][i] = 0.0
-                        del_keys.append(shape_key_name)
-                        num_keys -= 1
-                    elif num_keys == 1:
-                        control_def["range"][1] = 0.0
-                        del_keys.append(shape_key_name)
-                        num_keys -= 1
-            if num_keys == 0:
-                del(control_def["blendshapes"])
-            for shape_key_name in del_keys:
-                del(control_def["blendshapes"][shape_key_name])
+def get_facerig_config(chr_cache):
+    facial_profile, viseme_profile = chr_cache.get_facial_profile()
+    if facial_profile == "EXT":
+        return FACERIG_EXT_CONFIG
+    elif facial_profile == "STD":
+        return FACERIG_STD_CONFIG
+    elif facial_profile == "TRA":
+        return FACERIG_TRA_CONFIG
+    return None
 
 
 def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
@@ -142,6 +121,8 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
     slider_controls = {}
     rect_controls = {}
 
+    facial_profile, viseme_profile = chr_cache.get_facial_profile()
+    print(f"Building Expression Rig for facial profile: {facial_profile}")
 
     if rigutils.edit_rig(rigify_rig):
         # place the face rig parent at eye level
@@ -168,10 +149,13 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
         jaw_master = bones.get_edit_bone(rigify_rig, "jaw_master")
         jaw_master.parent = jaw_move
 
-        for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
+        FACERIG_CONFIG = get_facerig_config(chr_cache)
+
+        for control_name, control_def in FACERIG_CONFIG.items():
 
             if not is_valid_control_def(control_def, rigify_rig, objects):
-                    continue
+                utils.log_warn(f"Invalid expression control: {control_name}")
+                continue
 
             if control_def["widget_type"] == "slider":
                 zero = utils.inverse_lerp(control_def["range"][0], control_def["range"][1], 0.0)
@@ -202,8 +186,12 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
                 height = (p_max.y - p_min.y)
                 pB0 = Vector((p_min.x + width / 2, p_min.y, 0.0))
                 pB1 = Vector((p_min.x + width / 2, p_min.y + height / 2, 0.0))
-                if control_def.get("y_invert"):
-                    pN0 = Vector((p_min.x + width * zero_x, p_min.y + height * (1 - zero_y), 0))
+                if control_def.get("y_invert") and control_def.get("x_invert"):
+                    pN0 = Vector((p_min.x + width * (1-zero_x), p_min.y + height * (1-zero_y), 0))
+                elif control_def.get("y_invert"):
+                    pN0 = Vector((p_min.x + width * zero_x, p_min.y + height * (1-zero_y), 0))
+                elif control_def.get("x_invert"):
+                    pN0 = Vector((p_min.x + width * (1-zero_x), p_min.y + height * zero_y, 0))
                 else:
                     pN0 = Vector((p_min.x + width * zero_x, p_min.y + height * zero_y, 0))
                 pN1 = Vector((pN0.x, pN0.y + height / 2, 0))
@@ -239,9 +227,6 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
                 pose_bone.bone.hide_select = not bone_selectable[i]
                 pose_bone.use_custom_shape_bone_size = False
                 bones.keep_locks(pose_bone, no_bake=True)
-
-        # TODO: lock the scale and rotation of the nub bones
-        #       dont unlock face rig automaticcally (retarget/bake doing it?)
 
         for slider_name, slider_def in slider_controls.items():
             control_def, line_bone_name, nub_bone_name, length, zero = slider_def
@@ -289,8 +274,12 @@ def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
             control_range_x = control_def["x_range"]
             control_range_y = control_def["y_range"]
-            min_x = (width * zero_x) * control_range_x[0]
-            max_x = width * (1 - zero_x) * control_range_x[1]
+            if control_def.get("x_invert"):
+                min_x = -(width * (1 - zero_x)) * control_range_x[0]
+                max_x = -width * zero_x * control_range_x[1]
+            else:
+                min_x = (width * zero_x) * control_range_x[0]
+                max_x = width * (1 - zero_x) * control_range_x[1]
             if control_def.get("y_invert"):
                 min_y = -height * (1 - zero_y) * control_range_y[1]
                 max_y = -(height * zero_y) * control_range_y[0]
@@ -307,10 +296,9 @@ def get_generated_controls(chr_cache, rigify_rig):
     slider_controls = {}
     rect_controls = {}
 
-    for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
+    FACERIG_CONFIG = get_facerig_config(chr_cache)
 
-        if control_name not in rigify_rig.pose.bones:
-            continue
+    for control_name, control_def in FACERIG_CONFIG.items():
 
         if control_def["widget_type"] == "slider":
             zero_point = utils.inverse_lerp(control_def["range"][0], control_def["range"][1], 0.0)
@@ -360,6 +348,7 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                     "value": abs(shape_key_value),
                     "distance": distance,
                     "var_axis": var_axis,
+                    "num_keys": num_keys,
                 }
                 shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
 
@@ -418,6 +407,7 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                         "value": abs(shape_key_value),
                         "distance": distance,
                         "var_axis": var_axis,
+                        "num_keys": num_keys,
                     }
                     shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
 
@@ -461,8 +451,10 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
             "MCH-eye.L", "MCH-eye.R"
         ]
 
+    FACERIG_CONFIG = get_facerig_config(chr_cache)
+
     # initialize target bone rotation modes and clear unwanted constraints
-    for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
+    for control_name, control_def in FACERIG_CONFIG.items():
 
         if control_def["widget_type"] == "slider":
             rigify_bones = control_def.get("rigify")
@@ -524,6 +516,7 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
             vidx = 0
             for nub_bone_name, key_control_def in shape_key_driver_def.items():
                 if nub_bone_name in rigify_rig.pose.bones:
+                    num_keys = key_control_def["num_keys"]
                     var_axis = key_control_def["var_axis"]
                     distance = key_control_def["distance"]
                     value = key_control_def["value"]
@@ -531,7 +524,13 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
                     vidx += 1
                     if expression:
                         expression += "+"
-                    expression += f"max({value:0.6f}*{var_name}/{distance:0.6f},0)"
+                    # if controlling only one shape key we can use negative values from the control
+                    if num_keys == 1:
+                        expression += f"({value:0.6f}*{var_name}/{distance:0.6f})"
+                    # otherwise clamp the value to positive only
+                    else:
+                        expression += f"max({value:0.6f}*{var_name}/{distance:0.6f},0)"
+
                     var_def = [var_name,
                                "TRANSFORMS",
                                nub_bone_name,
@@ -586,11 +585,12 @@ def get_key_object(objects, shape_key_name):
 def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects, shape_key_only=False):
 
     bone_drivers = {}
-    bone_retarget_defs = {}
+
+    FACERIG_CONFIG = get_facerig_config(chr_cache)
 
     if rigutils.select_rig(rigify_rig):
 
-        for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
+        for control_name, control_def in FACERIG_CONFIG.items():
 
             if control_def["widget_type"] == "rect":
                 prefixes = [ ("x_", "x", "horizontal", "_box",  0, "rotation"),
@@ -792,7 +792,8 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
 
 def remove_expression_rig_retarget_drivers(chr_cache, rigify_rig: bpy.types.Object):
     if rigutils.select_rig(rigify_rig):
-        for control_name, control_def in FACERIG_EXT_CC3PLUS.items():
+        FACERIG_CONFIG = get_facerig_config(chr_cache)
+        for control_name, control_def in FACERIG_CONFIG.items():
             if control_name in rigify_rig.pose.bones:
                 pose_bone = rigify_rig.pose.bones[control_name]
                 pose_bone.driver_remove("location", 0)
@@ -800,6 +801,7 @@ def remove_expression_rig_retarget_drivers(chr_cache, rigify_rig: bpy.types.Obje
 
 
 def clear_expression_pose(chr_cache, rigify_rig, selected=False):
+    FACERIG_CONFIG = get_facerig_config(chr_cache)
     if selected:
         selected_names = []
         if bpy.context.selected_bones:
@@ -807,12 +809,12 @@ def clear_expression_pose(chr_cache, rigify_rig, selected=False):
         elif bpy.context.selected_pose_bones:
             selected_names = [ b.name for b in bpy.context.selected_pose_bones ]
         control_bones = []
-        for control_bone_name in FACERIG_EXT_CC3PLUS:
+        for control_bone_name in FACERIG_CONFIG:
             if control_bone_name in rigify_rig.pose.bones and control_bone_name in selected_names:
                 control_bones.append(control_bone_name)
     else:
         control_bones = [ "MCH-jaw_move", "jaw_master", "MCH-jaw_master" ]
-        for control_bone_name in FACERIG_EXT_CC3PLUS:
+        for control_bone_name in FACERIG_CONFIG:
             if control_bone_name in rigify_rig.pose.bones:
                 control_bones.append(control_bone_name)
 
@@ -827,9 +829,10 @@ def update_face_rig_color(context):
     props = vars.props()
     chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
     if chr_cache:
+        FACERIG_CONFIG = get_facerig_config(chr_cache)
         rig = chr_cache.get_armature()
         if rig and "facerig" in rig.pose.bones:
-            for control_bone_name, control_def in FACERIG_EXT_CC3PLUS.items():
+            for control_bone_name, control_def in FACERIG_CONFIG.items():
                 bones.set_bone_color(rig, control_bone_name, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
                 if control_def["widget_type"] == "rect":
                     lines_bone_name = control_bone_name + "_box"
@@ -844,6 +847,7 @@ def is_position_locked(rig):
 
 
 def toggle_lock_position(chr_cache, rig):
+    FACERIG_CONFIG = get_facerig_config(chr_cache)
     bone_names = ["facerig", "facerig_groups", "facerig_labels", "facerig_name"]
     bone_selectable = [ True, False, False, False ]
     is_locked = is_position_locked(rig)
@@ -855,7 +859,7 @@ def toggle_lock_position(chr_cache, rig):
             else:
                 pose_bone.bone.hide_select = True
     # make sure the controls selection properties are correct
-    for control_name in FACERIG_EXT_CC3PLUS:
+    for control_name in FACERIG_CONFIG:
         if control_name in rig.pose.bones:
             pose_bone = rig.pose.bones[control_name]
             pose_bone.bone.hide_select = False
@@ -879,7 +883,8 @@ ROT_AXES = {
     "z": ("rotation_euler", "ROT_Z", 2),
 }
 
-FACERIG_EXT_CC3PLUS = {
+
+FACERIG_EXT_CONFIG = {
     "CTRL_L_eye_blink":
     {
         "widget_type": "slider",
@@ -913,18 +918,6 @@ FACERIG_EXT_CC3PLUS = {
             "Eye_Pupil_Contract": -1.0
         }
     },
-    # theres only one set of pupil shape keys for both eyes
-    #"CTRL_L_eye_pupil":
-    #{
-    #    "widget_type": "slider",
-    #    "range": [-1.0, 1.0],
-    #    "indices": [170, 171],
-    #    "blendshapes":
-    #    {
-    #        "Eye_Pupil_Dilate": 1.0,
-    #        "Eye_Pupil_Contract": -1.0
-    #    }
-    #},
     "CTRL_L_eye_squintInner":
     {
         "widget_type": "slider",
@@ -1396,7 +1389,8 @@ FACERIG_EXT_CC3PLUS = {
             "Cheek_Raise_R": 1.0
         }
     },
-    "CTRL_R_nose": {
+    "CTRL_R_nose":
+    {
         "widget_type": "rect",
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
@@ -1800,24 +1794,23 @@ FACERIG_EXT_CC3PLUS = {
     "CTRL_L_mouth_suckBlow":
     {
         "widget_type": "slider",
-        "retarget": ["Cheek_Suck_L"],
         "range": [-1.0, 1.0],
         "indices": [44, 42],
         "blendshapes":
         {
             "Cheek_Suck_L": 1.0,
-            "Mouth_Blow_L": -1.0
+            "Cheek_Puff_L": -1.0
         }
     },
-    "CTRL_R_mouth_suckBlow": {
+    "CTRL_R_mouth_suckBlow":
+    {
         "widget_type": "slider",
-        "retarget": ["Cheek_Suck_R"],
         "range": [-1.0, 1.0],
         "indices": [43, 45],
         "blendshapes":
         {
             "Cheek_Suck_R": 1.0,
-            "Mouth_Blow_R": -1.0
+            "Cheek_Puff_R": -1.0
         }
     },
     "CTRL_L_neck_stretch":
@@ -1923,6 +1916,17 @@ FACERIG_EXT_CC3PLUS = {
             }
         }
     },
+    "CTRL_C_tongue_tip_upDown_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [232, 233],
+        "blendshapes":
+        {
+            "Tongue_Tip_Up": -1.0,
+            "Tongue_Tip_Down": 1.0
+        }
+    },
     "CTRL_C_tongue_roll":  #370, 380
     {
         "widget_type": "rect",
@@ -1936,6 +1940,27 @@ FACERIG_EXT_CC3PLUS = {
             {
                 "Tongue_Twist_L": 1.0,
                 "Tongue_Twist_R": -1.0
+            },
+            "y":
+            {
+                "V_Tongue_Curl_U": -1.0,
+                "V_Tongue_Curl_D": 1.0
+            }
+        }
+    },
+    "CTRL_C_tongue_roll_Std":  #370, 380
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "x_invert": False,
+        "indices": [219, 222, 223, 220],
+        "blendshapes":
+        {
+            "x":
+            {
+                "Tongue_Roll": 1.0,
             },
             "y":
             {
@@ -1972,6 +1997,28 @@ FACERIG_EXT_CC3PLUS = {
         "blendshapes":
         {
             "Mouth_Blow_R": 1.0
+        }
+    },
+    "CTRL_mouth_shrugDropU":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [238, 239],
+        "blendshapes":
+        {
+            "Mouth_Shrug_Upper": -1.0,
+            "Mouth_Drop_Upper": 1.0,
+        }
+    },
+    "CTRL_mouth_shrugDropD":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [240, 241],
+        "blendshapes":
+        {
+            "Mouth_Shrug_Lower": -1.0,
+            "Mouth_Drop_Lower": 1.0,
         }
     },
     "CTRL_C_tongue_narrowWide":  #300, 360
@@ -2110,6 +2157,7 @@ FACERIG_EXT_CC3PLUS = {
     },
     "CTRL_C_mouth_lipShiftD":
     {
+
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [160, 161],
@@ -2121,6 +2169,7 @@ FACERIG_EXT_CC3PLUS = {
     },
     "CTRL_R_mouth_pushPullU":
     {
+
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [50, 46],
@@ -2132,6 +2181,7 @@ FACERIG_EXT_CC3PLUS = {
     },
     "CTRL_R_mouth_pushPullD":
     {
+
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [52, 48],
@@ -2143,6 +2193,7 @@ FACERIG_EXT_CC3PLUS = {
     },
     "CTRL_L_mouth_pushPullU":
     {
+
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [47, 51],
@@ -2154,6 +2205,7 @@ FACERIG_EXT_CC3PLUS = {
     },
     "CTRL_L_mouth_pushPullD":
     {
+
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [49, 53],
@@ -2221,6 +2273,7 @@ FACERIG_EXT_CC3PLUS = {
     },
     "CTRL_C_teethU":
     {
+
         "widget_type": "rect",
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
@@ -2277,6 +2330,7 @@ FACERIG_EXT_CC3PLUS = {
     },
     "CTRL_C_teeth_fwdBackD":
     {
+
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [117, 134],
@@ -2338,6 +2392,7 @@ FACERIG_EXT_CC3PLUS = {
     },
     "CTRL_R_eyelashD":
     {
+
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [140, 142],
@@ -2379,4 +2434,2050 @@ FACERIG_EXT_CC3PLUS = {
             "Mouth_Contract": 0.4
         }
     }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FACERIG_STD_CONFIG = {
+    "CTRL_L_eye_blink":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [47, 48],
+        "blendshapes":
+        {
+            "Eye_Blink_L": 1.0,
+            "Eye_Wide_L": -1.0
+        }
+    },
+    "CTRL_R_eye_blink":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [8, 9],
+        "blendshapes":
+        {
+            "Eye_Blink_R": 1.0,
+            "Eye_Wide_R": -1.0
+        }
+    },
+    "CTRL_L_eye_squintInner":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [51, 52],
+        "blendshapes": {"Eye_Squint_L": 1.0}
+    },
+    "CTRL_R_eye_squintInner":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [12, 13],
+        "blendshapes": {"Eye_Squint_R": 1.0}
+    },
+    "CTRL_L_eye":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "x_parent": "CTRL_C_eye",
+        "y_parent": "CTRL_C_eye",
+        "indices": [86, 87, 88, 89],
+        "blendshapes":
+        {
+            "x":
+            {
+                "Eye_L_Look_L": 1.0,
+                "Eye_L_Look_R": -1.0
+            },
+            "y":
+            {
+                "Eye_L_Look_Up": -1.0,
+                "Eye_L_Look_Down": 1.0
+            }
+        },
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_L_Eye",
+                    "axis": "z",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_L_Eye",
+                    "axis": "x",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "MCH-eye.L",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "MCH-eye.L",
+                    "axis": "x",
+                    "cc_axis": "x",
+                    "offset": 0,
+                    "scalar": -20.0
+                }
+            ]
+        }
+
+    },
+    "CTRL_R_eye":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "x_parent": "CTRL_C_eye",
+        "y_parent": "CTRL_C_eye",
+        "indices": [81,80,79,78],
+        "blendshapes":
+        {
+            "x":
+            {
+                "Eye_R_Look_L": 1.0,
+                "Eye_R_Look_R": -1.0
+            },
+            "y":
+            {
+                "Eye_R_Look_Up": -1.0,
+                "Eye_R_Look_Down": 1.0
+            }
+        },
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_R_Eye",
+                    "axis": "z",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_R_Eye",
+                    "axis": "x",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "x",
+                    "cc_axis": "x",
+                    "offset": 0,
+                    "scalar": -20.0
+                }
+            ]
+        }
+    },
+    "CTRL_C_eye":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "x_method": "AVERAGE",
+        "y_method": "AVERAGE",
+        "indices": [83, 84, 85, 82],
+        "blendshapes":
+        {
+            "x":
+            {
+                "Eye_R_Look_L": 1.0,
+                "Eye_R_Look_R": -1.0,
+                "Eye_L_Look_L": 1.0,
+                "Eye_L_Look_R": -1.0
+            },
+            "y":
+            {
+                "Eye_R_Look_Up": -1.0,
+                "Eye_R_Look_Down": 1.0,
+                "Eye_L_Look_Up": -1.0,
+                "Eye_L_Look_Down": 1.0
+            }
+        },
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_R_Eye",
+                    "axis": "z",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                },
+                {
+                    "bone": "CC_Base_L_Eye",
+                    "axis": "z",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_R_Eye",
+                    "axis": "x",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                },
+                {
+                    "bone": "CC_Base_L_Eye",
+                    "axis": "x",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                },
+                {
+                    "bone": "MCH-eye.L",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "x",
+                    "cc_axis": "x",
+                    "offset": 0,
+                    "scalar": -20.0
+                },
+                {
+                    "bone": "MCH-eye.L",
+                    "axis": "x",
+                    "cc_axis": "x",
+                    "offset": 0,
+                    "scalar": -20.0
+                }
+            ]
+        }
+    },
+    "CTRL_C_mouth_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [120, 121],
+        "blendshapes":
+        {
+            "Mouth_L": 1.0,
+            "Mouth_R": -1.0,
+        },
+    },
+    "CTRL_C_jaw":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [0.0, 1.0],
+        "y_invert": True,
+        "indices": [99, 100, 101, 98],
+        "blendshapes":
+        {
+            "x":
+            {
+                "Jaw_L": 1.0,
+                "Jaw_R": -1.0
+            },
+            "y":
+            {
+                "Jaw_Open": 1.0
+            }
+        },
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_JawRoot",
+                    "axis": "y",
+                    "offset": 0,
+                    "scalar": -15.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_JawRoot",
+                    "axis": "z",
+                    "offset": 0, # 90.0,
+                    "scalar": 30.0
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "jaw_master",
+                    "axis": "y",
+                    "cc_axis": "y",
+                    "offset": 0,
+                    "scalar": 15.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "jaw_master",
+                    "axis": "x",
+                    "cc_axis": "z",
+                    "offset": 0.0,
+                    "scalar": 30.0
+                }
+            ]
+        }
+    },
+    "CTRL_R_brow_down":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [3, 6],
+        "blendshapes":
+        {
+            "Brow_Drop_R": 1.0
+        }
+    },
+    "CTRL_L_brow_down":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [42, 45],
+        "blendshapes":
+        {
+            "Brow_Drop_L": 1.0
+        }
+    },
+    "CTRL_L_brow_raiseOut":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [39, 43],
+        "blendshapes":
+        {
+            "Brow_Raise_Outer_L": 1.0
+        }
+    },
+    "CTRL_L_brow_raiseIn":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [40, 44],
+        "blendshapes":
+        {
+            "Brow_Raise_Inner_L": 1.0
+        }
+    },
+    "CTRL_R_brow_raiseOut":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [0, 4],
+        "blendshapes":
+        {
+            "Brow_Raise_Outer_R": 1.0
+        }
+    },
+    "CTRL_R_brow_raiseIn":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [1, 5],
+        "blendshapes":
+        {
+            "Brow_Raise_Inner_R": 1.0
+        }
+    },
+    "CTRL_L_nose_wrinkleUpper":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [46, 67],
+        "blendshapes":
+        {
+            "Nose_Sneer_L": 1.0
+        }
+    },
+    "CTRL_R_nose_wrinkleUpper":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [7, 38],
+        "blendshapes":
+        {
+            "Nose_Sneer_R": 1.0
+        }
+    },
+    "CTRL_L_eye_cheekRaise":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [49, 50],
+        "blendshapes":
+        {
+            "Cheek_Raise_L": 1.0
+        }
+    },
+    "CTRL_R_eye_cheekRaise":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [10, 11],
+        "blendshapes":
+        {
+            "Cheek_Raise_R": 1.0
+        }
+    },
+    "CTRL_L_mouth_lowerLipDepress":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [61, 66],
+        "blendshapes":
+        {
+            "Mouth_Down_Lower_L": 1.0
+        }
+    },
+    "CTRL_R_mouth_lowerLipDepress":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [20, 25],
+        "blendshapes":
+        {
+            "Mouth_Down_Lower_R": 1.0
+        }
+    },
+    "CTRL_L_mouth_cornerDepress":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [59, 64],
+        "blendshapes":
+        {
+            "Mouth_Frown_L": 1.0
+        }
+    },
+    "CTRL_R_mouth_cornerDepress":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [18, 23],
+        "blendshapes":
+        {
+            "Mouth_Frown_R": 1.0
+        }
+    },
+    "CTRL_L_mouth_cornerPull":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [57, 62],
+        "blendshapes":
+        {
+            "Mouth_Smile_L": 1.0
+        }
+    },
+    "CTRL_R_mouth_cornerPull":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [16, 21],
+        "blendshapes":
+        {
+            "Mouth_Smile_R": 1.0
+        }
+    },
+    "CTRL_L_mouth_upperLipRaise":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [56, 55],
+        "blendshapes":
+        {
+            "Mouth_Up_Upper_L": 1.0
+        }
+    },
+    "CTRL_R_mouth_upperLipRaise":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [15, 14],
+        "blendshapes":
+        {
+            "Mouth_Up_Upper_R": 1.0
+        }
+    },
+    "CTRL_L_mouth_stretch":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [60, 65],
+        "blendshapes":
+        {
+            "Mouth_Stretch_L": 1.0
+        }
+    },
+    "CTRL_R_mouth_stretch":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [19, 24],
+        "blendshapes":
+        {
+            "Mouth_Stretch_R": 1.0
+        }
+    },
+    "CTRL_L_mouth_dimple":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [58, 63],
+        "blendshapes":
+        {
+            "Mouth_Dimple_L": 1.0
+        }
+    },
+    "CTRL_R_mouth_dimple":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [17, 22],
+        "blendshapes":
+        {
+            "Mouth_Dimple_R": 1.0
+        }
+    },
+    "CTRL_mouth_purse_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [30, 31],
+        "blendshapes":
+        {
+            "Mouth_Pucker": 1.0
+        }
+    },
+    "CTRL_mouth_funnel_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [32, 33],
+        "blendshapes":
+        {
+            "Mouth_Funnel": 1.0
+        }
+    },
+    "CTRL_mouth_lipBiteU_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [122, 123],
+        "blendshapes":
+        {
+            "Mouth_Roll_In_Upper": 1.0
+        }
+    },
+    "CTRL_mouth_lipBiteD_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [125, 124],
+        "blendshapes":
+        {
+            "Mouth_Roll_In_Lower": 1.0
+        }
+    },
+    "CTRL_C_jaw_fwdBack_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [70, 71],
+        "blendshapes":
+        {
+            "Jaw_Forward": 1.0,
+        },
+        "bones":
+        [
+            {
+                "bone": "CC_Base_JawRoot",
+                "axis": "x",
+                "offset": 0, # 1.8288450241088867,
+                "scalar": 1.0
+            }
+        ],
+        "rigify":
+        [
+            {
+                "bone": "MCH-jaw_move",
+                "axis": "y",
+                "cc_axis": "x",
+                "offset": 0,
+                "scalar": 1.0
+            }
+        ]
+    },
+    "CTRL_L_mouth_puff_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [26, 28],
+        "blendshapes":
+        {
+            "Cheek_Puff_L": 1.0
+        }
+    },
+    "CTRL_R_mouth_puff_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [29, 27],
+        "blendshapes":
+        {
+            "Cheek_Puff_R": 1.0
+        }
+    },
+    "CTRL_C_mouth_lipsTogether":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [72, 73],
+        "blendshapes":
+        {
+            "Mouth_Close": 0.2
+        }
+    },
+    "CTRL_R_mouth_press":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [34, 36],
+        "blendshapes":
+        {
+            "Mouth_Press_R": 1.0
+        }
+    },
+    "CTRL_L_mouth_press":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [35, 37],
+        "blendshapes":
+        {
+            "Mouth_Press_L": 1.0
+        }
+    },
+    "CTRL_C_tongue":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "indices": [110, 111, 112, 113],
+        "blendshapes":
+        {
+            "x":
+            {
+                "Tongue_L": 1.0,
+                "Tongue_R": -1.0
+            },
+            "y":
+            {
+                "Tongue_Up": -1.0,
+                "Tongue_Down": 1.0
+            }
+        }
+    },
+    "CTRL_C_tongue_Out_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [76, 77],
+        "blendshapes":
+        {
+            "Tongue_Out": 1.0
+        }
+    },
+    "CTRL_C_tongue_tip_upDown_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [126, 127],
+        "blendshapes":
+        {
+            "Tongue_Tip_Up": -1.0,
+            "Tongue_Tip_Down": 1.0
+        }
+    },
+    "CTRL_C_tongue_roll_Std":  #370, 380
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "x_invert": False,
+        "indices": [114, 116, 117, 115],
+        "blendshapes":
+        {
+            "x":
+            {
+                "Tongue_Roll": 1.0,
+            },
+            "y":
+            {
+                "V_Tongue_Curl_U": -1.0,
+                "V_Tongue_Curl_D": 1.0
+            }
+        }
+    },
+    "CTRL_mouth_shrugU_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [133, 132],
+        "blendshapes":
+        {
+            "Mouth_Shrug_Upper": 1.0,
+        },
+    },
+    "CTRL_mouth_shrugD_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [135, 134],
+        "blendshapes":
+        {
+            "Mouth_Shrug_Lower": 1.0,
+        }
+    },
+    "CTRL_C_tongue_narrowWide":  #300, 360
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [74, 75],
+        "blendshapes":
+        {
+            "Tongue_Wide": 1.0,
+            "Tongue_Narrow": -1.0
+        }
+    },
+    "CTRL_mouth_lipsRollU_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [128, 129],
+        "blendshapes":
+        {
+            "Mouth_Roll_In_Upper": 1.0,
+        }
+    },
+    "CTRL_mouth_lipsRollD_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [131, 130],
+        "blendshapes":
+        {
+            "Mouth_Roll_In_Lower": 1.0,
+        }
+    },
+    "CTRL_R_mouth_corner_Std":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "retarget": [],
+        "indices": [102, 103, 104, 105],
+        "blendshapes":
+        {
+            "x":
+            {
+                "Mouth_Stretch_R": -1.0
+            },
+            "y":
+            {
+                "Mouth_Frown_R": 1.0
+            }
+        }
+    },
+    "CTRL_L_mouth_corner_Std":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "retarget": [],
+        "indices": [106, 107, 108, 109],
+        "blendshapes":
+        {
+            "x":
+            {
+                "Mouth_Stretch_L": 1.0
+            },
+            "y":
+            {
+                "Mouth_Frown_L": 1.0
+            }
+        }
+    },
+    "CTRL_C_teethD":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "indices": [94, 95, 96, 97],
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_Teeth02",
+                    "axis": "z",
+                    "offset": 0, # -0.04119798541069031,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_Teeth02",
+                    "axis": "y",
+                    "offset": 0, # 1.249316930770874,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "teeth.B",
+                    "axis": "x",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "teeth.B",
+                    "axis": "z",
+                    "cc_axis": "y",
+                    "offset": 0,
+                    "scalar": -1.0,
+                    "mode": "position"
+                }
+            ]
+        }
+    },
+    "CTRL_C_teethU":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "indices": [90, 91, 92, 93],
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_Teeth01",
+                    "axis": "z",
+                    "offset": 0, # -0.03492468595504761,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_Teeth01",
+                    "axis": "y",
+                    "offset": 0, # -0.06047694757580757,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "teeth.T",
+                    "axis": "x",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "teeth.T",
+                    "axis": "z",
+                    "cc_axis": "y",
+                    "offset": 0,
+                    "scalar": -1.0,
+                    "mode": "position"
+                }
+            ]
+        }
+    },
+    "CTRL_C_teeth_fwdBackD":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [53, 68],
+        "bones":
+        [
+            {
+                "bone": "CC_Base_Teeth02",
+                "axis": "x",
+                "offset": 0, # 2.879988670349121,
+                "scalar": 1.0
+            }
+        ],
+        "rigify":
+        [
+            {
+                "bone": "teeth.B",
+                "axis": "y",
+                "cc_axis": "x",
+                "offset": 0,
+                "scalar": -1.0
+            }
+        ]
+    },
+    "CTRL_C_teeth_fwdBackU":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [54, 69],
+        "bones":
+        [
+            {
+                "bone": "CC_Base_Teeth01",
+                "axis": "x",
+                "offset": 0, # -0.16094255447387695,
+                "scalar": 1.0
+            }
+        ],
+        "rigify":
+        [
+            {
+                "bone": "teeth.T",
+                "axis": "y",
+                "cc_axis": "x",
+                "offset": 0,
+                "scalar": -1.0
+            }
+        ]
+    },
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FACERIG_TRA_CONFIG = {
+    "CTRL_L_eye_blink":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [47, 48],
+        "blendshapes":
+        {
+            "A14_Eye_Blink_Left": 1.0,
+            "A18_Eye_Wide_Left": -1.0
+        }
+    },
+    "CTRL_R_eye_blink":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [8, 9],
+        "blendshapes":
+        {
+            "A15_Eye_Blink_Right": 1.0,
+            "A19_Eye_Wide_Right": -1.0
+        }
+    },
+    "CTRL_L_eye_squintInner":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [51, 52],
+        "blendshapes": {"A16_Eye_Squint_Left": 1.0}
+    },
+    "CTRL_R_eye_squintInner":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [12, 13],
+        "blendshapes": {"A17_Eye_Squint_Right": 1.0}
+    },
+    "CTRL_L_eye":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "x_parent": "CTRL_C_eye",
+        "y_parent": "CTRL_C_eye",
+        "indices": [86, 87, 88, 89],
+        "blendshapes":
+        {
+            "x":
+            {
+                "A10_Eye_Look_Out_Left": 1.0,
+                "A11_Eye_Look_In_Left": -1.0
+            },
+            "y":
+            {
+                "A06_Eye_Look_Up_Left": -1.0,
+                "A08_Eye_Look_Down_Left": 1.0
+            }
+        },
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_L_Eye",
+                    "axis": "z",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_L_Eye",
+                    "axis": "x",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "MCH-eye.L",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "MCH-eye.L",
+                    "axis": "x",
+                    "cc_axis": "x",
+                    "offset": 0,
+                    "scalar": -20.0
+                }
+            ]
+        }
+
+    },
+    "CTRL_R_eye":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "x_parent": "CTRL_C_eye",
+        "y_parent": "CTRL_C_eye",
+        "indices": [81,80,79,78],
+        "blendshapes":
+        {
+            "x":
+            {
+                "A12_Eye_Look_In_Right": 1.0,
+                "A13_Eye_Look_Out_Right": -1.0
+            },
+            "y":
+            {
+                "A07_Eye_Look_Up_Right": -1.0,
+                "A09_Eye_Look_Down_Right": 1.0
+            }
+        },
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_R_Eye",
+                    "axis": "z",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_R_Eye",
+                    "axis": "x",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "x",
+                    "cc_axis": "x",
+                    "offset": 0,
+                    "scalar": -20.0
+                }
+            ]
+        }
+    },
+    "CTRL_C_eye":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "x_method": "AVERAGE",
+        "y_method": "AVERAGE",
+        "indices": [83, 84, 85, 82],
+        "blendshapes":
+        {
+            "x":
+            {
+                "A12_Eye_Look_In_Right": 1.0,
+                "A13_Eye_Look_Out_Right": -1.0,
+                "A10_Eye_Look_Out_Left": 1.0,
+                "A11_Eye_Look_In_Left": -1.0
+            },
+            "y":
+            {
+                "A07_Eye_Look_Up_Right": -1.0,
+                "A09_Eye_Look_Down_Right": 1.0,
+                "A06_Eye_Look_Up_Left": -1.0,
+                "A08_Eye_Look_Down_Left": 1.0
+            }
+        },
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_R_Eye",
+                    "axis": "z",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                },
+                {
+                    "bone": "CC_Base_L_Eye",
+                    "axis": "z",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_R_Eye",
+                    "axis": "x",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                },
+                {
+                    "bone": "CC_Base_L_Eye",
+                    "axis": "x",
+                    "offset": 0, # -90.0,
+                    "scalar": 20.0
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                },
+                {
+                    "bone": "MCH-eye.L",
+                    "axis": "z",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 20.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "MCH-eye.R",
+                    "axis": "x",
+                    "cc_axis": "x",
+                    "offset": 0,
+                    "scalar": -20.0
+                },
+                {
+                    "bone": "MCH-eye.L",
+                    "axis": "x",
+                    "cc_axis": "x",
+                    "offset": 0,
+                    "scalar": -20.0
+                }
+            ]
+        }
+    },
+    "CTRL_C_mouth":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [120, 121],
+        "blendshapes":
+        {
+            "A31_Mouth_Left": 1.0,
+            "A32_Mouth_Right": -1.0
+        },
+    },
+    "CTRL_C_jaw":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [0.0, 1.0],
+        "y_invert": True,
+        "indices": [99, 100, 101, 98],
+        "blendshapes":
+        {
+            "x":
+            {
+                "A27_Jaw_Left": 1.0,
+                "A28_Jaw_Right": -1.0
+            },
+            "y":
+            {
+                "A25_Jaw_Open": 1.0
+            }
+        },
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_JawRoot",
+                    "axis": "y",
+                    "offset": 0,
+                    "scalar": -15.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_JawRoot",
+                    "axis": "z",
+                    "offset": 0, # 90.0,
+                    "scalar": 30.0
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "jaw_master",
+                    "axis": "y",
+                    "cc_axis": "y",
+                    "offset": 0,
+                    "scalar": 15.0
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "jaw_master",
+                    "axis": "x",
+                    "cc_axis": "z",
+                    "offset": 0.0,
+                    "scalar": 30.0
+                }
+            ]
+        }
+    },
+    "CTRL_R_brow_down":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [3, 6],
+        "blendshapes":
+        {
+            "A03_Brow_Down_Right": 1.0
+        }
+    },
+    "CTRL_L_brow_down":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [42, 45],
+        "blendshapes":
+        {
+            "A02_Brow_Down_Left": 1.0
+        }
+    },
+    "CTRL_L_brow_raiseOut":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [39, 43],
+        "blendshapes":
+        {
+            "A04_Brow_Outer_Up_Left": 1.0
+        }
+    },
+    "CTRL_brow_raiseIn":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [40, 44],
+        "blendshapes":
+        {
+            "A01_Brow_Inner_Up": 1.0
+        }
+    },
+    "CTRL_R_brow_raiseOut":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [0, 4],
+        "blendshapes":
+        {
+            "A05_Brow_Outer_Up_Right": 1.0
+        }
+    },
+    "CTRL_L_nose_wrinkleUpper":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [46, 67],
+        "blendshapes":
+        {
+            "A23_Nose_Sneer_Left": 1.0
+        }
+    },
+    "CTRL_R_nose_wrinkleUpper":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [7, 38],
+        "blendshapes":
+        {
+            "A24_Nose_Sneer_Right": 1.0
+        }
+    },
+    "CTRL_L_eye_cheekRaise":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [49, 50],
+        "blendshapes":
+        {
+            "A21_Cheek_Squint_Left": 1.0
+        }
+    },
+    "CTRL_R_eye_cheekRaise":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [10, 11],
+        "blendshapes":
+        {
+            "A22_Cheek_Squint_Right": 1.0
+        }
+    },
+    "CTRL_L_mouth_lowerLipDepress":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [61, 66],
+        "blendshapes":
+        {
+            "A46_Mouth_Lower_Down_Left": 1.0
+        }
+    },
+    "CTRL_R_mouth_lowerLipDepress":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [20, 25],
+        "blendshapes":
+        {
+            "A47_Mouth_Lower_Down_Right": 1.0
+        }
+    },
+    "CTRL_L_mouth_cornerDepress":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [59, 64],
+        "blendshapes":
+        {
+            "A40_Mouth_Frown_Left": 1.0
+        }
+    },
+    "CTRL_R_mouth_cornerDepress":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [18, 23],
+        "blendshapes":
+        {
+            "A41_Mouth_Frown_Right": 1.0
+        }
+    },
+    "CTRL_L_mouth_cornerPull":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [57, 62],
+        "blendshapes":
+        {
+            "A38_Mouth_Smile_Left": 1.0
+        }
+    },
+    "CTRL_R_mouth_cornerPull":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [16, 21],
+        "blendshapes":
+        {
+            "A39_Mouth_Smile_Right": 1.0
+        }
+    },
+    "CTRL_L_mouth_upperLipRaise":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [56, 55],
+        "blendshapes":
+        {
+            "A44_Mouth_Upper_Up_Left": 1.0
+        }
+    },
+    "CTRL_R_mouth_upperLipRaise":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [15, 14],
+        "blendshapes":
+        {
+            "A45_Mouth_Upper_Up_Right": 1.0
+        }
+    },
+    "CTRL_L_mouth_stretch":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [60, 65],
+        "blendshapes":
+        {
+            "A50_Mouth_Stretch_Left": 1.0
+        }
+    },
+    "CTRL_R_mouth_stretch":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [19, 24],
+        "blendshapes":
+        {
+            "A51_Mouth_Stretch_Right": 1.0
+        }
+    },
+    "CTRL_L_mouth_dimple":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [58, 63],
+        "blendshapes":
+        {
+            "A42_Mouth_Dimple_Left": 1.0
+        }
+    },
+    "CTRL_R_mouth_dimple":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [17, 22],
+        "blendshapes":
+        {
+            "A43_Mouth_Dimple_Right": 1.0
+        }
+    },
+    "CTRL_mouth_purse_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [30, 31],
+        "blendshapes":
+        {
+            "A30_Mouth_Pucker": 1.0
+        }
+    },
+    "CTRL_mouth_funnel_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [32, 33],
+        "blendshapes":
+        {
+            "A29_Mouth_Funnel": 1.0
+        }
+    },
+    "CTRL_mouth_lipBiteU_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [122, 123],
+        "blendshapes":
+        {
+            "A33_Mouth_Roll_Upper": 1.0
+        }
+    },
+    "CTRL_mouth_lipBiteD_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [125, 124],
+        "blendshapes":
+        {
+            "A34_Mouth_Roll_Lower": 1.0
+        }
+    },
+    "CTRL_C_jaw_fwdBack_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [70, 71],
+        "blendshapes":
+        {
+            "A26_Jaw_Forward": 1.0,
+        },
+        "bones":
+        [
+            {
+                "bone": "CC_Base_JawRoot",
+                "axis": "x",
+                "offset": 0, # 1.8288450241088867,
+                "scalar": 1.0
+            }
+        ],
+        "rigify":
+        [
+            {
+                "bone": "MCH-jaw_move",
+                "axis": "y",
+                "cc_axis": "x",
+                "offset": 0,
+                "scalar": 1.0
+            }
+        ]
+    },
+    "CTRL_mouth_puff_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [26, 28],
+        "blendshapes":
+        {
+            "Cheeks_Suck": -1.0,
+            "A20_Cheek_Puff": 1.0,
+        }
+    },
+    "CTRL_C_mouth_lipsTogether":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [72, 73],
+        "blendshapes":
+        {
+            "A37_Mouth_Close": 0.2
+        }
+    },
+    "CTRL_R_mouth_press":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [34, 36],
+        "blendshapes":
+        {
+            "A49_Mouth_Press_Right": 1.0
+        }
+    },
+    "CTRL_L_mouth_press":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [35, 37],
+        "blendshapes":
+        {
+            "A48_Mouth_Press_Left": 1.0
+        }
+    },
+    "CTRL_C_tongue":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "indices": [110, 111, 112, 113],
+        "blendshapes":
+        {
+            "x":
+            {
+                "T03_Tongue_Left": 1.0,
+                "T04_Tongue_Right": -1.0
+            },
+            "y":
+            {
+                "T01_Tongue_Up": -1.0,
+                "T02_Tongue_Down": 1.0
+            }
+        }
+    },
+    "CTRL_C_tongue_Out_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [76, 77],
+        "blendshapes":
+        {
+            "A52_Tongue_Out": 1.0
+        }
+    },
+    "CTRL_C_tongue_tip_upDown_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [126, 127],
+        "blendshapes":
+        {
+            "T06_Tongue_Tip_Up": -1.0,
+            "T07_Tongue_Tip_Down": 1.0
+        }
+    },
+    "CTRL_C_tongue_roll_Std":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "x_invert": False,
+        "indices": [114, 116, 117, 115],
+        "blendshapes":
+        {
+            "x":
+            {
+                "T05_Tongue_Roll": 1.0,
+            },
+            "y":
+            {
+                "V_Tongue_Curl_U": -1.0,
+                "V_Tongue_Curl_D": 1.0
+            }
+        }
+    },
+    "CTRL_mouth_shrugU_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [133, 132],
+        "blendshapes":
+        {
+            "A35_Mouth_Shrug_Upper": 1.0,
+        },
+    },
+    "CTRL_mouth_shrugD_Std":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [135, 134],
+        "blendshapes":
+        {
+            "A36_Mouth_Shrug_Lower": 1.0,
+        }
+    },
+    "CTRL_C_tongue_narrowWide":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [74, 75],
+        "blendshapes":
+        {
+            "T08_Tongue_Width": 1.0,
+            "V_Tongue_Narrow": -1.0
+        }
+    },
+    "CTRL_mouth_lipsRollU_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [128, 129],
+        "blendshapes":
+        {
+            "A33_Mouth_Roll_Upper": 1.0,
+        }
+    },
+    "CTRL_mouth_lipsRollD_Std":
+    {
+        "widget_type": "slider",
+        "range": [0.0, 1.0],
+        "indices": [131, 130],
+        "blendshapes":
+        {
+            "A34_Mouth_Roll_Lower": 1.0,
+        }
+    },
+    "CTRL_R_mouth_corner_Std":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "retarget": [],
+        "indices": [102, 103, 104, 105],
+        "blendshapes":
+        {
+            "x":
+            {
+                "A51_Mouth_Stretch_Right": -1.0
+            },
+            "y":
+            {
+                "A41_Mouth_Frown_Right": 1.0
+            }
+        }
+    },
+    "CTRL_L_mouth_corner_Std":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "retarget": [],
+        "indices": [106, 107, 108, 109],
+        "blendshapes":
+        {
+            "x":
+            {
+                "A50_Mouth_Stretch_Left": 1.0
+            },
+            "y":
+            {
+                "A40_Mouth_Frown_Left": 1.0
+            }
+        }
+    },
+    "CTRL_C_teethD":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "indices": [94, 95, 96, 97],
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_Teeth02",
+                    "axis": "z",
+                    "offset": 0, # -0.04119798541069031,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_Teeth02",
+                    "axis": "y",
+                    "offset": 0, # 1.249316930770874,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "teeth.B",
+                    "axis": "x",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "teeth.B",
+                    "axis": "z",
+                    "cc_axis": "y",
+                    "offset": 0,
+                    "scalar": -1.0,
+                    "mode": "position"
+                }
+            ]
+        }
+    },
+    "CTRL_C_teethU":
+    {
+        "widget_type": "rect",
+        "x_range": [-1.0, 1.0],
+        "y_range": [-1.0, 1.0],
+        "y_invert": False,
+        "indices": [90, 91, 92, 93],
+        "bones":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "CC_Base_Teeth01",
+                    "axis": "z",
+                    "offset": 0, # -0.03492468595504761,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "CC_Base_Teeth01",
+                    "axis": "y",
+                    "offset": 0, # -0.06047694757580757,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ]
+        },
+        "rigify":
+        {
+            "horizontal":
+            [
+                {
+                    "bone": "teeth.T",
+                    "axis": "x",
+                    "cc_axis": "z",
+                    "offset": 0,
+                    "scalar": 1.0,
+                    "mode": "position"
+                }
+            ],
+            "vertical":
+            [
+                {
+                    "bone": "teeth.T",
+                    "axis": "z",
+                    "cc_axis": "y",
+                    "offset": 0,
+                    "scalar": -1.0,
+                    "mode": "position"
+                }
+            ]
+        }
+    },
+    "CTRL_C_teeth_fwdBackD":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [53, 68],
+        "bones":
+        [
+            {
+                "bone": "CC_Base_Teeth02",
+                "axis": "x",
+                "offset": 0, # 2.879988670349121,
+                "scalar": 1.0
+            }
+        ],
+        "rigify":
+        [
+            {
+                "bone": "teeth.B",
+                "axis": "y",
+                "cc_axis": "x",
+                "offset": 0,
+                "scalar": -1.0
+            }
+        ]
+    },
+    "CTRL_C_teeth_fwdBackU":
+    {
+        "widget_type": "slider",
+        "range": [-1.0, 1.0],
+        "indices": [54, 69],
+        "bones":
+        [
+            {
+                "bone": "CC_Base_Teeth01",
+                "axis": "x",
+                "offset": 0, # -0.16094255447387695,
+                "scalar": 1.0
+            }
+        ],
+        "rigify":
+        [
+            {
+                "bone": "teeth.T",
+                "axis": "y",
+                "cc_axis": "x",
+                "offset": 0,
+                "scalar": -1.0
+            }
+        ]
+    },
 }

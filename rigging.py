@@ -166,7 +166,6 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             if reparented_bone and relation_flags:
                 bones.set_edit_bone_flags(reparented_bone, relation_flags, deform)
                 bones.set_bone_collection(rigify_rig, reparented_bone, collection, None, layer)
-                print(reparented_bone, collection)
 
         # add a custom DEF, ORG or MCH bone
         elif src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG" or src_bone_name[:3] == "MCH":
@@ -174,7 +173,6 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             if new_bone:
                 bones.set_edit_bone_flags(new_bone, relation_flags, deform)
                 bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
-                print(new_bone, collection)
             # partial rotation copy for share bones
             if ref and arg is not None:
                 bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, arg)
@@ -188,7 +186,6 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             if new_bone:
                 bones.set_edit_bone_flags(new_bone, relation_flags, deform)
                 bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
-                print(new_bone, collection)
 
     utils.log_recess()
 
