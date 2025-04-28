@@ -2201,7 +2201,8 @@ class CC3RigifyPanel(bpy.types.Panel):
                         box_row.operator("ccic.rigutils", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
                     is_pose_position = rigutils.is_rig_rest_position(rig)
                     box_row.operator("ccic.rigutils", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
-                    box_row.operator("ccic.rigutils", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
+                    box_row.operator("ccic.rigutils", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE_SELECTED"
+                    #box_row.operator("ccic.rigutils", icon="X", text="").param = "BUTTON_RESET_POSE"
                     box_row.separator()
                     depress = True if ik_fk > 0.995 else False
                     box_row.operator("ccic.rigutils", text="FK", depress=depress).param = "SET_LIMB_FK"
@@ -2292,7 +2293,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                             col_row.operator("ccic.rigutils", icon=("HIDE_OFF" if is_facerig_shown else "HIDE_ON"),
                                                               text="", depress=is_only_facerig_shown).param = "TOGGLE_SHOW_FACE_RIG"
                             col_row.operator("ccic.rigutils", icon="LOOP_BACK", text="").param = "RESET_EXPRESSION_POSE_SELECTED"
-                            col_row.operator("ccic.rigutils", icon="X", text="").param = "RESET_EXPRESSION_POSE"
+                            #col_row.operator("ccic.rigutils", icon="X", text="").param = "RESET_EXPRESSION_POSE"
                             col_row.prop(chr_cache, "rigify_face_control_color", text="")
                             col_1.label(text="Head Follow")
                             col_row = col_row = col_2.row(align=True)

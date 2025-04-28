@@ -1327,7 +1327,7 @@ def toggle_show_only_face_rig(rig):
                         collection.is_visible = collection.name in BASE_RIG_COLLECTION
 
 
-def reset_pose(rig, exceptions=None):
+def reset_pose(rig, exceptions=None, use_selected=False):
     if rig:
         utils.pose_mode_to(rig)
         rig.data.pose_position = "POSE"
@@ -1338,10 +1338,11 @@ def reset_pose(rig, exceptions=None):
                 continue
             bone = pose_bone.bone
             bones_data[bone] = (bone.select, bone.hide, bone.hide_select)
-            bone.select = True
-            bone.hide = False
-            if bones.can_unlock(pose_bone):
-                bone.hide_select = False
+            if not use_selected:
+                bone.select = True
+                bone.hide = False
+                if bones.can_unlock(pose_bone):
+                    bone.hide_select = False
         bpy.ops.pose.transforms_clear()
         for bone in rig.data.bones:
             if bone in bones_data:
@@ -2366,9 +2367,14 @@ class CCICRigUtils(bpy.types.Operator):
                 elif self.param == "TOGGLE_EXPRESSION_RIG_LOCK":
                     facerig.toggle_lock_position(chr_cache, rig)
 
+                elif self.param == "BUTTON_RESET_POSE_SELECTED":
+                    mode_selection = utils.store_mode_selection_state()
+                    reset_pose(rig, use_selected=True)
+                    utils.restore_mode_selection_state(mode_selection)
+
                 elif self.param == "BUTTON_RESET_POSE":
                     mode_selection = utils.store_mode_selection_state()
-                    reset_pose(rig)
+                    reset_pose(rig, use_selected=False)
                     utils.restore_mode_selection_state(mode_selection)
 
                 elif self.param == "RESET_EXPRESSION_POSE":
@@ -2490,11 +2496,14 @@ class CCICRigUtils(bpy.types.Operator):
         elif properties.param == "BUTTON_RESET_POSE":
             return "Clears all pose transforms"
 
+        elif properties.param == "BUTTON_RESET_POSE_SELECTED":
+            return "Clears the pose on all selected bones"
+
         elif properties.param == "RESET_EXPRESSION_POSE":
             return "Clears the expression on all expression controls"
 
         elif properties.param == "RESET_EXPRESSION_POSE_SELECTED":
-            return "Clears the expression on selected expression controls"
+            return "Clears the pose on all selected expression rig bones"
 
         elif properties.param == "LOAD_ACTION_SET":
             return "Loads the chosen motion set (armature and shape key actions) into the all the character objects"
