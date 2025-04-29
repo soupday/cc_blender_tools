@@ -644,23 +644,32 @@ def get_shape_key(obj, key_name) -> bpy.types.ShapeKey:
         return None
 
 
-def clear_body_shape_key_drivers(chr_cache):
+def clear_body_shape_key_drivers(chr_cache, objects=None):
+
     body_objects = chr_cache.get_objects_of_type("BODY")
+    body_objects.extend(chr_cache.get_objects_of_type("TONGUE"))
+    body_objects.extend(chr_cache.get_objects_of_type("EYE"))
+
     arm = chr_cache.get_armature()
 
     if not body_objects or not arm:
         return
 
+    body_keys = []
     for body in body_objects:
         if utils.object_has_shape_keys(body):
-            body_keys = [ key_block.name for key_block in body.data.shape_keys.key_blocks ]
-            objects = utils.get_child_objects(arm)
-            for obj in objects:
-                if obj != body and utils.object_has_shape_keys(obj):
-                    obj_key : bpy.types.ShapeKey
-                    for obj_key in obj.data.shape_keys.key_blocks:
-                        if obj_key.name in body_keys:
-                            obj_key.driver_remove("value")
+            for key_block in body.data.shape_keys.key_blocks:
+                if key_block.name not in body_keys:
+                    body_keys.append(key_block.name)
+    if body_keys:
+        if not objects:
+            objects = chr_cache.get_cache_objects()
+        for obj in objects:
+            if utils.object_has_shape_keys(obj):
+                obj_key : bpy.types.ShapeKey
+                for obj_key in obj.data.shape_keys.key_blocks:
+                    if obj_key.name in body_keys:
+                        obj_key.driver_remove("value")
 
 
 def add_body_shape_key_drivers(chr_cache, add_drivers, only_objects=None):
@@ -710,6 +719,7 @@ def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_defs, scale=1
     if utils.object_mode():
         shape_key = meshutils.find_shape_key(obj, shape_key_name)
         if shape_key:
+            shape_key.driver_remove("value")
             fcurve : bpy.types.FCurve
             fcurve = shape_key.driver_add("value")
             driver : bpy.types.Driver = fcurve.driver
@@ -749,6 +759,7 @@ def add_bone_driver(rig, bone_name, driver_def, var_defs, scale=1.0):
             prop = driver_def[1]
             index = driver_def[2]
             expression = driver_def[3]
+            pose_bone.driver_remove(prop, index)
             fcurve = pose_bone.driver_add(prop, index)
             driver : bpy.types.Driver = fcurve.driver
             driver.type = driver_def[0]

@@ -743,6 +743,7 @@ def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=No
                                     location=(0, 0, 0),
                                     scale=(1, 1, 1))
     obj: bpy.types.Object = utils.get_active_object()
+    obj.shape_key_add(name="Basis")
     name = f"Key_Proxy_{obj_id}"
     obj.name = name
     obj.data.name = name
@@ -752,6 +753,7 @@ def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=No
     obj.hide_set(True)
 
     if action:
+
         for fcurve in action.fcurves:
             data_path = fcurve.data_path
             if data_path.startswith("key_blocks["):

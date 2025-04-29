@@ -2483,7 +2483,7 @@ def adv_retarget_remove_pair(op, chr_cache):
 
     # clean up face rig key proxies and drivers
     if rigutils.is_face_rig(rigify_rig):
-        facerig.remove_expression_rig_retarget_drivers(chr_cache, rigify_rig)
+        facerig.remove_facerig_retarget_drivers(chr_cache, rigify_rig)
         rigutils.clean_up_shape_key_action_objects()
 
 
@@ -2564,7 +2564,7 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, t
     if rigutils.is_face_rig(rigify_rig):
         shape_key_only = shape_keys is not None
         proxy_objects = rigutils.get_shape_key_action_objects(rigify_rig, source_rig, source_action, shape_keys)
-        facerig.build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, proxy_objects, shape_key_only)
+        facerig.build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, proxy_objects, shape_key_only)
         if proxy_objects and objects is not None:
             objects.extend(proxy_objects)
 
@@ -3689,7 +3689,7 @@ class CC3Rigifier(bpy.types.Operator):
                         convert_to_basic_face_rig(self.rigify_rig)
                         chr_cache.rigified_full_face_rig = False
                     if self.use_expression_rig(chr_cache):
-                        facerig.build_expression_rig(chr_cache, self.rigify_rig, self.meta_rig, self.cc3_rig)
+                        facerig.build_facerig(chr_cache, self.rigify_rig, self.meta_rig, self.cc3_rig)
                     modify_rigify_controls(self.cc3_rig, self.rigify_rig, self.rigify_data)
                     prep_envelope_deform(self.rigify_rig, self.meta_rig)
                     face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
@@ -3700,7 +3700,7 @@ class CC3Rigifier(bpy.types.Operator):
                     store_source_bone_data(self.cc3_rig, self.rigify_rig, self.rigify_data)
                     rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                     if self.use_expression_rig(chr_cache):
-                        facerig.build_expression_rig_drivers(chr_cache, self.rigify_rig)
+                        facerig.build_facerig_drivers(chr_cache, self.rigify_rig)
                     else:
                         add_shape_key_drivers(chr_cache, self.rigify_rig)
                     adjust_rigify_constraints(chr_cache, self.rigify_rig)
@@ -3767,7 +3767,7 @@ class CC3Rigifier(bpy.types.Operator):
                         convert_to_basic_face_rig(self.rigify_rig)
                         chr_cache.rigified_full_face_rig = False
                     if self.use_expression_rig(chr_cache):
-                        facerig.build_expression_rig(chr_cache, self.rigify_rig, self.meta_rig, self.cc3_rig)
+                        facerig.build_facerig(chr_cache, self.rigify_rig, self.meta_rig, self.cc3_rig)
                     modify_rigify_controls(self.cc3_rig, self.rigify_rig, self.rigify_data)
                     prep_envelope_deform(self.rigify_rig, self.meta_rig)
                     if chr_cache.rigified_full_face_rig:
@@ -3781,7 +3781,7 @@ class CC3Rigifier(bpy.types.Operator):
                     store_source_bone_data(self.cc3_rig, self.rigify_rig, self.rigify_data)
                     rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                     if self.use_expression_rig(chr_cache):
-                        facerig.build_expression_rig_drivers(chr_cache, self.rigify_rig)
+                        facerig.build_facerig_drivers(chr_cache, self.rigify_rig)
                     else:
                         add_shape_key_drivers(chr_cache, self.rigify_rig)
                     adjust_rigify_constraints(chr_cache, self.rigify_rig)
@@ -3968,6 +3968,16 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "SPRING_GROUP_TO_SIM":
                 group_props_to_value(chr_cache, context.active_pose_bone, "IK_FK", 1.0)
                 group_props_to_value(chr_cache, context.active_pose_bone, "SIM", 1.0)
+
+            elif self.param == "ARKIT_PROXY_ADD":
+                mode_selection = utils.store_mode_selection_state()
+                facerig.generate_arkit_proxy(chr_cache)
+                utils.restore_mode_selection_state(mode_selection)
+
+            elif self.param == "ARKIT_PROXY_REMOVE":
+                mode_selection = utils.store_mode_selection_state()
+                facerig.remove_arkit_proxy(chr_cache)
+                utils.restore_mode_selection_state(mode_selection)
 
             props.restore_ui_list_indices()
 

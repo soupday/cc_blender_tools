@@ -551,7 +551,7 @@ def update_rig_target(self, context):
 
 
 def update_facerig_color(self, context):
-    facerig.update_face_rig_color(context)
+    facerig.update_facerig_color(context)
 
 
 def clean_collection_property(collection_prop):
@@ -1522,6 +1522,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     retarget_arm_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Arm spread angle (radians)")
     retarget_leg_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Leg spread angle (radians)")
     retarget_z_correction_height: bpy.props.FloatProperty(default = 0.0, min=-0.2, max=0.2, description="Height Adjustment (m)")
+    arkit_proxy: bpy.props.PointerProperty(type=bpy.types.Object)
 
     non_standard_type: bpy.props.EnumProperty(items=[
                     ("HUMANOID","Humanoid","Non standard character is a Humanoid"),
@@ -2731,6 +2732,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     section_rigify_action_sets: bpy.props.BoolProperty(default=True)
+    section_rigify_arkit: bpy.props.BoolProperty(default=False)
     section_rigify_controls: bpy.props.BoolProperty(default=True)
     section_rigify_spring: bpy.props.BoolProperty(default=False)
     section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)

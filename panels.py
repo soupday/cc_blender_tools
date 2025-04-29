@@ -2422,6 +2422,19 @@ class CC3RigifyPanel(bpy.types.Panel):
                                       icon="ANIM_DATA", icon_closed="ANIM_DATA"):
                         motion_set_ui(layout, chr_cache)
 
+                    box_row = layout.box().row()
+                    if fake_drop_down(box_row,
+                                      "ARKit",
+                                      "section_rigify_arkit",
+                                      props.section_rigify_arkit,
+                                      icon="ANIM_DATA", icon_closed="ANIM_DATA"):
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="MONKEY", text="Add ARKit Proxy").param = "ARKIT_PROXY_ADD"
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="X", text="Remove ARKit Proxy").param = "ARKIT_PROXY_REMOVE"
+                        if not chr_cache.arkit_proxy:
+                            row.enabled = False
+
 
             elif not chr_cache:
 

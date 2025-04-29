@@ -2306,12 +2306,27 @@ class CCICCharacterRename(bpy.types.Operator):
         props = vars.props()
         chr_cache = props.get_context_character_cache(context)
         rig = chr_cache.get_armature()
-        rig_name = utils.unique_object_name(self.name, rig)
         if rig:
-            rig.name = rig_name
-            rig.data.name = rig_name
-            name = rig.name
-        chr_cache.character_name = name
+            if chr_cache.rigified:
+                rigify_name = utils.unique_object_name(self.name, rig, suffix="Rigify")
+                metarig_name = rigify_name[:-7] + "_metarig"
+                source_name = rigify_name[:-7]
+                meta_rig = chr_cache.rig_meta_rig
+                source_rig = chr_cache.rig_original_rig
+                if source_rig:
+                    source_rig.name = source_name
+                    source_rig.data.name = source_name
+                if meta_rig:
+                    meta_rig.name = metarig_name
+                    meta_rig.data.name = metarig_name
+                rig.name = rigify_name
+                rig.data.name = rigify_name
+                chr_cache.character_name = source_name
+            else:
+                rig_name = utils.unique_object_name(self.name, rig)
+                rig.name = rig_name
+                rig.data.name = rig_name
+                chr_cache.character_name = rig_name
         if chr_cache.is_non_standard():
             chr_cache.non_standard_type = self.non_standard_type
         return {"FINISHED"}

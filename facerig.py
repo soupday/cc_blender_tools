@@ -108,7 +108,7 @@ def get_facerig_config(chr_cache):
     return None
 
 
-def build_expression_rig(chr_cache, rigify_rig, meta_rig, cc3_rig):
+def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
     prefs = vars.prefs()
 
     chr_cache.rigify_face_control_color = prefs.rigify_face_control_color
@@ -335,6 +335,7 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
         control_range_y = control_def["range"]
         min_y = (length * zero_point) * control_range_y[0]
         max_y = length * (1 - zero_point) * control_range_y[1]
+        allow_negative = control_def.get("negative", False)
 
         if "blendshapes" in control_def:
 
@@ -349,6 +350,7 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                     "distance": distance,
                     "var_axis": var_axis,
                     "num_keys": num_keys,
+                    "negative": allow_negative,
                 }
                 shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
 
@@ -387,6 +389,7 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
         max_x = width * (1 - zero_x) * control_range_x[1]
         min_y = -(height * zero_y) * control_range_y[0]
         max_y = -height * (1 - zero_y) * control_range_y[1]
+        allow_negative = control_def.get("negative", False)
 
         ctrl_axes = [
             ("horizontal", "x", min_x, max_x, control_range_x),
@@ -398,6 +401,7 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
             for ctrl_dir, ctrl_axis, min_d, max_d, control_range in ctrl_axes:
 
                 num_keys = len(control_def["blendshapes"][ctrl_axis])
+                parent = control_def.get(f"{ctrl_axis}_parent")
                 for i, (shape_key_name, shape_key_value) in enumerate(control_def["blendshapes"][ctrl_axis].items()):
                     distance = min_d if utils.same_sign(shape_key_value, control_range[0]) else max_d
                     var_axis = LOC_AXES.get(ctrl_axis)[1]
@@ -408,6 +412,7 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                         "distance": distance,
                         "var_axis": var_axis,
                         "num_keys": num_keys,
+                        "negative": allow_negative,
                     }
                     shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
 
@@ -441,7 +446,11 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
     return shape_key_driver_defs, bone_driver_defs
 
 
-def build_expression_rig_drivers(chr_cache, rigify_rig):
+def fvar(float_value):
+    return "{0:0.6f}".format(float_value).rstrip('0').rstrip('.')
+
+
+def build_facerig_drivers(chr_cache, rigify_rig):
 
     # first drive the shape keys on any other body objects from the head body object
     # expression rig will then override these
@@ -514,22 +523,26 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
             expression = ""
             var_defs = []
             vidx = 0
+            num_key_controls = len(shape_key_driver_def)
+            allow_negative = False
+
             for nub_bone_name, key_control_def in shape_key_driver_def.items():
                 if nub_bone_name in rigify_rig.pose.bones:
                     num_keys = key_control_def["num_keys"]
                     var_axis = key_control_def["var_axis"]
                     distance = key_control_def["distance"]
+                    if key_control_def["negative"]:
+                        allow_negative = True
                     value = key_control_def["value"]
                     var_name = f"var{vidx}"
                     vidx += 1
                     if expression:
                         expression += "+"
-                    # if controlling only one shape key we can use negative values from the control
-                    if num_keys == 1:
-                        expression += f"({value:0.6f}*{var_name}/{distance:0.6f})"
-                    # otherwise clamp the value to positive only
+                    use_negative = num_keys == 1 or num_key_controls > 1
+                    if use_negative:
+                        expression += f"({fvar(value)}*{var_name}/{fvar(distance)})"
                     else:
-                        expression += f"max({value:0.6f}*{var_name}/{distance:0.6f},0)"
+                        expression += f"max({fvar(value)}*{var_name}/{fvar(distance)},0)"
 
                     var_def = [var_name,
                                "TRANSFORMS",
@@ -537,6 +550,14 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
                                var_axis,
                                "LOCAL_SPACE"]
                     var_defs.append(var_def)
+
+            allow_negative = False
+            shape_key_range = 1.5
+            if "Eye" in shape_key_name and "_Look_" in shape_key_name:
+                shape_key_range = 2.0
+            high = shape_key_range
+            low = -shape_key_range if allow_negative else 0
+            expression = f"max({low},min({high},{expression}))"
             driver_def = ["SCRIPTED", expression]
 
             for obj in objects:
@@ -560,9 +581,9 @@ def build_expression_rig_drivers(chr_cache, rigify_rig):
                     expression += "+"
                 #expression += f"({offset}+{scalar}*(max({var_name}/{distance[1]},0)-max({var_name}/{distance[0]},0)))"
                 if offset != 0.0:
-                    expression += f"({offset:0.6f}+{scalar:0.6f}*({var_name}/{distance[1]:0.6f}))"
+                    expression += f"({fvar(offset)}+{fvar(scalar)}*({var_name}/{fvar(distance[1])}))"
                 else:
-                    expression += f"({scalar:0.6f}*({var_name}/{distance[1]:0.6f}))"
+                    expression += f"({fvar(scalar)}*({var_name}/{fvar(distance[1])}))"
                 var_def = [var_name,
                            "TRANSFORMS",
                            nub_bone_name,
@@ -582,13 +603,15 @@ def get_key_object(objects, shape_key_name):
     return None
 
 
-def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects, shape_key_only=False):
+def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects, shape_key_only=False, arkit=False):
 
     bone_drivers = {}
 
     FACERIG_CONFIG = get_facerig_config(chr_cache)
 
     if rigutils.select_rig(rigify_rig):
+
+        facial_profile, viseme_profile = chr_cache.get_facial_profile()
 
         for control_name, control_def in FACERIG_CONFIG.items():
 
@@ -620,7 +643,7 @@ def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, sou
 
                 driver_id = (control_name, "location", index)
 
-                if not shape_key_only and rl_bones and len(rl_bones) > 0:
+                if not shape_key_only and source_rig and rl_bones and len(rl_bones) > 0:
 
                     bone_drivers[driver_id] = { "method": method,
                                                 "parent": parent,
@@ -639,10 +662,15 @@ def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, sou
                                 offset = bone_def["offset"] * math.pi / 180
                                 scalar = bone_def["scalar"] * math.pi / 180
                             bone_drivers[driver_id]["bones"].append({ "bone": source_name,
-                                                                        "scale": slider_length/(control_range[1] * scalar),
-                                                                        "offset": offset,
-                                                                        "axis": prop_axis })
+                                                                      "scale": slider_length/(control_range[1] * scalar),
+                                                                      "offset": offset,
+                                                                      "axis": prop_axis })
                 elif blend_shapes:
+
+                    bone_drivers[driver_id] = { "method": method,
+                                                "parent": parent,
+                                                "length": slider_length,
+                                                "shape_keys": [] }
 
                     left_shape = right_shape = None
                     for i, (blend_shape_name, blend_shape_value) in enumerate(blend_shapes.items()):
@@ -651,15 +679,29 @@ def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, sou
                         if "retarget" in control_def:
                             if blend_shape_name not in control_def["retarget"]:
                                 continue
+                        # if retargeting from an ARKit proxy, remap the shapes and only target these shapes
+                        if arkit:
+                            arkit_blend_shape_name = arkit_find_target_blend_shape(facial_profile, blend_shape_name)
+                            if arkit_blend_shape_name:
+                                blend_shape_name = arkit_blend_shape_name
+                            else:
+                                continue
                         if utils.same_sign(blend_shape_value, control_range[0]):
                             left_shape = (blend_shape_name, abs(blend_shape_value), slider_length/control_range[0])
                         elif utils.same_sign(blend_shape_value, control_range[1]):
                             right_shape = (blend_shape_name, abs(blend_shape_value), slider_length/control_range[1])
 
-                    bone_drivers[driver_id] = { "method": method,
-                                                "parent": parent,
-                                                "length": slider_length,
-                                                "shape_keys": [] }
+                        if left_shape and right_shape:
+                            if left_shape:
+                                bone_drivers[driver_id]["shape_keys"].append({ "shape_key": left_shape[0],
+                                                                                "value": left_shape[1],
+                                                                                "scale": left_shape[2] })
+                            if right_shape:
+                                bone_drivers[driver_id]["shape_keys"].append({ "shape_key": right_shape[0],
+                                                                                "value": right_shape[1],
+                                                                                "scale": right_shape[2] })
+                            left_shape = right_shape = None
+
                     if left_shape:
                         bone_drivers[driver_id]["shape_keys"].append({ "shape_key": left_shape[0],
                                                                         "value": left_shape[1],
@@ -678,7 +720,7 @@ def build_expression_rig_retarget_drivers(chr_cache, rigify_rig, source_rig, sou
                 parent_def = bone_drivers[parent_id]
                 expression, var_defs = build_retarget_driver(chr_cache, rigify_rig, parent_id, parent_def,
                                                              source_rig, source_objects,
-                                                             no_driver=True, length_override=driver_def["length"])
+                                                             no_driver=True, length_override=abs(driver_def["length"]))
                 build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def,
                                       source_rig, source_objects,
                                       pre_expression=expression, pre_var_defs=var_defs)
@@ -692,7 +734,9 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
     bone_name, prop, index = driver_id
     method = driver_def["method"]
     parent = driver_def["parent"]
-    length = driver_def["length"]
+    length = abs(driver_def["length"])
+    if length_override is not None:
+        length_override = abs(length_override)
     pose_bone = bones.get_pose_bone(rigify_rig, bone_name)
 
     expression = ""
@@ -709,28 +753,37 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
             value = key_def["value"]
             if length_override:
                 scale *= length_override / length
+                length = length_override
             shape_key_name = key_def["shape_key"]
             obj = get_key_object(source_objects, shape_key_name)
             if obj:
                 var_name = f"var{vidx}"
                 if count > 0:
                     expression += "+"
-                expression += f"({var_name}*{scale:0.6f}/{value:0.6f})"
+                expression += f"({var_name}*{fvar(scale)}/{fvar(value)})"
                 var_defs.append((var_name, shape_key_name))
                 vidx += 1
                 count += 1
+
+        shape_key_range = length
+        low = -shape_key_range
+        high = shape_key_range
+
+        if bone_name == "CTRL_C_eye" and method == "AVERAGE" and count == 4:
+            count = 2
 
         if expression:
             expression = f"({expression})"
 
         if expression and method == "AVERAGE" and count > 1:
-            expression = f"({expression}/{count})"
+            expression = f"min({high},max({low},{expression}/{count}))"
 
         if expression and parent != "NONE" and pre_expression and pre_var_defs:
-            expression = f"{expression} - min(max({pre_expression},-1),1)"
+            expression = f"{expression} - {pre_expression}"
             var_defs.extend(pre_var_defs)
 
         if expression and not no_driver:
+            bones.set_bone_color(rigify_rig, pose_bone, "DRIVER", "DRIVER", "DRIVER", chr_cache=chr_cache)
             driver = drivers.make_driver(pose_bone, prop, "SCRIPTED", driver_expression=expression, index=index)
             if driver:
                 for var_name, shape_key_name in var_defs:
@@ -747,7 +800,7 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
                                                         data_path=data_path)
                             break
 
-    if "bones" in driver_def:
+    if source_rig and "bones" in driver_def:
 
         count = 0
         bone_defs = driver_def["bones"]
@@ -760,13 +813,17 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
                 var_name = f"var{vidx}"
                 if count > 0:
                     expression += "+"
-                expression += f"(({var_name}+{offset:0.6f})*{scale:0.6f})"
+                expression += f"(({var_name}+{fvar(offset)})*{fvar(scale)})"
                 var_defs.append((var_name, source_name, axis))
                 vidx += 1
                 count += 1
 
+        shape_key_range = length
+        low = -shape_key_range
+        high = shape_key_range
+
         if expression:
-            expression = f"min(1,max(-1,{expression}))"
+            expression = f"min({high},max({low},{expression}))"
 
         if expression and method == "AVERAGE" and count > 1:
             expression = f"({expression}/{count})"
@@ -776,6 +833,7 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
             var_defs.extend(pre_var_defs)
 
         if expression and not no_driver:
+            bones.set_bone_color(rigify_rig, pose_bone, "DRIVER", "DRIVER", "DRIVER", chr_cache=chr_cache)
             driver = drivers.make_driver(pose_bone, prop, "SCRIPTED", driver_expression=expression, index=index)
             if driver:
                 for var_name, source_name, axis in var_defs:
@@ -790,7 +848,7 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
     return expression, var_defs
 
 
-def remove_expression_rig_retarget_drivers(chr_cache, rigify_rig: bpy.types.Object):
+def remove_facerig_retarget_drivers(chr_cache, rigify_rig: bpy.types.Object):
     if rigutils.select_rig(rigify_rig):
         FACERIG_CONFIG = get_facerig_config(chr_cache)
         for control_name, control_def in FACERIG_CONFIG.items():
@@ -798,6 +856,7 @@ def remove_expression_rig_retarget_drivers(chr_cache, rigify_rig: bpy.types.Obje
                 pose_bone = rigify_rig.pose.bones[control_name]
                 pose_bone.driver_remove("location", 0)
                 pose_bone.driver_remove("location", 1)
+                bones.set_bone_color(rigify_rig, pose_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
 
 
 def clear_expression_pose(chr_cache, rigify_rig, selected=False):
@@ -825,7 +884,7 @@ def clear_expression_pose(chr_cache, rigify_rig, selected=False):
     bones.restore_armature_settings(rigify_rig, state, include_selection=True)
 
 
-def update_face_rig_color(context):
+def update_facerig_color(context):
     props = vars.props()
     chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
     if chr_cache:
@@ -869,6 +928,65 @@ def toggle_lock_position(chr_cache, rig):
         if control_name+"_box" in rig.pose.bones:
             pose_bone = rig.pose.bones[control_name+"_box"]
             pose_bone.bone.hide_select = True
+
+
+def generate_arkit_proxy(chr_cache):
+    if chr_cache and chr_cache.rigified:
+
+        if chr_cache.arkit_proxy:
+            remove_arkit_proxy(chr_cache)
+
+        rig = chr_cache.get_armature()
+        facial_profile, viseme_profile = chr_cache.get_facial_profile()
+        if rig and facial_profile in ARKIT_SHAPE_KEY_TARGETS:
+            bpy.ops.mesh.primitive_cube_add(size=0.1, enter_editmode=False,
+                                    align='WORLD',
+                                    location=(0, 0, 0),
+                                    scale=(1, 1, 1))
+            obj: bpy.types.Object = utils.get_active_object()
+            obj.shape_key_add(name="Basis")
+            name = f"{rig.name}_ARKit_Proxy"
+            obj.name = name
+            obj.data.name = name
+            obj["arkit_proxy"] = "fDsOJtp42n68X0e4ETVP"
+            obj.parent = rig
+            obj.hide_set(True)
+
+            ARKIT_TARGETS = ARKIT_SHAPE_KEY_TARGETS[facial_profile]
+            for arkit_blend_shape_name in ARKIT_TARGETS:
+                key = obj.shape_key_add(name=arkit_blend_shape_name)
+                key.slider_max = 1.5
+                key.slider_min = 0
+
+            build_facerig_retarget_drivers(chr_cache, rig, None, [obj], shape_key_only=True, arkit=True)
+
+            chr_cache.arkit_proxy = obj
+
+            return obj
+    return None
+
+
+def remove_arkit_proxy(chr_cache):
+    if chr_cache and chr_cache.rigified and chr_cache.arkit_proxy:
+        rig = chr_cache.get_armature()
+        if rig:
+            remove_facerig_retarget_drivers(chr_cache, rig)
+        if chr_cache.arkit_proxy:
+            utils.delete_object_tree(chr_cache.arkit_proxy)
+        chr_cache.arkit_proxy = None
+
+
+def arkit_find_target_blend_shape(facial_profile, blend_shape_name):
+    if facial_profile in ARKIT_SHAPE_KEY_TARGETS:
+        TARGETS = ARKIT_SHAPE_KEY_TARGETS[facial_profile]
+        for arkit_blend_shape_name, targets in TARGETS.items():
+            if type(targets) is list:
+                if blend_shape_name in targets:
+                    return arkit_blend_shape_name
+            else:
+                if targets == blend_shape_name:
+                    return arkit_blend_shape_name
+    return None
 
 
 LOC_AXES = {
@@ -3251,6 +3369,7 @@ FACERIG_STD_CONFIG = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [128, 129],
+        "retarget": [],
         "blendshapes":
         {
             "Mouth_Roll_In_Upper": 1.0,
@@ -3261,6 +3380,7 @@ FACERIG_STD_CONFIG = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [131, 130],
+        "retarget": [],
         "blendshapes":
         {
             "Mouth_Roll_In_Lower": 1.0,
@@ -3273,6 +3393,7 @@ FACERIG_STD_CONFIG = {
         "y_range": [-1.0, 1.0],
         "y_invert": False,
         "retarget": [],
+        "negative": True,
         "indices": [102, 103, 104, 105],
         "blendshapes":
         {
@@ -3293,6 +3414,7 @@ FACERIG_STD_CONFIG = {
         "y_range": [-1.0, 1.0],
         "y_invert": False,
         "retarget": [],
+        "negative": True,
         "indices": [106, 107, 108, 109],
         "blendshapes":
         {
@@ -4263,6 +4385,7 @@ FACERIG_TRA_CONFIG = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [128, 129],
+        "retarget": [],
         "blendshapes":
         {
             "A33_Mouth_Roll_Upper": 1.0,
@@ -4273,6 +4396,7 @@ FACERIG_TRA_CONFIG = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [131, 130],
+        "retarget": [],
         "blendshapes":
         {
             "A34_Mouth_Roll_Lower": 1.0,
@@ -4285,6 +4409,7 @@ FACERIG_TRA_CONFIG = {
         "y_range": [-1.0, 1.0],
         "y_invert": False,
         "retarget": [],
+        "negative": True,
         "indices": [102, 103, 104, 105],
         "blendshapes":
         {
@@ -4305,6 +4430,7 @@ FACERIG_TRA_CONFIG = {
         "y_range": [-1.0, 1.0],
         "y_invert": False,
         "retarget": [],
+        "negative": True,
         "indices": [106, 107, 108, 109],
         "blendshapes":
         {
@@ -4480,4 +4606,171 @@ FACERIG_TRA_CONFIG = {
             }
         ]
     },
+}
+
+
+ARKIT_SHAPE_KEY_TARGETS = {
+
+    "EXT": {
+        "browInnerUp": ["Brow_Raise_Inner_L", "Brow_Raise_Inner_R"],
+        "browDownLeft": "Brow_Drop_L",
+        "browDownRight": "Brow_Drop_R",
+        "browOuterUpLeft": "Brow_Raise_Outer_L",
+        "browOuterUpRight": "Brow_Raise_Outer_R",
+        "eyeLookUpLeft": "Eye_L_Look_Up",
+        "eyeLookUpRight": "Eye_R_Look_Up",
+        "eyeLookDownLeft": "Eye_L_Look_Down",
+        "eyeLookDownRight": "Eye_R_Look_Down",
+        "eyeLookInLeft": "Eye_L_Look_R",
+        "eyeLookInRight": "Eye_R_Look_L",
+        "eyeLookOutLeft": "Eye_L_Look_L",
+        "eyeLookOutRight": "Eye_R_Look_R",
+        "eyeBlinkLeft": "Eye_Blink_L",
+        "eyeBlinkRight": "Eye_Blink_R",
+        "eyeSquintLeft": "Eye_Squint_L",
+        "eyeSquintRight": "Eye_Squint_R",
+        "eyeWideLeft": "Eye_Wide_L",
+        "eyeWideRight": "Eye_Wide_R",
+        "cheekPuff": ["Cheek_Puff_L", "Cheek_Puff_R"],
+        "cheekSquintLeft": "Cheek_Raise_L",
+        "cheekSquintRight": "Cheek_Raise_R",
+        "noseSneerLeft": "Nose_Sneer_L",
+        "noseSneerRight": "Nose_Sneer_R",
+        "jawOpen": "Jaw_Open",
+        "jawForward": "Jaw_Forward",
+        "jawLeft": "Jaw_L",
+        "jawRight": "Jaw_R",
+        "mouthFunnel": ["Mouth_Funnel_Up_R", "Mouth_Funnel_Down_R", "Mouth_Funnel_Up_L", "Mouth_Funnel_Down_L"],
+        "mouthPucker": ["Mouth_Pucker_Up_R", "Mouth_Pucker_Down_R", "Mouth_Pucker_Up_L", "Mouth_Pucker_Down_L"],
+        "mouthLeft": "Mouth_L",
+        "mouthRight": "Mouth_R",
+        "mouthRollUpper": "Mouth_Roll_In_Upper",
+        "mouthRollLower": "Mouth_Roll_In_Lower",
+        "mouthShrugUpper": "Mouth_Shrug_Upper",
+        "mouthShrugLower": "Mouth_Shrug_Lower",
+        "mouthClose": "Mouth_Close",
+        "mouthSmileLeft": "Mouth_Smile_L",
+        "mouthSmileRight": "Mouth_Smile_R",
+        "mouthFrownLeft": "Mouth_Frown_L",
+        "mouthFrownRight": "Mouth_Frown_R",
+        "mouthDimpleLeft": "Mouth_Dimple_L",
+        "mouthDimpleRight": "Mouth_Dimple_R",
+        "mouthUpperUpLeft": "Mouth_Up_Upper_L",
+        "mouthUpperUpRight": "Mouth_Up_Upper_R",
+        "mouthLowerDownLeft": "Mouth_Down_Lower_L",
+        "mouthLowerDownRight": "Mouth_Down_Lower_R",
+        "mouthPressLeft": "Mouth_Press_L",
+        "mouthPressRight": "Mouth_Press_R",
+        "mouthStretchLeft": "Mouth_Stretch_L",
+        "mouthStretchRight": "Mouth_Stretch_R",
+    },
+
+    "STD": {
+        "browInnerUp": ["Brow_Raise_Inner_L", "Brow_Raise_Inner_R"],
+        "browDownLeft": "Brow_Drop_L",
+        "browDownRight": "Brow_Drop_R",
+        "browOuterUpLeft": "Brow_Raise_Outer_L",
+        "browOuterUpRight": "Brow_Raise_Outer_R",
+        "eyeLookUpLeft": "Eye_L_Look_Up",
+        "eyeLookUpRight": "Eye_R_Look_Up",
+        "eyeLookDownLeft": "Eye_L_Look_Down",
+        "eyeLookDownRight": "Eye_R_Look_Down",
+        "eyeLookInLeft": "Eye_L_Look_R",
+        "eyeLookInRight": "Eye_R_Look_L",
+        "eyeLookOutLeft": "Eye_L_Look_L",
+        "eyeLookOutRight": "Eye_R_Look_R",
+        "eyeBlinkLeft": "Eye_Blink_L",
+        "eyeBlinkRight": "Eye_Blink_R",
+        "eyeSquintLeft": "Eye_Squint_L",
+        "eyeSquintRight": "Eye_Squint_R",
+        "eyeWideLeft": "Eye_Wide_L",
+        "eyeWideRight": "Eye_Wide_R",
+        "cheekPuff": ["Cheek_Puff_L", "Cheek_Puff_R"],
+        "cheekSquintLeft": "Cheek_Raise_L",
+        "cheekSquintRight": "Cheek_Raise_R",
+        "noseSneerLeft": "Nose_Sneer_L",
+        "noseSneerRight": "Nose_Sneer_R",
+        "jawOpen": "Jaw_Open",
+        "jawForward": "Jaw_Forward",
+        "jawLeft": "Jaw_L",
+        "jawRight": "Jaw_R",
+        "mouthFunnel": "Mouth_Funnel",
+        "mouthPucker": "Mouth_Pucker",
+        "mouthLeft": "Mouth_L",
+        "mouthRight": "Mouth_R",
+        "mouthRollUpper": "Mouth_Roll_In_Upper",
+        "mouthRollLower": "Mouth_Roll_In_Lower",
+        "mouthShrugUpper": "Mouth_Shrug_Upper",
+        "mouthShrugLower": "Mouth_Shrug_Lower",
+        "mouthClose": "Mouth_Close",
+        "mouthSmileLeft": "Mouth_Smile_L",
+        "mouthSmileRight": "Mouth_Smile_R",
+        "mouthFrownLeft": "Mouth_Frown_L",
+        "mouthFrownRight": "Mouth_Frown_R",
+        "mouthDimpleLeft": "Mouth_Dimple_L",
+        "mouthDimpleRight": "Mouth_Dimple_R",
+        "mouthUpperUpLeft": "Mouth_Up_Upper_L",
+        "mouthUpperUpRight": "Mouth_Up_Upper_R",
+        "mouthLowerDownLeft": "Mouth_Down_Lower_L",
+        "mouthLowerDownRight": "Mouth_Down_Lower_R",
+        "mouthPressLeft": "Mouth_Press_L",
+        "mouthPressRight": "Mouth_Press_R",
+        "mouthStretchLeft": "Mouth_Stretch_L",
+        "mouthStretchRight": "Mouth_Stretch_R",
+    },
+
+    "TRA": {
+        "browInnerUp": "A01_Brow_Inner_Up",
+        "browDownLeft": "A02_Brow_Down_Left",
+        "browDownRight": "A03_Brow_Down_Right",
+        "browOuterUpLeft": "A04_Brow_Outer_Up_Left",
+        "browOuterUpRight": "A05_Brow_Outer_Up_Right",
+        "eyeLookUpLeft": "A06_Eye_Look_Up_Left",
+        "eyeLookUpRight": "A07_Eye_Look_Up_Right",
+        "eyeLookDownLeft": "A08_Eye_Look_Down_Left",
+        "eyeLookDownRight": "A09_Eye_Look_Down_Right",
+        "eyeLookOutLeft": "A10_Eye_Look_Out_Left",
+        "eyeLookInLeft": "A11_Eye_Look_In_Left",
+        "eyeLookInRight": "A12_Eye_Look_In_Right",
+        "eyeLookOutRight": "A13_Eye_Look_Out_Right",
+        "eyeBlinkLeft": "A14_Eye_Blink_Left",
+        "eyeBlinkRight": "A15_Eye_Blink_Right",
+        "eyeSquintLeft": "A16_Eye_Squint_Left",
+        "eyeSquintRight": "A17_Eye_Squint_Right",
+        "eyeWideLeft": "A18_Eye_Wide_Left",
+        "eyeWideRight": "A19_Eye_Wide_Right",
+        "cheekPuff": "A20_Cheek_Puff",
+        "cheekSquintLeft": "A21_Cheek_Squint_Left",
+        "cheekSquintRight": "A22_Cheek_Squint_Right",
+        "noseSneerLeft": "A23_Nose_Sneer_Left",
+        "noseSneerRight": "A24_Nose_Sneer_Right",
+        "jawOpen": "A25_Jaw_Open",
+        "jawForward": "A26_Jaw_Forward",
+        "jawLeft": "A27_Jaw_Left",
+        "jawRight": "A28_Jaw_Right",
+        "mouthFunnel": "A29_Mouth_Funnel",
+        "mouthPucker": "A30_Mouth_Pucker",
+        "mouthLeft": "A31_Mouth_Left",
+        "mouthRight": "A32_Mouth_Right",
+        "mouthRollUpper": "A33_Mouth_Roll_Upper",
+        "mouthRollLower": "A34_Mouth_Roll_Lower",
+        "mouthShrugUpper": "A35_Mouth_Shrug_Upper",
+        "mouthShrugLower": "A36_Mouth_Shrug_Lower",
+        "mouthClose": "A37_Mouth_Close",
+        "mouthSmileLeft": "A38_Mouth_Smile_Left",
+        "mouthSmileRight": "A39_Mouth_Smile_Right",
+        "mouthFrownLeft": "A40_Mouth_Frown_Left",
+        "mouthFrownRight": "A41_Mouth_Frown_Right",
+        "mouthDimpleLeft": "A42_Mouth_Dimple_Left",
+        "mouthDimpleRight": "A43_Mouth_Dimple_Right",
+        "mouthUpperUpLeft": "A44_Mouth_Upper_Up_Left",
+        "mouthUpperUpRight": "A45_Mouth_Upper_Up_Right",
+        "mouthLowerDownLeft": "A46_Mouth_Lower_Down_Left",
+        "mouthLowerDownRight": "A47_Mouth_Lower_Down_Right",
+        "mouthPressLeft": "A48_Mouth_Press_Left",
+        "mouthPressRight": "A49_Mouth_Press_Right",
+        "mouthStretchLeft": "A50_Mouth_Stretch_Left",
+        "mouthStretchRight": "A51_Mouth_Stretch_Right",
+    },
+
 }

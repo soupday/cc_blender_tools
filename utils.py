@@ -223,16 +223,20 @@ def unique_image_name(name, image=None, start_index=1):
     return name
 
 
-def unique_object_name(name, obj=None, capitalize=False, start_index=1):
+def unique_object_name(name, obj=None, capitalize=False, start_index=1, suffix=""):
     name = strip_name(name)
     if capitalize:
         name = name.capitalize()
-    if name in bpy.data.objects and bpy.data.objects[name] != obj:
+    if suffix:
+        suffix = "_" + suffix
+    try_name = name + suffix
+    if try_name in bpy.data.objects and bpy.data.objects[try_name] != obj:
         index = start_index
-        while name + "_" + str(index).zfill(2) in bpy.data.objects:
+        try_name = name + str(index).zfill(2) + suffix
+        while try_name in bpy.data.objects:
             index += 1
-        return name + "_" + str(index).zfill(2)
-    return name
+            try_name = name + str(index).zfill(2) + suffix
+    return try_name
 
 
 def un_suffix_name(name):

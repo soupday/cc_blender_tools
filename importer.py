@@ -276,11 +276,14 @@ def init_shape_key_range(obj):
             if blocks is not None:
                 if len(blocks) > 0:
                     for block in blocks:
+                        print(block.name)
                         # expand the range of the shape key slider to include negative values...
                         if "Eye" in block.name and "_Look_" in block.name:
-                            block.slider_min = -1.0
-                            block.slider_max = 1.0
+                            print(block.name, "EYE LOOK")
+                            block.slider_min = -2.0
+                            block.slider_max = 2.0
                         else:
+                            print(block.name)
                             block.slider_min = -1.5
                             block.slider_max = 1.5
 
@@ -1201,6 +1204,13 @@ class CC3Import(bpy.types.Operator):
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
 
+            # for any objects with shape keys expand the slider range to -1.5 - 1.5
+            # Character Creator and iClone both use negative ranges extensively.
+            for obj in chr_cache.get_cache_objects():
+                obj_cache = chr_cache.get_object_cache(obj)
+                if obj_cache and obj_cache.is_mesh():
+                    init_shape_key_range(obj)
+
             json_data = self.read_json_data(chr_cache.import_file, stage = 1)
             if not on_import:
                 # when rebuilding, use the currently selected render target
@@ -1277,6 +1287,13 @@ class CC3Import(bpy.types.Operator):
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
             if ImportFlags.FBX not in ImportFlags(chr_cache.import_flags): continue
 
+            # for any objects with shape keys expand the slider range to -1.5 - 1.5
+            # Character Creator and iClone both use negative ranges extensively.
+            for obj in chr_cache.get_cache_objects():
+                obj_cache = chr_cache.get_object_cache(obj)
+                if obj_cache and obj_cache.is_mesh():
+                    init_shape_key_range(obj)
+
             json_data = self.read_json_data(chr_cache.import_file, stage=1)
             chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
 
@@ -1287,7 +1304,7 @@ class CC3Import(bpy.types.Operator):
                 rigify_rig = chr_cache.get_armature()
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
                 if rigutils.is_face_rig(rigify_rig):
-                    facerig.build_expression_rig_drivers(chr_cache, rigify_rig)
+                    facerig.build_facerig_drivers(chr_cache, rigify_rig)
                 else:
                     rigging.add_shape_key_drivers(chr_cache, chr_cache.get_armature())
             else:
@@ -1336,18 +1353,17 @@ class CC3Import(bpy.types.Operator):
             chr_cache.check_ids()
 
             if chr_cache.rigified:
-                # TODO removing drivers from a rigify rig is not a good idea ... ?
                 rigify_rig = chr_cache.get_armature()
-                if rigutils.is_face_rig(rigify_rig):
-                    ...
-                else:
-                    ...
+                # by very careful removing drivers from a rigify rig ...
             else:
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
-                driver_objects = chr_cache.get_all_objects(include_armature=False,
-                                                        of_type="MESH",
-                                                        only_selected=(props.build_mode=="SELECTED"))
-                drivers.add_body_shape_key_drivers(chr_cache, False, driver_objects)
+
+            # remove all expression based shape key drivers
+            driver_objects = chr_cache.get_all_objects(include_armature=False,
+                                                       of_type="MESH",
+                                                       only_selected=(props.build_mode=="SELECTED"))
+            #drivers.add_body_shape_key_drivers(chr_cache, False, driver_objects)
+            drivers.clear_body_shape_key_drivers(chr_cache, driver_objects)
 
         utils.log_timer("Done Build.", "s")
 
@@ -1499,15 +1515,7 @@ class CC3Import(bpy.types.Operator):
             for chr_cache in imported_characters:
 
                 if ImportFlags.RL in ImportFlags(chr_cache.import_flags):
-
                     rl_import = True
-
-                    # for any objects with shape keys expand the slider range to -1.0 <> 1.0
-                    # Character Creator and iClone both use negative ranges extensively.
-                    for obj in chr_cache.get_cache_objects():
-                        obj_cache = chr_cache.get_object_cache(obj)
-                        if obj_cache and obj_cache.is_mesh():
-                            init_shape_key_range(obj)
 
             if rl_import:
 
