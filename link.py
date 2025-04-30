@@ -2479,7 +2479,7 @@ class LinkService():
                             bones.append(pose_bone.name)
                             bone_id = actor.get_bone_id(pose_bone.name)
                             bone_ids.append(bone_id)
-                    if drivers.has_facial_shape_key_bone_drivers(chr_cache):
+                    if drivers.has_facial_shape_key_bone_drivers(chr_cache) or rigutils.is_face_rig(rig):
                         driver_mode = "EXPRESSION"
                     else:
                         driver_mode = "BONE"

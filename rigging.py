@@ -4042,6 +4042,13 @@ class CC3Rigifier(bpy.types.Operator):
         elif properties.param == "REMOVE_SPRING_RIG":
             return "Removes the spring rig controls for the currently selected spring rig"
 
+        elif properties.param == "ARKIT_PROXY_ADD":
+            return "Add an ARKit Proxy object. This can act as a target mesh for ARKit animation. THis drives the controls on the expression rig, which in turn drives the shape keys and face bones on the character.\n" \
+                   "The proxy object is added as a child of the character rig"
+
+        elif properties.param == "ARKIT_PROXY_REMOVE":
+            return "Remove the ARKit Proxy Object"
+
         return "Rigification!"
 
 

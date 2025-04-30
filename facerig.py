@@ -939,10 +939,10 @@ def generate_arkit_proxy(chr_cache):
         rig = chr_cache.get_armature()
         facial_profile, viseme_profile = chr_cache.get_facial_profile()
         if rig and facial_profile in ARKIT_SHAPE_KEY_TARGETS:
-            bpy.ops.mesh.primitive_cube_add(size=0.1, enter_editmode=False,
-                                    align='WORLD',
-                                    location=(0, 0, 0),
-                                    scale=(1, 1, 1))
+            bpy.ops.mesh.primitive_monkey_add(size=0.125, enter_editmode=False,
+                                              align='WORLD',
+                                              location=(0.5, 0, 1.5),
+                                              scale=(1, 1, 1))
             obj: bpy.types.Object = utils.get_active_object()
             obj.shape_key_add(name="Basis")
             name = f"{rig.name}_ARKit_Proxy"
@@ -950,7 +950,7 @@ def generate_arkit_proxy(chr_cache):
             obj.data.name = name
             obj["arkit_proxy"] = "fDsOJtp42n68X0e4ETVP"
             obj.parent = rig
-            obj.hide_set(True)
+            #obj.hide_set(True)
 
             ARKIT_TARGETS = ARKIT_SHAPE_KEY_TARGETS[facial_profile]
             for arkit_blend_shape_name in ARKIT_TARGETS:

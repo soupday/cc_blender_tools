@@ -1620,10 +1620,38 @@ def disable_ik_stretch(rigify_rig, bone_names=None):
     return ik_store
 
 
-def restore_ik_stretch(ik_store):
-    con_store = ik_store["constraints"]
-    for con in con_store:
-        con.use_stretch = con_store[con]
+DEFAULT_IK_STRETCH_BONES = {
+    "MCH-shin_ik.L": True,
+    "MCH-shin_ik.R": True,
+    "MCH-forearm_ik.L": True,
+    "MCH-forearm_ik.R": True
+}
+
+
+def is_stretch_enabled(rigify_rig):
+    for bone_name, ik_stretch in DEFAULT_IK_STRETCH_BONES.items():
+        if bone_name in rigify_rig.pose.bones:
+            pose_bone = rigify_rig.pose.bones[bone_name]
+            for con in pose_bone.constraints:
+                if con and con.type == "IK":
+                    if con.use_stretch:
+                        return True
+    return False
+
+
+def restore_ik_stretch(ik_store=None, rigify_rig=None):
+    if ik_store:
+        con_store = ik_store["constraints"]
+        for con in con_store:
+            con.use_stretch = con_store[con]
+    elif rigify_rig:
+        for bone_name, ik_stretch in DEFAULT_IK_STRETCH_BONES.items():
+            if bone_name in rigify_rig.pose.bones:
+                pose_bone = rigify_rig.pose.bones[bone_name]
+                for con in pose_bone.constraints:
+                    if con and con.type == "IK":
+                        con.use_stretch = ik_stretch
+
 
 
 def update_avatar_rig(rig):
@@ -2416,6 +2444,18 @@ class CCICRigUtils(bpy.types.Operator):
                 elif self.param == "CLEAR_ACTION_SET":
                     clear_motion_set(rig)
 
+                elif self.param == "DISABLE_CONSTRAINT_STRETCH":
+                    mode_selection = utils.store_mode_selection_state()
+                    rigify_rig = chr_cache.get_armature()
+                    disable_ik_stretch(rigify_rig)
+                    utils.restore_mode_selection_state(mode_selection)
+
+                elif self.param == "ENABLE_CONSTRAINT_STRETCH":
+                    mode_selection = utils.store_mode_selection_state()
+                    rigify_rig = chr_cache.get_armature()
+                    restore_ik_stretch(rigify_rig=rigify_rig)
+                    utils.restore_mode_selection_state(mode_selection)
+
             if self.param == "SELECT_SET_STRIPS":
                 strip = context.active_nla_strip
                 select_strips_by_set(strip)
@@ -2552,5 +2592,12 @@ class CCICRigUtils(bpy.types.Operator):
 
         elif properties.param == "DELETE_MOTION_SET":
             return "Delete all actions in the motion set"
+
+        elif properties.param == "DISABLE_CONSTRAINT_STRETCH":
+            return "Disable stretch in all IK mechanisms on the rig. By default the Blender Rigify rig allows a certain amount of stretch in the bones ease IK alignment.\n" \
+                   "But in other applications, this bone stretch is not possible, disabling the IK stretch system can aid with animation alignment problems"
+
+        elif properties.param == "ENABLE_CONSTRAINT_STRETCH":
+            return "Re-enable the IK stretch mechanisms in the rig"
 
         return ""
