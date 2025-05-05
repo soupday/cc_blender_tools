@@ -75,11 +75,44 @@ def make_driver(source, prop_name, driver_type, driver_expression = "", index = 
 def add_custom_float_property(obj, prop_name, prop_value : float,
                               value_min : float = 0.0, value_max : float = 1.0,
                               soft_min = None, soft_max = None,
-                              overridable = True,
+                              overridable = True, subtype=None, precision=3,
                               description : str = ""):
 
     if prop_name not in obj:
 
+        prop_value = float(prop_value)
+        if value_min is not None:
+            value_min = float(value_min)
+        if value_max is not None:
+            value_max = float(value_max)
+        if soft_max is None:
+            soft_max = value_max
+        if soft_min is None:
+            soft_min = value_min
+
+        rna_idprop_ui_create(obj, prop_name,
+                             default=prop_value,
+                             overridable=overridable,
+                             min=value_min, max=value_max,
+                             soft_min=soft_min, soft_max=soft_max,
+                             subtype=subtype,
+                             precision=precision,
+                             description=description)
+
+
+def add_custom_int_property(obj, prop_name, prop_value: int,
+                              value_min: int = 0, value_max: int = 1.0,
+                              soft_min= None, soft_max= None,
+                              overridable= True,
+                              description: str = ""):
+
+    if prop_name not in obj:
+
+        prop_value = int(prop_value)
+        if value_min is not None:
+            value_min = int(value_min)
+        if value_max is not None:
+            value_max = int(value_max)
         if soft_max is None:
             soft_max = value_max
         if soft_min is None:
@@ -93,13 +126,18 @@ def add_custom_float_property(obj, prop_name, prop_value : float,
                              description=description)
 
 
-def add_custom_string_property(obj, prop_name, prop_value : str,
-                              overridable = True,
-                              description : str = ""):
+def add_custom_string_property(obj, prop_name, prop_value: str,
+                              overridable=True,
+                              description: str=""):
+    """subtype = NONE, FILE_PATH, DIR_PATH"""
 
     if prop_name not in obj:
 
-        obj[prop_name] = prop_value
+        rna_idprop_ui_create(obj, prop_name,
+                             default=prop_value,
+                             overridable=overridable,
+                             description=description)
+
         try:
             id_props = obj.id_properties_ui(prop_name)
             id_props.update(default=prop_value, description=description)

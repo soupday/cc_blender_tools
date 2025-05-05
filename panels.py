@@ -2434,13 +2434,74 @@ class CC3RigifyPanel(bpy.types.Panel):
                                       "section_rigify_arkit",
                                       props.section_rigify_arkit,
                                       icon="ANIM_DATA", icon_closed="ANIM_DATA"):
+                        has_proxy = utils.object_exists_is_armature(chr_cache.arkit_proxy)
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="MONKEY", text="Add ARKit Proxy").param = "ARKIT_PROXY_ADD"
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="X", text="Remove ARKit Proxy").param = "ARKIT_PROXY_REMOVE"
-                        if not chr_cache.arkit_proxy:
-                            row.enabled = False
+                        row.scale_y = 2.0
+                        if not has_proxy:
+                            row.operator("cc3.rigifier", icon="MONKEY", text="Add ARKit Proxy").param = "ARKIT_PROXY_ADD"
+                        else:
+                            row.operator("cc3.rigifier", icon="X", text="Remove ARKit Proxy").param = "ARKIT_PROXY_REMOVE"
+                        if has_proxy:
+                            proxy_rig = chr_cache.arkit_proxy
 
+                            # load csv button
+                            row = layout.row()
+                            row.scale_y = 2.0
+                            row.operator("ccic.import_arkit_csv", icon="KEYINGSET", text="Load CSV").param = ""
+                            if proxy_rig["csv_file"]:
+                                row = layout.row()
+                                row.prop(proxy_rig, "[\"csv_file\"]", text="")
+
+                            # load csv params
+                            col = layout.column(align=True)
+                            col.row().prop(proxy_rig, "[\"filter\"]", text="Smoothing", slider=True)
+                            col.row().prop(proxy_rig, "[\"random_variance\"]", text="Variance", slider=True)
+                            col.row().prop(proxy_rig, "[\"random_seed\"]", text="Seed")
+
+                            # reload button
+                            if proxy_rig["csv_file"]:
+                                row = layout.row()
+                                row.scale_y = 1.5
+                                row.operator("ccic.import_arkit_csv", icon="KEYINGSET", text="Reload & Apply").param="RELOAD"
+
+                            # shapekey driver adjust params
+                            layout.row().label(text="Adjust:")
+                            col = layout.column(align=True)
+                            col.row().prop(proxy_rig, "[\"strength\"]", text="Strength", slider=True)
+                            if proxy_rig["relaxation"] >= 1.25:
+                                text = "Strong Relax"
+                            elif proxy_rig["relaxation"] < 0.75:
+                                text = "Strong Exaggerate"
+                            elif proxy_rig["relaxation"] < 0.95:
+                                text = "Exaggerate"
+                            elif proxy_rig["relaxation"] >= 1.05:
+                                text = "Relax"
+                            else:
+                                text = "Normal"
+                            col.row().prop(proxy_rig, "[\"relaxation\"]", text=text, slider=True)
+                            col.row().prop(proxy_rig, "[\"horizontal_asymmetry\"]", text="L/R Bias", slider=True)
+                            col.row().prop(proxy_rig, "[\"vertical_asymmetry\"]", text="U/D Bias", slider=True)
+
+                            # bone driver adjust params
+                            layout.row().label(text="Bones:")
+                            col = layout.column(align=True)
+                            col.row().prop(proxy_rig, "[\"head_blend\"]", text="Head Blend", slider=True)
+                            col.separator()
+                            col.row().prop(proxy_rig, "[\"head_yaw_offset\"]", text="Yaw Adjust", slider=True)
+                            col.row().prop(proxy_rig, "[\"head_pitch_offset\"]", text="Pitch Adjust", slider=True)
+                            col.row().prop(proxy_rig, "[\"head_roll_offset\"]", text="Roll Adjust", slider=True)
+
+                            layout.row().label(text="Bake:")
+                            row = layout.row()
+                            row.scale_y = 2
+                            row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_ARKIT_BAKE"
+                            split = layout.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Motion ID:")
+                            col_2.prop(proxy_rig, "[\"bake_motion_id\"]", text="")
+                            col_1.label(text="Motion Prefix:")
+                            col_2.prop(proxy_rig, "[\"bake_motion_prefix\"]", text="")
 
             elif not chr_cache:
 

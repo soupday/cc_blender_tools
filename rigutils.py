@@ -18,7 +18,7 @@ import bpy
 from mathutils import Vector, Matrix, Quaternion, Euler
 from random import random
 import re, time, os
-from . import springbones, bones, facerig, modifiers, rigify_mapping_data, utils, vars
+from . import springbones, bones, facerig, modifiers, rigify_mapping_data, lib, utils, vars
 
 
 def edit_rig(rig):
@@ -1832,23 +1832,25 @@ def get_bone_orientation(rig, bone_set: set):
     return Euler((0,0,0), "XYZ")
 
 
-def get_lib_widget(object_name):
-    for obj in bpy.data.objects:
-        if object_name in obj.name and utils.prop(obj, "RL_Custom_Widget"):
-            return obj
-    path = os.path.dirname(os.path.realpath(__file__))
-    filename = "_LIB341.blend"
-    datablock = "Object"
-    file = os.path.join(path, filename)
-    appended_widget = None
-    if os.path.exists(file):
-        bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=True, link=False)
-        for obj in bpy.data.objects:
-            if object_name in obj.name and "RL_Custom_Widget" not in obj:
-                obj["RL_Custom_Widget"] = True
-                utils.log_info("Appended widget: " + path + " > " + object_name)
-                appended_widget = obj
-    return appended_widget
+def get_widget_rig_collection(chr_cache):
+    try_names = [ chr_cache.character_name ]
+    rig = chr_cache.get_armature()
+    rig_name = utils.strip_name(rig.name)
+    if rig_name.endswith("_Rigify"):
+        rig_name = rig_name[:-7]
+        try_names.append(rig_name)
+    if utils.object_exists_is_armature(chr_cache.rig_original_rig):
+        rig_name = chr_cache.rig_original_rig.name
+        try_names.append(rig_name)
+    for name in try_names:
+        try_collection_name = f"WGTS_{name}_rig"
+        if try_collection_name in bpy.data.collections:
+            return try_collection_name
+    for name in try_names:
+        for collection in bpy.data.collections:
+            if name in collection.name:
+                return collection.name
+    return None
 
 
 def get_expression_widgets(chr_cache, collection_name):
@@ -1862,10 +1864,10 @@ def get_expression_widgets(chr_cache, collection_name):
         tag = "Tra"
     else:
         raise Exception("Unknown facial profile!")
-    WGT_LINES = get_lib_widget(f"WGT-RL_FaceRig_{tag}_Control_Lines")
-    WGT_GROUPS = get_lib_widget(f"WGT-RL_FaceRig_{tag}_Groups")
-    WGT_LABELS = get_lib_widget(f"WGT-RL_FaceRig_{tag}_Labels")
-    WGT_OUTLINE = get_lib_widget(f"WGT-RL_FaceRig_{tag}_Outline")
+    WGT_LINES = lib.get_object(f"WGT-RL_FaceRig_{tag}_Control_Lines", "RL_Custom_Widget")
+    WGT_GROUPS = lib.get_object(f"WGT-RL_FaceRig_{tag}_Groups", "RL_Custom_Widget")
+    WGT_LABELS = lib.get_object(f"WGT-RL_FaceRig_{tag}_Labels", "RL_Custom_Widget")
+    WGT_OUTLINE = lib.get_object(f"WGT-RL_FaceRig_{tag}_Outline", "RL_Custom_Widget")
     WGT_SLIDER = bones.make_line_widget("WGT-RL_FaceRig_Slider", 2.0)
     WGT_RECT = bones.make_box_widget("WGT-RL_FaceRig_Rect", 2.0)
     WGT_NUB = bones.make_sphere_widget("WGT-RL_FaceRig_Slider_Nub", 0.01666)

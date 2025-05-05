@@ -21,6 +21,7 @@ if "bpy" in locals():
     importlib.reload(vars)
     importlib.reload(params)
     importlib.reload(utils)
+    importlib.reload(lib)
     importlib.reload(jsonutils)
     importlib.reload(nodeutils)
     importlib.reload(imageutils)
@@ -45,8 +46,9 @@ if "bpy" in locals():
     importlib.reload(springbones)
     importlib.reload(drivers)
     importlib.reload(wrinkle)
-    importlib.reload(rigify_mapping_data)
+    importlib.reload(facerig_data)
     importlib.reload(facerig)
+    importlib.reload(rigify_mapping_data)
     importlib.reload(rigging)
     importlib.reload(rigutils)
     importlib.reload(sculpting)
@@ -67,6 +69,7 @@ from . import preferences
 from . import vars
 from . import params
 from . import utils
+from . import lib
 from . import jsonutils
 from . import nodeutils
 from . import imageutils
@@ -91,8 +94,9 @@ from . import rigidbody
 from . import springbones
 from . import drivers
 from . import wrinkle
-from . import rigify_mapping_data
+from . import facerig_data
 from . import facerig
+from . import rigify_mapping_data
 from . import rigging
 from . import rigutils
 from . import sculpting
@@ -196,6 +200,7 @@ classes = (
     rigutils.CCICMotionSetRename,
     rigutils.CCICMotionSetInfo,
     rigutils.CCICRigUtils,
+    facerig.CCICImportARKitCSV,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,

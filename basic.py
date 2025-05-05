@@ -16,7 +16,7 @@
 
 import bpy
 import os
-from . import materials, nodeutils, imageutils, jsonutils, params, utils, vars
+from . import materials, nodeutils, imageutils, jsonutils, params, lib, utils, vars
 
 
 def reset_shader(nodes, links, shader_label, shader_name):
@@ -124,7 +124,7 @@ def connect_eye_occlusion_material(obj, mat, mat_json, processed_images):
     nodeutils.reset_cursor()
 
     # groups
-    group = nodeutils.get_node_group("eye_occlusion_mask")
+    group = lib.get_node_group("eye_occlusion_mask")
     occ_node = nodeutils.make_node_group_node(nodes, group, "Eye Occulsion Alpha", "eye_occlusion_mask")
     # values
     nodeutils.set_node_input_value(occ_node, "Strength", parameters.eye_occlusion)

@@ -22,7 +22,7 @@ from enum import IntEnum, IntFlag
 from . import (rlx, characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
                facerig, modifiers, wrinkle, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
-               basic, properties, utils, vars)
+               basic, properties, lib, utils, vars)
 
 debug_counter = 0
 
@@ -276,14 +276,11 @@ def init_shape_key_range(obj):
             if blocks is not None:
                 if len(blocks) > 0:
                     for block in blocks:
-                        print(block.name)
                         # expand the range of the shape key slider to include negative values...
                         if "Eye" in block.name and "_Look_" in block.name:
-                            print(block.name, "EYE LOOK")
                             block.slider_min = -2.0
                             block.slider_max = 2.0
                         else:
-                            print(block.name)
                             block.slider_min = -1.5
                             block.slider_max = 1.5
 
@@ -1189,7 +1186,7 @@ class CC3Import(bpy.types.Operator):
         utils.log_info("Building Character Materials:")
         utils.log_info("-----------------------------")
 
-        nodeutils.check_node_groups()
+        lib.check_node_groups()
 
         if self.imported_character_ids:
             on_import = True
@@ -1694,7 +1691,7 @@ class CC3Import(bpy.types.Operator):
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
             utils.object_mode()
-            nodeutils.rebuild_node_groups()
+            lib.rebuild_node_groups()
             utils.clean_collection(bpy.data.images)
             self.build_materials(context)
             self.build_drivers(context)

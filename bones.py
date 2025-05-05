@@ -497,7 +497,8 @@ def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influen
 
 
 def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD",
-                                 use_x=True, use_y=True, use_z=True, invert_x=False, invert_y=False, invert_z=False):
+                                 use_x=True, use_y=True, use_z=True, invert_x=False, invert_y=False, invert_z=False,
+                                 use_offset=False):
     try:
         if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
@@ -512,6 +513,7 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.invert_z = invert_z
             c.mix_mode = "REPLACE"
             c.target_space = space
+            c.use_offset = use_offset
             if space == "LOCAL_OWNER_ORIENT":
                 space = "LOCAL"
             c.owner_space = space
@@ -1464,7 +1466,9 @@ def add_pose_bone_custom_property(rig, pose_bone_name, prop_name, prop_value):
             rna_idprop_ui_create(pose_bone, prop_name, default=prop_value, overridable=True, min=0, max=1)
 
 
-def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, variable_name, constraint = None, constraint_type = "", expression = ""):
+def add_constraint_influence_driver(rig, pose_bone_name,
+                                    source_object, source_data_path, source_var_name,
+                                    constraint=None, constraint_type="", expression=""):
     if utils.object_mode():
         if pose_bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[pose_bone_name]
@@ -1481,7 +1485,9 @@ def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, var
                 else:
                     driver = drivers.make_driver(con, "influence", "SUM")
                 if driver:
-                    var = drivers.make_driver_var(driver, "SINGLE_PROP", variable_name, rig, target_type = "OBJECT", data_path = data_path)
+                    var = drivers.make_driver_var(driver, "SINGLE_PROP",
+                                                          source_var_name, source_object,
+                                                          target_type="OBJECT", data_path=source_data_path)
 
 
 def get_data_path_pose_bone_property(pose_bone_name, variable_name):
@@ -1511,7 +1517,7 @@ def get_data_rigify_limb_property(limb_id, variable_name):
     return ""
 
 
-def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, props, prop_name, variable_name):
+def add_bone_import_props_driver(rig, pose_bone_name, bone_data_path, bone_data_index, props, prop_name, variable_name):
     if utils.object_mode():
         pose_bone : bpy.types.PoseBone
         if pose_bone_name in rig.pose.bones:
@@ -1524,6 +1530,27 @@ def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, p
             var.name = variable_name
             var.type = "SINGLE_PROP"
             var.targets[0].id_type = "SCENE"
+            var.targets[0].id = props.id_data
+            var.targets[0].data_path = props.path_from_id(prop_name)
+
+
+def add_bone_custom_props_driver(rig, pose_bone_name, bone_data_path, bone_data_index, props, prop_name, variable_name, expression=""):
+    if utils.object_mode():
+        pose_bone : bpy.types.PoseBone
+        if pose_bone_name in rig.pose.bones:
+            pose_bone = rig.pose.bones[pose_bone_name]
+            fcurve : bpy.types.FCurve
+            fcurve = pose_bone.driver_add(bone_data_path, bone_data_index)
+            driver : bpy.types.Driver = fcurve.driver
+            if not expression:
+                driver.type = "SUM"
+            else:
+                driver.type = "SCRIPTED"
+                driver.expression = expression
+            var : bpy.types.DriverVariable = driver.variables.new()
+            var.name = variable_name
+            var.type = "SINGLE_PROP"
+            var.targets[0].id_type = "OBJECT"
             var.targets[0].id = props.id_data
             var.targets[0].data_path = props.path_from_id(prop_name)
 

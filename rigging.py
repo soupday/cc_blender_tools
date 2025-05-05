@@ -2416,7 +2416,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                     if correction_bone:
                         correction_bone.rotation_mode = "XYZ"
                     # add drivers for corrective properties
-                    bones.add_bone_prop_driver(retarget_rig, correction_bone_name, bone_data_path, bone_data_index, chr_cache, prop_name, prop_name + "_var")
+                    bones.add_bone_import_props_driver(retarget_rig, correction_bone_name, bone_data_path, bone_data_index, chr_cache, prop_name, prop_name + "_var")
                     # add corrective constraints
                     con_defs = correction_def["constraints"]
                     for con_def in con_defs:
@@ -2456,7 +2456,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
     return retarget_rig
 
 
-def adv_retarget_remove_pair(op, chr_cache):
+def adv_retarget_remove_pair(op, chr_cache, no_drivers=False):
     props = vars.props()
     rigify_rig = chr_cache.get_armature()
     retarget_rig = chr_cache.rig_retarget_rig
@@ -2485,6 +2485,13 @@ def adv_retarget_remove_pair(op, chr_cache):
     if rigutils.is_face_rig(rigify_rig):
         facerig.remove_facerig_retarget_drivers(chr_cache, rigify_rig)
         rigutils.clean_up_shape_key_action_objects()
+
+        # restore arkit proxy drivers
+        if not no_drivers:
+            arkit_proxy_rig, arkit_proxy_mesh = facerig.get_arkit_proxy(chr_cache)
+            if arkit_proxy_rig and arkit_proxy_mesh:
+                facerig.build_arkit_proxy_drivers(chr_cache, rigify_rig, arkit_proxy_rig, arkit_proxy_mesh)
+                facerig.build_arkit_bone_constraints(chr_cache, rigify_rig, arkit_proxy_rig)
 
 
 def adv_preview_retarget(op, chr_cache):
@@ -2547,7 +2554,12 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, t
 
     olc = utils.set_active_layer_collection_from(rigify_rig)
 
-    adv_retarget_remove_pair(op, chr_cache)
+    adv_retarget_remove_pair(op, chr_cache, no_drivers=True)
+
+    arkit_proxy_rig, arkit_proxy_mesh = facerig.get_arkit_proxy(chr_cache)
+    if arkit_proxy_rig:
+        facerig.remove_facerig_retarget_drivers(chr_cache, rigify_rig)
+        facerig.remove_arkit_bone_constraints(chr_cache, rigify_rig)
 
     temp_collection = utils.force_visible_in_scene("TMP_Retarget", source_rig, rigify_rig)
 
@@ -2721,7 +2733,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
     return None, None
 
 
-def adv_bake_NLA_to_rigify(op, chr_cache):
+def adv_bake_NLA_to_rigify(op, chr_cache, motion_id=None, motion_prefix=None):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -2766,8 +2778,10 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                     len(child.data.shape_keys.key_blocks) > 0):
                     shape_key_objects.append(child)
 
-        motion_prefix = props.rigify_bake_motion_prefix.strip()
-        motion_id = props.rigify_bake_motion_name.strip()
+        if not motion_prefix:
+            motion_prefix = props.rigify_bake_motion_prefix.strip()
+        if not motion_id:
+            motion_id = props.rigify_bake_motion_name.strip()
         if not motion_id:
             motion_id = "NLA_Bake"
 
@@ -3954,6 +3968,13 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "NLA_CC_BAKE":
                 adv_bake_NLA_to_rigify(self, chr_cache)
 
+            elif self.param == "NLA_ARKIT_BAKE":
+                arkit_proxy_rig, arkit_proxy_mesh = facerig.get_arkit_proxy(chr_cache)
+                if arkit_proxy_rig and arkit_proxy_mesh:
+                    motion_id = utils.prop(arkit_proxy_rig, "bake_motion_id")
+                    motion_prefix = utils.prop(arkit_proxy_rig, "bake_motion_prefix")
+                    adv_bake_NLA_to_rigify(self, chr_cache, motion_id=motion_id, motion_prefix=motion_prefix)
+
             elif self.param == "RETARGET_SHAPE_KEYS":
                 adv_retarget_shape_keys(self, chr_cache)
 
@@ -4035,6 +4056,9 @@ class CC3Rigifier(bpy.types.Operator):
 
         elif properties.param == "NLA_CC_BAKE":
             return "Bake the NLA track to the character Rigify Rig using the global scene frame range."
+
+        elif properties.param == "NLA_ARKIT_BAKE":
+            return "Bake the NLA track with ARKit proxy override to the character Rigify Rig using the global scene frame range."
 
         elif properties.param == "BUILD_SPRING_RIG":
             return "Builds the spring rig controls for the currently selected spring rig"

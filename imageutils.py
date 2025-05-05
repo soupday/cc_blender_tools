@@ -17,7 +17,7 @@
 import os
 import bpy
 
-from . import colorspace, nodeutils, params, utils, vars
+from . import colorspace, nodeutils, params, lib, utils, vars
 
 
 IMAGE_FORMATS = {
@@ -204,7 +204,7 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
     # try to find as library image
     lib_name = get_image_type_lib_name(texture_type)
     if lib_name:
-        image = nodeutils.fetch_lib_image(lib_name)
+        image = lib.get_image(lib_name)
         colorspace.set_image_color_space(image, color_space)
         if image:
             return image

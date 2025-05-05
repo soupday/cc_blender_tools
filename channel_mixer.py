@@ -15,7 +15,7 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
-from . import nodeutils, utils, params, vars
+from . import nodeutils, utils, params, lib, vars
 
 MIXER_CHANNELS = [
                     "RGB_HEADER",
@@ -253,9 +253,9 @@ def add_mixer_node(nodes, remap_type, remap_channel):
     group = None
     mixer_node = None
     if remap_type == "RGB":
-        group = nodeutils.get_node_group("rl_rgb_mixer")
+        group = lib.get_node_group("rl_rgb_mixer")
     elif remap_type == "ID":
-        group = nodeutils.get_node_group("rl_id_mixer")
+        group = lib.get_node_group("rl_id_mixer")
 
     if group:
         mixer_node = nodeutils.make_node_group_node(nodes, group, label, name)

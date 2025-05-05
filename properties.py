@@ -1884,6 +1884,19 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         result = ("rl_collision_proxy" in obj or obj.name.endswith("_Collision_Proxy") or is_proxy)
         return result
 
+    def is_related_object(self, obj):
+        if self.is_sculpt_object(obj):
+            return True
+        elif self.is_collision_object(obj):
+            return True
+        elif self.rig_meta_rig == obj:
+            return True
+        elif self.arkit_proxy == obj:
+            return True
+        elif self.rig_original_rig == obj:
+            return True
+        return False
+
     def get_all_objects(self,
                         include_armature=True,
                         include_cache=True,
@@ -2609,6 +2622,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if self.disabled:
             utils.log_info(f"Deleting Character Meta Objects: {self.character_name}")
             utils.delete_object_tree(self.rig_meta_rig)
+            utils.delete_object_tree(self.arkit_proxy)
             utils.delete_object_tree(self.rig_export_rig)
             utils.delete_object_tree(self.rig_original_rig)
             utils.delete_object_tree(self.rig_retarget_rig)
@@ -2732,7 +2746,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     section_rigify_action_sets: bpy.props.BoolProperty(default=True)
-    section_rigify_arkit: bpy.props.BoolProperty(default=False)
+    section_rigify_arkit: bpy.props.BoolProperty(default=True)
     section_rigify_controls: bpy.props.BoolProperty(default=True)
     section_rigify_spring: bpy.props.BoolProperty(default=False)
     section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)
@@ -2951,8 +2965,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                 if not chr_cache.disabled:
                     if chr_cache.has_cache_objects(objects):
                         return chr_cache
-                    if chr_cache.rig_meta_rig and chr_cache.rig_meta_rig in objects:
-                        return chr_cache
+                    #if chr_cache.rig_meta_rig and chr_cache.rig_meta_rig in objects:
+                    #    return chr_cache
+                    for obj in objects:
+                        if chr_cache.is_related_object(obj):
+                            return chr_cache
 
         if search_materials:
             materials = []

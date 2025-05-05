@@ -349,7 +349,7 @@ def object_exists_is_mesh(obj):
         return False
 
 
-def object_exists_is_armature(obj):
+def object_exists_is_armature(obj) -> bool:
     """Test if Object: obj still exists as an object in the scene, and is an armature."""
     if obj is None:
         return False
@@ -564,8 +564,8 @@ def saturate(x):
     return x
 
 
-def remap(edge0, edge1, min, max, x):
-    return min + ((x - edge0) * (max - min) / (edge1 - edge0))
+def remap(from_min, from_max, to_min, to_max, x):
+    return to_min + ((x - from_min) * (to_max - to_min) / (from_max - from_min))
 
 
 def lerp(v0, v1, t, clamp=True):
@@ -1509,10 +1509,11 @@ def get_context_character(context, strict=False):
         # if the context object is an armature or child of armature that is not part of this chr_cache
         # clear the chr_cache, as this is a separate generic character.
         if obj and not obj_cache:
-            if obj.type == "ARMATURE" and obj != arm and obj != chr_cache.rig_meta_rig:
+            if obj.type == "ARMATURE" and obj != arm and not chr_cache.is_related_object(obj):
                 chr_cache = None
             elif obj.type == "MESH" and obj.parent and obj.parent != arm:
                 chr_cache = None
+
 
     # if strict only return chr_cache from valid object_cache context object
     # otherwise it could return the first and only chr_cache
@@ -1902,6 +1903,36 @@ def copy_action(action: bpy.types.Action, new_name):
     return new_action
 
 
+def make_action(name, reuse=False, slot_type=None, target_obj=None, slot_name=None, clear=False):
+    action = None
+    if reuse and name in bpy.data.actions:
+        action = bpy.data.actions[name]
+    if not action:
+        action = bpy.data.actions.new(name)
+    if clear:
+        clear_action(action)
+    if B440():
+        if target_obj:
+            if not slot_type:
+                slot_type = get_slot_type_for(target_obj)
+            if not slot_name:
+                slot_name = f"SLOT-{slot_type}"
+            make_action_slot(action, slot_type, slot_name)
+    return action
+
+
+def make_action_slot(action, slot_type, slot_name):
+    if B440():
+        for slot in action.slots:
+            if slot.target_id_type == slot_type and strip_name(slot.name) == slot_name:
+                return slot
+        for slot in action.slots:
+            if slot.target_id_type == slot_type:
+                return slot
+        return action.slots.new(slot_type, slot_name)
+    return None
+
+
 def get_action_slot(action, slot_type):
     if B440():
         for slot in action.slots:
@@ -1996,10 +2027,10 @@ def clear_action(action, slot_type=None, slot_name=None):
     return False
 
 
-def get_action_channels(action: bpy.types.Action, slot=None):
+def get_action_channels(action: bpy.types.Action, slot=None, slot_type=None):
     if not action:
         return None
-    if B440() and slot:
+    if B440() and (slot or slot_type):
         if not action.layers:
             layer = action.layers.new("Layer")
         else:
@@ -2008,8 +2039,12 @@ def get_action_channels(action: bpy.types.Action, slot=None):
             strip = layer.strips.new(type='KEYFRAME')
         else:
             strip = layer.strips[0]
-        channelbag = strip.channelbag(slot, ensure=True)
-        return channelbag
+        if not slot and slot_type:
+            slot = get_action_slot(action, slot_type)
+        if slot:
+            channelbag = strip.channelbag(slot, ensure=True)
+            return channelbag
+        return action
     else:
         return action
 

@@ -19,7 +19,7 @@ import re
 import os
 
 from . import (springbones, rigidbody, materials, modifiers, meshutils, geom, bones, physics, rigutils,
-               shaders, basic, imageutils, nodeutils, jsonutils, utils, vars)
+               shaders, basic, imageutils, nodeutils, jsonutils, lib, utils, vars)
 
 from mathutils import Vector, Matrix, Quaternion
 import mathutils.geometry
@@ -1126,7 +1126,7 @@ def convert_to_rl_pbr(mat, mat_cache):
             else:
                 too_complex = True
 
-        elif n.type == "GROUP" and n.node_tree and shader_name in n.name and vars.VERSION_STRING in n.node_tree.name:
+        elif n.type == "GROUP" and n.node_tree and shader_name in n.name and lib.is_version(n.node_tree):
 
             if not group_node:
                 utils.log_info("Found Shader Node: " + n.name)
@@ -1161,7 +1161,7 @@ def convert_to_rl_pbr(mat, mat_cache):
     # make group node if none
     # ensure correct names so find_shader_nodes can find them
     if not group_node:
-        group = nodeutils.get_node_group(shader_group)
+        group = lib.get_node_group(shader_group)
         group_node = nodes.new("ShaderNodeGroup")
         group_node.node_tree = group
     group_node.name = utils.unique_name(shader_id)
