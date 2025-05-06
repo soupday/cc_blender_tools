@@ -33,6 +33,28 @@ Links
 
 ## Changelog
 
+### 2.3.0
+- Rigify:
+    - Meta-human like facial expression rig for Extended, Standard and Traditional facial profiles.
+    - Expression rig supports retargeting, datalink motion transfer and Pose/Sequences to and from CC4/iClone8.
+    - The expression rig allows for more advanced targeting and transfer.
+    - ARKit Proxy:
+        - The ARKit proxy can be used as a target for LiveLink face transfer (e.g. from Face-it add-on)
+        - The proxy will drive the expression controls on the rig.
+        - Adjustment parameters can be used to alter expression strength, relax / exaggerate expressions, shift the directional bias towards Left/Right and Up/Down expressions.
+        - Rotational adjustments for head bone.
+        - Load CSV function to load face capture recordings in CSV format.
+- DataLink:
+    - Motion Pose/Sequences no longer dependent on Quaternions, preserves bone rotation modes across the the rig.
+    - Avatar/Prop skin bones identified by iClone ID, for accurate transfer and retargeting.
+    - Which now allows for Pose/Sequence transfer of Prop animations from Blender to iClone.
+    - Import & Transfer of lights and cameras with animations, including pose and sequences.
+    - Light & Camera sequence can be send back to iClone via Sequence transfer.
+        - (Must already exist in iClone for this to work)
+    - Lights can use IES and light cookie textures (Cycles Only)
+- Hair spring bone generation fixes for Blender 4.4.
+
+
 ### 2.2.5
 - Fix to Blender 4.1 material refraction setting.
 - Rigify setup defaults rig to zero IK stretch.
