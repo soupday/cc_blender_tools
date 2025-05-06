@@ -2720,6 +2720,8 @@ class LinkService():
                 if arm and chr_cache.rigified:
                     if actor.ik_store:
                         rigutils.restore_ik_stretch(actor.ik_store)
+                # remove the export rigs
+                utils.delete_armature_object(chr_cache.rig_export_rig)
 
     def send_request(self, request_type):
         global LINK_DATA

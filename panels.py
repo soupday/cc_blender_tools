@@ -2440,6 +2440,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if not has_proxy:
                             row.operator("cc3.rigifier", icon="MONKEY", text="Add ARKit Proxy").param = "ARKIT_PROXY_ADD"
                         else:
+                            row.alert=True
                             row.operator("cc3.rigifier", icon="X", text="Remove ARKit Proxy").param = "ARKIT_PROXY_REMOVE"
                         if has_proxy:
                             proxy_rig = chr_cache.arkit_proxy
@@ -2479,8 +2480,8 @@ class CC3RigifyPanel(bpy.types.Panel):
                             else:
                                 text = "Normal"
                             col.row().prop(proxy_rig, "[\"relaxation\"]", text=text, slider=True)
-                            col.row().prop(proxy_rig, "[\"horizontal_asymmetry\"]", text="L/R Bias", slider=True)
-                            col.row().prop(proxy_rig, "[\"vertical_asymmetry\"]", text="U/D Bias", slider=True)
+                            col.row().prop(proxy_rig, "[\"horizontal_bias\"]", text="L/R Bias", slider=True)
+                            col.row().prop(proxy_rig, "[\"vertical_bias\"]", text="U/D Bias", slider=True)
 
                             # bone driver adjust params
                             layout.row().label(text="Bones:")

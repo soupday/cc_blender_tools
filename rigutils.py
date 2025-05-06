@@ -1335,10 +1335,10 @@ def reset_pose(rig, exceptions=None, use_selected=False):
         rig.data.pose_position = "POSE"
         bones_data = {}
         for pose_bone in rig.pose.bones:
+            bone = pose_bone.bone
             if exceptions and pose_bone.name in exceptions:
                 bone.select = False
                 continue
-            bone = pose_bone.bone
             bones_data[bone] = (bone.select, bone.hide, bone.hide_select)
             if not use_selected:
                 bone.select = True

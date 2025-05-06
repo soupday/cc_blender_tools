@@ -3957,23 +3957,33 @@ class CC3Rigifier(bpy.types.Operator):
                     self.report({'ERROR'}, "Face Re-parent Failed!. See console log.")
 
             elif self.param == "RETARGET_CC_PAIR_RIGS":
+                mode_selection = utils.store_mode_selection_state()
                 adv_preview_retarget(self, chr_cache)
+                utils.restore_mode_selection_state(mode_selection)
 
             elif self.param == "RETARGET_CC_REMOVE_PAIR":
+                mode_selection = utils.store_mode_selection_state()
                 adv_retarget_remove_pair(self, chr_cache)
+                utils.restore_mode_selection_state(mode_selection)
 
             elif self.param == "RETARGET_CC_BAKE_ACTION":
+                mode_selection = utils.store_mode_selection_state()
                 full_retarget_source_rig_action(self, chr_cache, use_ui_options=True)
+                utils.restore_mode_selection_state(mode_selection)
 
             elif self.param == "NLA_CC_BAKE":
+                mode_selection = utils.store_mode_selection_state()
                 adv_bake_NLA_to_rigify(self, chr_cache)
+                utils.restore_mode_selection_state(mode_selection)
 
             elif self.param == "NLA_ARKIT_BAKE":
                 arkit_proxy_rig, arkit_proxy_mesh = facerig.get_arkit_proxy(chr_cache)
                 if arkit_proxy_rig and arkit_proxy_mesh:
+                    mode_selection = utils.store_mode_selection_state()
                     motion_id = utils.prop(arkit_proxy_rig, "bake_motion_id")
                     motion_prefix = utils.prop(arkit_proxy_rig, "bake_motion_prefix")
                     adv_bake_NLA_to_rigify(self, chr_cache, motion_id=motion_id, motion_prefix=motion_prefix)
+                    utils.restore_mode_selection_state(mode_selection)
 
             elif self.param == "RETARGET_SHAPE_KEYS":
                 adv_retarget_shape_keys(self, chr_cache)

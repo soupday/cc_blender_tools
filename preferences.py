@@ -81,7 +81,7 @@ def reset_rigify():
     prefs.rigify_export_t_pose = True
     prefs.rigify_export_mode = "MOTION"
     prefs.rigify_export_naming = "METARIG"
-    prefs.rigify_expression_rig = "NONE"
+    prefs.rigify_expression_rig = "META"
     prefs.rigify_build_face_rig = False
     prefs.rigify_auto_retarget = True
     prefs.rigify_preview_retarget_fk_ik = "BOTH"
@@ -470,7 +470,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("NONE","None","No expression rig, just eye and jaw controls"),
                         ("RIGIFY","Rigify","Rigify full face rig"),
                         ("META","Meta","Metahuman style expression rig"),
-                    ], default="NONE", name="Expression Rig")
+                    ], default="META", name="Expression Rig")
     rigify_face_control_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                                 default=(1.0, 0.95, 0.4, 1.0),
                                                 min = 0.0, max = 1.0,

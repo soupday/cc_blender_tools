@@ -733,17 +733,22 @@ def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_obj
                 parent_def = bone_drivers[parent_id]
                 expression, var_defs = build_retarget_driver(chr_cache, rigify_rig, parent_id, parent_def,
                                                              source_rig, source_objects,
-                                                             no_driver=True, length_override=abs(driver_def["length"]))
+                                                             no_driver=True, length_override=abs(driver_def["length"]),
+                                                             arkit=arkit)
                 build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def,
                                       source_rig, source_objects,
-                                      pre_expression=expression, pre_var_defs=var_defs)
+                                      pre_expression=expression, pre_var_defs=var_defs,
+                                      arkit=arkit)
             else:
-                build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_rig, source_objects)
+                build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_rig, source_objects,
+                                      arkit=arkit)
+
+        update_facerig_color(None, chr_cache=chr_cache)
 
 
 def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_rig, source_objects,
                                      no_driver=False, pre_expression=None,
-                                     pre_var_defs=None, length_override=None):
+                                     pre_var_defs=None, length_override=None, arkit=False):
     bone_name, prop, index = driver_id
     method = driver_def["method"]
     parent = driver_def["parent"]
@@ -754,6 +759,7 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
 
     expression = ""
     var_defs = []
+    prop_defs = []
 
     vidx = 0 if not pre_var_defs else len(pre_var_defs)
 
@@ -773,7 +779,11 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
                 var_name = f"var{vidx}"
                 if count > 0:
                     expression += "+"
-                expression += f"({var_name}*{fvar(scale)}/{fvar(value)})"
+                var_expression = f"({var_name}*{fvar(scale)}/{fvar(value)})"
+                if arkit:
+                    var_expression = add_arkit_driver_func(chr_cache, var_expression, length,
+                                                           shape_key_name, prop_defs)
+                expression += var_expression
                 var_defs.append((var_name, shape_key_name))
                 vidx += 1
                 count += 1
@@ -796,7 +806,6 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
             var_defs.extend(pre_var_defs)
 
         if expression and not no_driver:
-            bones.set_bone_color(rigify_rig, pose_bone, "DRIVER", "DRIVER", "DRIVER", chr_cache=chr_cache)
             driver = drivers.make_driver(pose_bone, prop, "SCRIPTED", driver_expression=expression, index=index)
             if driver:
                 for var_name, shape_key_name in var_defs:
@@ -812,6 +821,15 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
                                                         target_type="MESH",
                                                         data_path=data_path)
                             break
+                for var_name, prop_obj, prop_name in prop_defs:
+                    # target_type="MESH", data_path="shape_keys.key_blocks[\"{shape_key}\"].value"
+                    data_path = f"[\"{prop_name}\"]"
+                    var = drivers.make_driver_var(driver,
+                                                  "SINGLE_PROP",
+                                                  var_name,
+                                                  prop_obj,
+                                                  target_type="OBJECT",
+                                                  data_path=data_path)
 
     if source_rig and "bones" in driver_def:
 
@@ -870,7 +888,7 @@ def remove_facerig_retarget_drivers(chr_cache, rigify_rig: bpy.types.Object):
                 pose_bone = rigify_rig.pose.bones[control_name]
                 pose_bone.driver_remove("location", 0)
                 pose_bone.driver_remove("location", 1)
-                bones.set_bone_color(rigify_rig, pose_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
+        update_facerig_color(None, chr_cache=chr_cache)
 
 
 def clear_expression_pose(chr_cache, rigify_rig, selected=False):
@@ -898,20 +916,38 @@ def clear_expression_pose(chr_cache, rigify_rig, selected=False):
     bones.restore_armature_settings(rigify_rig, state, include_selection=True)
 
 
-def update_facerig_color(context):
+def control_bone_has_driver(rigify_rig, control_bone_name):
+    try:
+        search = f"[\"{control_bone_name}\"]"
+        for driver in rigify_rig.animation_data.drivers:
+            data_path = driver.data_path
+            if data_path.endswith("location"):
+                if search in data_path:
+                    return True
+    except: ...
+    return False
+
+
+
+def update_facerig_color(context, chr_cache=None):
     props = vars.props()
-    chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
+    if not chr_cache:
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
     if chr_cache:
         FACERIG_CONFIG = get_facerig_config(chr_cache)
-        rig = chr_cache.get_armature()
-        if rig and "facerig" in rig.pose.bones:
+        rigify_rig = chr_cache.get_armature()
+        if rigify_rig and "facerig" in rigify_rig.pose.bones:
             for control_bone_name, control_def in FACERIG_CONFIG.items():
-                bones.set_bone_color(rig, control_bone_name, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
+                if control_bone_has_driver(rigify_rig, control_bone_name):
+                    color_code = "DRIVER"
+                else:
+                    color_code = "FACERIG"
+                bones.set_bone_color(rigify_rig, control_bone_name, color_code, color_code, color_code, chr_cache=chr_cache)
                 if control_def["widget_type"] == "rect":
                     lines_bone_name = control_bone_name + "_box"
                 else:
                     lines_bone_name = control_bone_name + "_line"
-                bones.set_bone_color(rig, lines_bone_name, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
+                bones.set_bone_color(rigify_rig, lines_bone_name, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
 
 
 def is_position_locked(rig):
@@ -999,7 +1035,7 @@ def generate_arkit_proxy(chr_cache):
             neck_bone = bones.get_pose_bone(rigify_rig, "neck")
             root_bone = bones.get_pose_bone(rigify_rig, "root")
             M = rigify_rig.matrix_world @ neck_bone.matrix
-            loc = M @ Vector((-0.4, 0, -0.05))
+            loc = M @ Vector((-0.4, -0.05, -0.05))
             rot = (rigify_rig.matrix_world @ root_bone.matrix).to_quaternion()
 
             chr_collections = utils.get_object_scene_collections(rigify_rig)
@@ -1030,8 +1066,9 @@ def generate_arkit_proxy(chr_cache):
             build_arkit_proxy_drivers(chr_cache, rigify_rig, proxy_rig, proxy_mesh)
 
             wgt_collection = rigutils.get_widget_rig_collection(chr_cache)
-            wgt_root = bones.make_root_widget("WGT-arkit_proxy_root", 3.25)
+            wgt_root = bones.make_root_widget(f"WGT-{chr_cache.character_name}_rig_arkit_proxy_root", 3.25)
             if wgt_collection:
+                utils.remove_from_scene_collections(wgt_root)
                 bones.add_widget_to_collection(wgt_root, wgt_collection)
             proxy_root_bone: bpy.types.PoseBone = proxy_rig.pose.bones["root"]
             proxy_root_bone.custom_shape = wgt_root
@@ -1042,16 +1079,66 @@ def generate_arkit_proxy(chr_cache):
     return None
 
 
-def func_rl_arkit_proxy_mod(value, strength, variance, bias, relaxation):
-    if variance:
-        strength += random.random() * strength * variance
-    bias = 1.0
+def add_arkit_driver_func(chr_cache, expression, length, shape_key_name, prop_defs: list):
+    # dont adjust for these arkit blend shapes
+    shape_key_name = shape_key_name.lower()
+    exclude = ["eyelook", "eyewide", "eyeblink", "mouthclose", "jaw", "eyeroll", "eyepitch", "eyeyaw"]
+    for pattern in exclude:
+        if pattern in shape_key_name:
+            return expression
+
+    # ensure arkit function is in driver namespace
+    if ("rl_arkit" not in bpy.app.driver_namespace or
+        bpy.app.driver_namespace["rl_arkit"] != func_rl_arkit_proxy_mod):
+        bpy.app.driver_namespace["rl_arkit"] = func_rl_arkit_proxy_mod
+
+    # determine directional bias
+    if "left" in shape_key_name:
+        horz_bias = "1+H"
+        horz_var = "horizontal_bias"
+    elif "right" in shape_key_name:
+        horz_bias = "1-H"
+        horz_var = "horizontal_bias"
+    else:
+        horz_bias = "1"
+        horz_var = None
+    if "up" in shape_key_name or "upper" in shape_key_name:
+        vert_bias = "1-V"
+        vert_var = "vertical_bias"
+    elif "down" in shape_key_name or "lower" in shape_key_name:
+        vert_bias = "1+V"
+        vert_var = "vertical_bias"
+    else:
+        vert_bias = "1"
+        vert_var = None
+
+    # extent expression with arkit adjustments
+    proxy_rig, proxy_mesh = get_arkit_proxy(chr_cache)
+    if proxy_rig:
+        expression = f"rl_arkit({expression},{fvar(length)},S,{horz_bias},{vert_bias},R)"
+        if ("S", proxy_rig, "strength") not in prop_defs:
+            prop_defs.append(("S", proxy_rig, "strength"))
+        if ("R", proxy_rig, "relaxation") not in prop_defs:
+            prop_defs.append(("R", proxy_rig, "relaxation"))
+        if horz_var and ("H", proxy_rig, horz_var) not in prop_defs:
+            prop_defs.append(("H", proxy_rig, horz_var))
+        if vert_var and ("V", proxy_rig, vert_var) not in prop_defs:
+            prop_defs.append(("V", proxy_rig, vert_var))
+    return expression
+
+
+def func_rl_arkit_proxy_mod(value, length, strength, horz_bias, vert_bias, relaxation):
+    length = abs(length)
     if relaxation != 1.0:
-        if value < 0:
-            value = -pow(min(1,max(0,-value)), relaxation)
+        vN = value / length
+        if vN < 0:
+            vN = -pow(min(1,max(0,-vN)), relaxation)
         else:
-            value = pow(min(1,max(0,value)), relaxation)
-    return max(-1, min(1, (value * strength * bias)))
+            vN = pow(min(1,max(0,vN)), relaxation)
+        value = vN * length
+    # multiply the value by the adjustments
+    value = (value * strength * horz_bias * vert_bias / 100.0)
+    return max(-1, min(1, value))
 
 
 def build_arkit_proxy_drivers(chr_cache, rigify_rig, proxy_rig, proxy_mesh):
@@ -1059,11 +1146,11 @@ def build_arkit_proxy_drivers(chr_cache, rigify_rig, proxy_rig, proxy_mesh):
         build_facerig_retarget_drivers(chr_cache, rigify_rig, proxy_rig, [ proxy_mesh ], shape_key_only=True, arkit=True)
         drivers.add_custom_float_property(proxy_rig, "strength", 100.0, 0.0, 200.0, subtype="PERCENTAGE", precision=1,
                                             description="Overall strength of expressions")
-        drivers.add_custom_float_property(proxy_rig, "relaxation", 1.0, 0.5, 1.5,
+        drivers.add_custom_float_property(proxy_rig, "relaxation", 1.0, 0.25, 2.0,
                                             description="How much to relax or exaggerate the expressions")
-        drivers.add_custom_float_property(proxy_rig, "horizontal_asymmetry", 0.0, -0.5, 0.5,
+        drivers.add_custom_float_property(proxy_rig, "horizontal_bias", 0.0, -0.75, 0.75,
                                             description="How much to relax or exaggerate the expressions")
-        drivers.add_custom_float_property(proxy_rig, "vertical_asymmetry", 0.0, -0.5, 0.5,
+        drivers.add_custom_float_property(proxy_rig, "vertical_bias", 0.0, -0.75, 0.75,
                                             description="How much to relax or exaggerate the expressions")
         drivers.add_custom_float_property(proxy_rig, "random_variance", 0.0, 0.0, 80.0, subtype="PERCENTAGE", precision=1,
                                             description="How much to relax or exaggerate the expressions")
@@ -1238,10 +1325,6 @@ def parse_arkit_csv(file_path):
 
 def process_tcurves(proxy_rig, tcurves):
 
-    strength = get_arkit_proxy_prop(proxy_rig, "strength") / 100
-    relaxation = get_arkit_proxy_prop(proxy_rig, "relaxation")
-    horizontal_asymmetry = get_arkit_proxy_prop(proxy_rig, "horizontal_asymmetry")
-    vertical_asymmetry = get_arkit_proxy_prop(proxy_rig, "vertical_asymmetry")
     variance = get_arkit_proxy_prop(proxy_rig, "random_variance") / 100
     seed = get_arkit_proxy_prop(proxy_rig, "random_seed")
     filter = get_arkit_proxy_prop(proxy_rig, "filter") / 100
@@ -1250,7 +1333,7 @@ def process_tcurves(proxy_rig, tcurves):
     tcurve: TCurve
 
     for tcurve in tcurves:
-        tcurve.process(filter, strength, relaxation, variance, horizontal_asymmetry, vertical_asymmetry)
+        tcurve.process(filter, variance)
 
 
 class TCurve():
@@ -1305,27 +1388,15 @@ class TCurve():
             if i > 10:
                 return
 
-    def process(self, filter, strength, relaxation, variance, h_asymmetry, v_asymmetry):
+    def process(self, filter, variance):
         exclude = ["EyeLook", "Blink", "MouthClose", "Jaw", "EyeRoll", "EyePitch", "EyeYaw"]
         modify = True
         for e in exclude:
             if e in self.name:
                 modify = False
-        variance_mod = strength
+        variance_mod = 1.0
         if variance:
             variance_mod += random.random() * variance_mod * variance
-        dir_mod = 1.0
-        # TODO some expressions (Blink) need to use their full range and shouldn't be affected
-        if h_asymmetry != 0:
-            if "Left" in self.name:
-                dir_mod = 1 + h_asymmetry
-            elif "Right" in self.name:
-                dir_mod = 1 - h_asymmetry
-        if v_asymmetry != 0:
-            if "Up" in self.name:
-                dir_mod = 1 - v_asymmetry
-            elif "Down" in self.name:
-                dir_mod = 1 + v_asymmetry
         for i, (f, v) in enumerate(self.points):
             if i > 0:
                 v = v0 * filter + v * (1 - filter)
@@ -1333,12 +1404,7 @@ class TCurve():
             f0 = f
             v0 = v
             if modify:
-                if relaxation != 1.0:
-                    if v < 0:
-                        v = -pow(min(1,max(0,-v)), relaxation)
-                    else:
-                        v = pow(min(1,max(0,v)), relaxation)
-                v = max(-1, min(1, (v * variance_mod * dir_mod)))
+                v = max(-1, min(1, (v * variance_mod)))
             self.points[i] = (f, v)
 
 
