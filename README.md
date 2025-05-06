@@ -49,7 +49,7 @@ Links
 - DataLink:
     - Motion Pose/Sequences no longer dependent on Quaternions, preserves bone rotation modes across the the rig.
     - Avatar/Prop skin bones identified by iClone ID, for accurate transfer and retargeting.
-    - Which now allows for Pose/Sequence transfer of Prop animations from Blender to iClone.
+    - Which now allows for Pose/Sequence transfer of Prop animations from Blender back to iClone.
     - Import & Transfer of lights and cameras with animations, including pose and sequences.
     - Light & Camera sequence can be send back to iClone via Sequence transfer.
         - (Must already exist in iClone for this to work)
