@@ -2124,16 +2124,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     elif chr_cache.can_be_rigged():
 
-                        if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rigify_face():
-                            #row = layout.row()
-                            #row.prop(prefs, "rigify_align_bones", expand=True)
-                            grid = layout.grid_flow(columns=2, row_major=True, align=True)
-                            grid.prop(prefs, "rigify_build_face_rig", text="Face Rig", toggle=True)
-                            if not chr_cache.can_rigify_face() and prefs.rigify_build_face_rig:
-                                wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
-                        else:
-                            grid = layout.grid_flow(columns=1, row_major=True, align=True)
-
+                        grid = layout.grid_flow(columns=1, row_major=True, align=True)
                         grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
 
                         if prefs.rigify_auto_retarget:
@@ -2153,6 +2144,13 @@ class CC3RigifyPanel(bpy.types.Panel):
                             col = layout.column()
                             if prefs.rigify_expression_rig == "META":
                                 col.row().prop(prefs, "rigify_face_control_color")
+                            elif prefs.rigify_expression_rig == "RIGIFY":
+                                if not chr_cache.can_rigify_face():
+                                    wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
+                        else:
+                            grid = layout.grid_flow(columns=1, row_major=True, align=True)
+
+
 
                         col = layout.column(align=True)
                         col.label(text="Bone Alignment:")

@@ -82,7 +82,6 @@ def reset_rigify():
     prefs.rigify_export_mode = "MOTION"
     prefs.rigify_export_naming = "METARIG"
     prefs.rigify_expression_rig = "META"
-    prefs.rigify_build_face_rig = False
     prefs.rigify_auto_retarget = True
     prefs.rigify_preview_retarget_fk_ik = "BOTH"
     prefs.rigify_bake_nla_fk_ik = "BOTH"
@@ -475,8 +474,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                                 default=(1.0, 0.95, 0.4, 1.0),
                                                 min = 0.0, max = 1.0,
                                                 name="Rig Color")
-    rigify_build_face_rig: bpy.props.BoolProperty(default=False,
-                                                  description="Build full face rig (CC3(+) standard characters only)")
     rigify_auto_retarget: bpy.props.BoolProperty(default=True,
                                                  description="Auto retarget any animation currently on the character armature")
     rigify_preview_retarget_fk_ik: bpy.props.EnumProperty(items=[

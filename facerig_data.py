@@ -1059,17 +1059,6 @@ FACERIG_EXT_CONFIG = {
             }
         }
     },
-    "CTRL_C_tongue_tip_upDown_Std":
-    {
-        "widget_type": "slider",
-        "range": [-1.0, 1.0],
-        "indices": [232, 233],
-        "blendshapes":
-        {
-            "Tongue_Tip_Up": -1.0,
-            "Tongue_Tip_Down": 1.0
-        }
-    },
     "CTRL_C_tongue_roll":  #370, 380
     {
         "widget_type": "rect",
@@ -1083,27 +1072,6 @@ FACERIG_EXT_CONFIG = {
             {
                 "Tongue_Twist_L": 1.0,
                 "Tongue_Twist_R": -1.0
-            },
-            "y":
-            {
-                "V_Tongue_Curl_U": -1.0,
-                "V_Tongue_Curl_D": 1.0
-            }
-        }
-    },
-    "CTRL_C_tongue_roll_Std":  #370, 380
-    {
-        "widget_type": "rect",
-        "x_range": [-1.0, 1.0],
-        "y_range": [-1.0, 1.0],
-        "y_invert": False,
-        "x_invert": False,
-        "indices": [219, 222, 223, 220],
-        "blendshapes":
-        {
-            "x":
-            {
-                "Tongue_Roll": 1.0,
             },
             "y":
             {
