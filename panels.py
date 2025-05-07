@@ -2300,10 +2300,14 @@ class CC3RigifyPanel(bpy.types.Panel):
                             #col_row.operator("ccic.rigutils", icon="X", text="").param = "RESET_EXPRESSION_POSE"
                             col_row.prop(chr_cache, "rigify_face_control_color", text="")
                             col_1.label(text="Head Follow")
-                            col_row = col_row = col_2.row(align=True)
+                            col_row = col_2.row(align=True)
                             col_row.prop(facerig_bone, "[\"head_follow\"]", slider=True, text="")
                             facerig_locked = facerig_bone.bone.hide_select
                             col_row.operator("ccic.rigutils", icon="LOCKED" if facerig_locked else "UNLOCKED", text="").param = "TOGGLE_EXPRESSION_RIG_LOCK"
+                            layout.label(text="Overall Strength")
+                            row = layout.row(align=True)
+                            row.prop(facerig_bone, "[\"key_strength\"]", slider=True, text="Key")
+                            row.prop(facerig_bone, "[\"bone_strength\"]", slider=True, text="Bone")
 
 
                     box_row = layout.box().row()

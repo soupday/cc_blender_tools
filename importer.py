@@ -1530,10 +1530,10 @@ class CC3Import(bpy.types.Operator):
                 if bpy.context.scene.cycles.transparent_max_bounces < 100:
                     bpy.context.scene.cycles.transparent_max_bounces = 100
 
+                bpy.ops.object.select_all(action='DESELECT')
+                for chr_cache in imported_characters:
+                    chr_cache.select(only=False)
                 if self.zoom:
-                    bpy.ops.object.select_all(action='DESELECT')
-                    for chr_cache in imported_characters:
-                        chr_cache.select_all(only=False)
                     scene.zoom_to_selected()
 
                 # clean up unused images from the import

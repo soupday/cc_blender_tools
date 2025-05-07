@@ -33,6 +33,7 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [107, 110],
+        "strength": False,
         "blendshapes":
         {
             "Eye_Blink_L": 1.0,
@@ -44,6 +45,7 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [10, 13],
+        "strength": False,
         "blendshapes":
         {
             "Eye_Blink_R": 1.0,
@@ -55,6 +57,7 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [168, 169],
+        "strength": False,
         "blendshapes":
         {
             "Eye_Pupil_Dilate": 1.0,
@@ -83,6 +86,7 @@ FACERIG_EXT_CONFIG = {
         "y_invert": False,
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
+        "strength": False,
         "indices": [188, 189, 190, 191],
         "blendshapes":
         {
@@ -151,6 +155,7 @@ FACERIG_EXT_CONFIG = {
         "y_invert": False,
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
+        "strength": False,
         "indices": [175, 174, 173, 172],
         "blendshapes":
         {
@@ -218,6 +223,7 @@ FACERIG_EXT_CONFIG = {
         "y_invert": False,
         "x_method": "AVERAGE",
         "y_method": "AVERAGE",
+        "strength": False,
         "indices": [176, 177, 178, 179],  #+172
         "blendshapes":
         {
@@ -1332,6 +1338,7 @@ FACERIG_EXT_CONFIG = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "strength": False,
         "indices": [198, 199, 200, 201],
         "bones":
         {
@@ -1385,6 +1392,7 @@ FACERIG_EXT_CONFIG = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "strength": False,
         "indices": [194, 195, 196, 197],
         "bones":
         {
@@ -1436,6 +1444,7 @@ FACERIG_EXT_CONFIG = {
 
         "widget_type": "slider",
         "range": [-1.0, 1.0],
+        "strength": False,
         "indices": [117, 134],
         "bones":
         [
@@ -1461,6 +1470,7 @@ FACERIG_EXT_CONFIG = {
     {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
+        "strength": False,
         "indices": [118, 135],
         "bones":
         [
@@ -1487,6 +1497,7 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [136, 138],
+        "strength": False,
         "blendshapes":
         {
             "Eyelash_Upper_Up_R": -1.0,
@@ -1499,6 +1510,7 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [140, 142],
+        "strength": False,
         "blendshapes":
         {
             "Eyelash_Lower_Up_R": -1.0,
@@ -1510,6 +1522,7 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [137, 139],
+        "strength": False,
         "blendshapes":
         {
             "Eyelash_Upper_Up_L": -1.0,
@@ -1521,6 +1534,7 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [141, 143],
+        "strength": False,
         "blendshapes":
         {
             "Eyelash_Lower_Up_L": -1.0,
@@ -1578,6 +1592,7 @@ FACERIG_STD_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [47, 48],
+        "strength": False,
         "blendshapes":
         {
             "Eye_Blink_L": 1.0,
@@ -1589,6 +1604,7 @@ FACERIG_STD_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [8, 9],
+        "strength": False,
         "blendshapes":
         {
             "Eye_Blink_R": 1.0,
@@ -1617,6 +1633,7 @@ FACERIG_STD_CONFIG = {
         "y_invert": False,
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
+        "strength": False,
         "indices": [86, 87, 88, 89],
         "blendshapes":
         {
@@ -1685,6 +1702,7 @@ FACERIG_STD_CONFIG = {
         "y_invert": False,
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
+        "strength": False,
         "indices": [81,80,79,78],
         "blendshapes":
         {
@@ -1752,6 +1770,7 @@ FACERIG_STD_CONFIG = {
         "y_invert": False,
         "x_method": "AVERAGE",
         "y_method": "AVERAGE",
+        "strength": False,
         "indices": [83, 84, 85, 82],
         "blendshapes":
         {
@@ -2419,6 +2438,7 @@ FACERIG_STD_CONFIG = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "strength": False,
         "indices": [94, 95, 96, 97],
         "bones":
         {
@@ -2471,6 +2491,7 @@ FACERIG_STD_CONFIG = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "strength": False,
         "indices": [90, 91, 92, 93],
         "bones":
         {
@@ -2521,6 +2542,7 @@ FACERIG_STD_CONFIG = {
     {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
+        "strength": False,
         "indices": [53, 68],
         "bones":
         [
@@ -2546,6 +2568,7 @@ FACERIG_STD_CONFIG = {
     {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
+        "strength": False,
         "indices": [54, 69],
         "bones":
         [
@@ -2605,6 +2628,7 @@ FACERIG_TRA_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [47, 48],
+        "strength": False,
         "blendshapes":
         {
             "A14_Eye_Blink_Left": 1.0,
@@ -2616,6 +2640,7 @@ FACERIG_TRA_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [8, 9],
+        "strength": False,
         "blendshapes":
         {
             "A15_Eye_Blink_Right": 1.0,
@@ -2644,6 +2669,7 @@ FACERIG_TRA_CONFIG = {
         "y_invert": False,
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
+        "strength": False,
         "indices": [86, 87, 88, 89],
         "blendshapes":
         {
@@ -2712,6 +2738,7 @@ FACERIG_TRA_CONFIG = {
         "y_invert": False,
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
+        "strength": False,
         "indices": [81,80,79,78],
         "blendshapes":
         {
@@ -2779,6 +2806,7 @@ FACERIG_TRA_CONFIG = {
         "y_invert": False,
         "x_method": "AVERAGE",
         "y_method": "AVERAGE",
+        "strength": False,
         "indices": [83, 84, 85, 82],
         "blendshapes":
         {
@@ -3427,6 +3455,7 @@ FACERIG_TRA_CONFIG = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "strength": False,
         "indices": [94, 95, 96, 97],
         "bones":
         {
@@ -3479,6 +3508,7 @@ FACERIG_TRA_CONFIG = {
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
         "y_invert": False,
+        "strength": False,
         "indices": [90, 91, 92, 93],
         "bones":
         {
@@ -3529,6 +3559,7 @@ FACERIG_TRA_CONFIG = {
     {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
+        "strength": False,
         "indices": [53, 68],
         "bones":
         [
@@ -3554,6 +3585,7 @@ FACERIG_TRA_CONFIG = {
     {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
+        "strength": False,
         "indices": [54, 69],
         "bones":
         [

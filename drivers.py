@@ -747,6 +747,43 @@ def add_body_shape_key_drivers(chr_cache, add_drivers, only_objects=None):
                                                 data_path=data_path)
 
 
+def get_id_type(obj):
+    T = type(obj)
+    if T is bpy.types.Mesh:
+        return "MESH"
+    return "OBJECT"
+
+
+def make_custom_prop_var_def(var_name, obj, prop_name):
+    T = type(obj)
+    data_path = f"{obj.path_from_id()}[\"{prop_name}\"]"
+    var_def = [var_name,
+               "SINGLE_PROP",
+               obj,
+               data_path]
+    return var_def
+
+
+def make_bone_transform_var_def(var_name, source_rig, bone_name, transform_axis, space="LOCAL_SPACE"):
+    var_def = [var_name,
+               "TRANSFORMS",
+               source_rig,
+               bone_name,
+               transform_axis,
+               space]
+    return var_def
+
+
+def make_transform_var_def(var_name, source_obj, transform_prop, space="LOCAL_SPACE"):
+    var_def = [var_name,
+               "TRANSFORMS",
+               source_obj,
+               None,
+               transform_prop,
+               space]
+    return var_def
+
+
 def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_defs, scale=1.0):
     """driver_def = [driver_type, expression]\n
        var_def = [var_name, "TRANSFORMS", bone_name, transform_prop, space]\n
@@ -773,12 +810,19 @@ def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_defs, scale=1
                 var.name = var_def[0]
                 var.type = var_def[1]
                 if var_def[1] == "TRANSFORMS":
-                    #var.targets[0].id_type = "OBJECT"
-                    var.targets[0].id = rig.id_data
-                    var.targets[0].bone_target = var_def[2]
+                    var_obj = var_def[2]
+                    bone_name = var_def[3]
+                    var.targets[0].id = var_obj.id_data
+                    if bone_name:
+                        var.targets[0].bone_target = bone_name
                     var.targets[0].rotation_mode = "AUTO"
-                    var.targets[0].transform_type = var_def[3]
-                    var.targets[0].transform_space = var_def[4]
+                    var.targets[0].transform_type = var_def[4]
+                    var.targets[0].transform_space = var_def[5]
+                if var_def[1] == "SINGLE_PROP":
+                    var_obj = var_def[2]
+                    var.targets[0].id = var_obj.id_data
+                    var.targets[0].id_type = get_id_type(var_obj)
+                    var.targets[0].data_path = var_def[3]
             return driver
     return None
 
@@ -811,11 +855,18 @@ def add_bone_driver(rig, bone_name, driver_def, var_defs, scale=1.0):
                 var.name = var_def[0]
                 var.type = var_def[1]
                 if var_def[1] == "TRANSFORMS":
-                    #var.targets[0].id_type = "OBJECT"
-                    var.targets[0].id = rig.id_data
-                    var.targets[0].bone_target = var_def[2]
+                    var_obj = var_def[2]
+                    bone_name = var_def[3]
+                    var.targets[0].id = var_obj.id_data
+                    if bone_name:
+                        var.targets[0].bone_target = bone_name
                     var.targets[0].rotation_mode = "AUTO"
-                    var.targets[0].transform_type = var_def[3]
-                    var.targets[0].transform_space = var_def[4]
+                    var.targets[0].transform_type = var_def[4]
+                    var.targets[0].transform_space = var_def[5]
+                if var_def[1] == "SINGLE_PROP":
+                    var_obj = var_def[2]
+                    var.targets[0].id = var_obj.id_data
+                    var.targets[0].id_type = get_id_type(var_obj)
+                    var.targets[0].data_path = var_def[3]
             return driver
     return None

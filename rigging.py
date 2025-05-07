@@ -1209,7 +1209,11 @@ def add_shape_key_drivers(chr_cache, rig):
             scale = 0.5
         shape_key_name = skd_def[1]
         driver_def = skd_def[2]
-        var_defs = [skd_def[3]]
+        var_defs = []
+        skdd = skd_def[3]
+        if skdd[1] == "TRANSFORMS":
+            var_def = drivers.make_bone_transform_var_def(skdd[0], rig, skdd[2], skdd[3], skdd[4])
+            var_defs.append(var_def)
 
         drivers.add_shape_key_driver(rig, head_body_obj, shape_key_name, driver_def, var_defs, scale)
 

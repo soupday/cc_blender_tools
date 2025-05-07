@@ -350,6 +350,7 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                     "var_axis": var_axis,
                     "num_keys": num_keys,
                     "negative": allow_negative,
+                    "use_strength": control_def.get("strength", True),
                 }
                 shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
 
@@ -375,7 +376,8 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                             "offset": offset,
                             "scalar": scalar,
                             "distance": [min_y, max_y],
-                            "var_axis": var_axis
+                            "var_axis": var_axis,
+                            "use_strength": control_def.get("strength", True),
                         }
                         if driver_id not in bone_driver_defs:
                             bone_driver_defs[driver_id] = {}
@@ -415,6 +417,7 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                         "var_axis": var_axis,
                         "num_keys": num_keys,
                         "negative": allow_negative,
+                        "use_strength": control_def.get("strength", True),
                     }
                     shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
 
@@ -442,7 +445,8 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                                 "offset": offset,
                                 "scalar": scalar,
                                 "distance": [min_d, max_d],
-                                "var_axis": var_axis
+                                "var_axis": var_axis,
+                                "use_strength": control_def.get("strength", True)
                             }
                             if driver_id not in bone_driver_defs:
                                 bone_driver_defs[driver_id] = {}
@@ -507,6 +511,14 @@ def build_facerig_drivers(chr_cache, rigify_rig):
             drivers.add_custom_float_property(facerig_bone, "head_follow", 0.5,
                                               value_min=0.0, value_max=2.0,
                                               description="How much the expression rig follows the head movements")
+        if "key_strength" not in facerig_bone:
+            drivers.add_custom_float_property(facerig_bone, "key_strength", 1.0,
+                                              value_min=0.0, value_max=2.0, precision=1,
+                                              description="Overall strength of the expression rig shape keys")
+        if "bone_strength" not in facerig_bone:
+            drivers.add_custom_float_property(facerig_bone, "bone_strength", 1.0,
+                                              value_min=0.0, value_max=2.0, precision=1,
+                                              description="Overall strength of the expression rig bone movements")
         data_path = facerig_bone.path_from_id("[\"head_follow\"]")
         bones.clear_constraints(rigify_rig, "MCH-facerig")
         child_con = bones.add_child_of_constraint(rigify_rig, rigify_rig, "root", "MCH-facerig", 1.0)
@@ -544,6 +556,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                     num_keys = key_control_def["num_keys"]
                     var_axis = key_control_def["var_axis"]
                     distance = key_control_def["distance"]
+                    use_strength = key_control_def["use_strength"]
                     if key_control_def["negative"]:
                         allow_negative = True
                     value = key_control_def["value"]
@@ -553,16 +566,19 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                         expression += "+"
                     use_negative = num_keys == 1 or num_key_controls > 1
                     if use_negative:
-                        expression += f"({fvar(value)}*{var_name}/{fvar(distance)})"
+                        var_expression = f"({fvar(value)}*{var_name}/{fvar(distance)})"
                     else:
-                        expression += f"max({fvar(value)}*{var_name}/{fvar(distance)},0)"
+                        var_expression = f"max({fvar(value)}*{var_name}/{fvar(distance)},0)"
+                    if use_strength:
+                        var_expression = f"KS*({var_expression})"
+                    expression += var_expression
 
-                    var_def = [var_name,
-                               "TRANSFORMS",
-                               nub_bone_name,
-                               var_axis,
-                               "LOCAL_SPACE"]
+                    var_def = drivers.make_bone_transform_var_def(var_name, rigify_rig, nub_bone_name, var_axis, "LOCAL_SPACE")
                     var_defs.append(var_def)
+
+            if use_strength:
+                var_def = drivers.make_custom_prop_var_def("KS", facerig_bone, "key_strength")
+                var_defs.append(var_def)
 
             allow_negative = False
             shape_key_range = 1.5
@@ -588,6 +604,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                 scalar = bone_control_def["scalar"]
                 var_axis = bone_control_def["var_axis"]
                 distance = bone_control_def["distance"]
+                use_strength = bone_control_def["use_strength"]
                 var_name = f"var{vidx}"
                 vidx += 1
                 if expression:
@@ -596,13 +613,19 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                 #if offset != 0.0:
                 #    expression += f"({fvar(offset)}+{fvar(scalar)}*({var_name}/{fvar(distance[1])}))"
                 #else:
-                expression += f"({fvar(scalar)}*({var_name}/{fvar(distance[1])}))"
-                var_def = [var_name,
-                           "TRANSFORMS",
-                           nub_bone_name,
-                           var_axis,
-                           "LOCAL_SPACE"]
+                var_expression = f"({fvar(scalar)}*({var_name}/{fvar(distance[1])}))"
+                if use_strength:
+                    var_expression = f"BS*({var_expression})"
+                expression += var_expression
+
+                var_def = drivers.make_bone_transform_var_def(var_name, rigify_rig, nub_bone_name, var_axis, "LOCAL_SPACE")
                 var_defs.append(var_def)
+
+            if use_strength:
+                var_def = drivers.make_custom_prop_var_def("BS", facerig_bone, "bone_strength")
+                var_defs.append(var_def)
+
+
             driver_def = ["SCRIPTED", prop, index, expression]
 
             drivers.add_bone_driver(rigify_rig, bone_name, driver_def, var_defs, 1.0)
@@ -981,10 +1004,10 @@ def toggle_lock_position(chr_cache, rig):
 
 
 def build_arkit_bone_constraints(chr_cache, rigify_rig, proxy_rig):
-    con1 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "head", "head")
-    con2 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "head", "neck", 0.25)
+    con1 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "head", "head", space="LOCAL")
+    con2 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "head", "neck", 0.25, space="LOCAL")
     con3 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "offset", "head", use_offset=True, space="LOCAL")
-    con4 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "offset", "neck", use_offset=True, space="LOCAL")
+    con4 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "offset", "neck", 0.25, use_offset=True, space="LOCAL")
     con1.name = con1.name + "_ARKit_Proxy"
     con2.name = con2.name + "_ARKit_Proxy"
     con3.name = con1.name + "_ARKit_Proxy"
@@ -993,11 +1016,11 @@ def build_arkit_bone_constraints(chr_cache, rigify_rig, proxy_rig):
     bones.add_constraint_influence_driver(rigify_rig, "head",
                                           proxy_rig, data_path, "var_head_blend", con1, expression="var_head_blend*0.01")
     bones.add_constraint_influence_driver(rigify_rig, "neck",
-                                          proxy_rig, data_path, "var_head_blend", con2, expression="var_head_blend*0.005")
+                                          proxy_rig, data_path, "var_head_blend", con2, expression="var_head_blend*0.0025")
     bones.add_constraint_influence_driver(rigify_rig, "head",
                                           proxy_rig, data_path, "var_head_blend", con3, expression="var_head_blend*0.01")
     bones.add_constraint_influence_driver(rigify_rig, "head",
-                                          proxy_rig, data_path, "var_head_blend", con4, expression="var_head_blend*0.01")
+                                          proxy_rig, data_path, "var_head_blend", con4, expression="var_head_blend*0.0025")
 
     offset_bone = proxy_rig.pose.bones["offset"]
     offset_bone.rotation_mode = "XYZ"
@@ -1227,6 +1250,7 @@ def timecode_to_frame(timecode: tuple, fps: int):
 def load_csv(chr_cache, file_path):
     proxy_rig, proxy_mesh = get_arkit_proxy(chr_cache)
     if proxy_rig and proxy_mesh:
+        tcurve: TCurve = None
         tcurves = parse_arkit_csv(file_path)
         process_tcurves(proxy_rig, tcurves)
         if tcurves:
@@ -1374,8 +1398,7 @@ class TCurve():
         for i in range(0, num_frames):
             fcurve_data[i * 2] = i + 1
             v, j = self.eval(i + 0.5, j)
-            v *= mod
-            fcurve_data[i * 2 + 1] = v
+            fcurve_data[i * 2 + 1] = v * mod
         fcurve.keyframe_points.clear()
         fcurve.keyframe_points.add(num_frames)
         fcurve.keyframe_points.foreach_set('co', fcurve_data)
