@@ -389,6 +389,7 @@ def apply_modifier(obj, modifier=None, type=None, preserving=False):
                 utils.remove_all_shape_keys(copy)
                 remove_object_modifiers(copy, except_mods=[modifier])
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
+
                 geom.copy_vert_positions_by_uv_id(copy, obj, flatten_udim=False)
                 utils.delete_mesh_object(copy)
             else:

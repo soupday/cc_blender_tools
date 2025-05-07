@@ -830,7 +830,6 @@ def create_capsule_collider(name, location, rotation, scale, radius, length, axi
     object.display_type = 'WIRE'
 
     object.location = location
-    object.rotation_mode = "QUATERNION"
     r = Quaternion()
     r.identity()
     if axis == "X":
@@ -843,9 +842,8 @@ def create_capsule_collider(name, location, rotation, scale, radius, length, axi
         mat_rot_z = Matrix.Rotation(radians(90), 4, 'Z')
         r.rotate(mat_rot_z)
         r.rotate(mat_rot_x)
-
     r.rotate(rotation)
-    object.rotation_quaternion = r
+    utils.set_transform_rotation(object, rotation)
     object.scale = scale
     return object
 
@@ -867,11 +865,7 @@ def create_sphere_collider(name, location, rotation, scale, radius):
     object.display_type = 'WIRE'
 
     object.location = location
-    object.rotation_mode = "QUATERNION"
-    r = Quaternion()
-    r.identity()
-    r.rotate(rotation)
-    object.rotation_quaternion = r
+    utils.set_transform_rotation(object, rotation)
     object.scale = scale
     return object
 
@@ -898,8 +892,7 @@ def create_box_collider(name, location, rotation, scale, extents, axis):
     object.display_type = 'WIRE'
 
     object.location = location
-    object.rotation_mode = "QUATERNION"
-    object.rotation_quaternion = rotation
+    utils.set_transform_rotation(object, rotation)
     object.scale = scale
     return object
 

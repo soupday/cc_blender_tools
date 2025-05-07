@@ -19,10 +19,10 @@ import shutil
 import bpy
 from enum import IntEnum, IntFlag
 
-from . import (characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
-               modifiers, wrinkle, drivers, meshutils, nodeutils, physics,
+from . import (rlx, characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
+               facerig, modifiers, wrinkle, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
-               basic, properties, utils, vars)
+               basic, properties, lib, utils, vars)
 
 debug_counter = 0
 
@@ -278,8 +278,8 @@ def init_shape_key_range(obj):
                     for block in blocks:
                         # expand the range of the shape key slider to include negative values...
                         if "Eye" in block.name and "_Look_" in block.name:
-                            block.slider_min = -1.0
-                            block.slider_max = 1.0
+                            block.slider_min = -2.0
+                            block.slider_max = 2.0
                         else:
                             block.slider_min = -1.5
                             block.slider_max = 1.5
@@ -506,7 +506,8 @@ def process_root_bones(arm, json_data, name):
                 pose_bone["root_type"] = type
 
 
-def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
+def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras, lights,
+                      objects: list,
                       actions, json_data, report, link_id, only_objects=None, motion_prefix=""):
     props = vars.props()
     prefs = vars.prefs()
@@ -574,14 +575,6 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             arm["rl_import_file"] = file_path
             rigutils.fix_cc3_standard_rig(arm)
 
-            # link_id
-            json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
-            if not link_id and json_link_id:
-                link_id = json_link_id
-            if multi_import or not link_id:
-                link_id = utils.generate_random_id(20)
-            chr_cache.link_id = link_id
-
             # root bones
             process_root_bones(arm, json_data, name)
 
@@ -601,6 +594,14 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             chr_cache.add_object_cache(arm)
             # assign bone collections
             bones.assign_rl_base_collections(arm)
+
+            # link_id
+            json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            if not link_id and json_link_id:
+                link_id = json_link_id
+            if multi_import or not link_id:
+                link_id = utils.generate_random_id(20)
+            chr_cache.set_link_id(link_id)
 
             # delete accessory colliders, currently they are useless as
             # accessories don't export with any physics data or weightmaps.
@@ -678,9 +679,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
                 link_id = utils.generate_random_id(20)
             json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
             if not multi_import and json_link_id:
-                chr_cache.link_id = json_link_id
+                chr_cache.set_link_id(json_link_id)
             else:
-                chr_cache.link_id = link_id
+                chr_cache.set_link_id(link_id)
 
             # root bones
             process_root_bones(arm, json_data, name)
@@ -739,6 +740,29 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
             utils.log_recess()
 
+        for camera in cameras:
+
+            # link_id
+            if multi_import:
+                link_id = utils.generate_random_id(20)
+            json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            if not multi_import and json_link_id:
+                utils.set_rl_link_id(camera, json_link_id)
+            else:
+                utils.set_rl_link_id(camera, link_id)
+
+        for light in lights:
+
+            # link_id
+            if multi_import:
+                link_id = utils.generate_random_id(20)
+            json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            if not multi_import and json_link_id:
+                utils.set_rl_link_id(light, json_link_id)
+            else:
+                utils.set_rl_link_id(light, link_id)
+
+
     elif ImportFlags.OBJ in import_flags:
 
         character_name = name
@@ -753,7 +777,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
         chr_cache.character_name = character_name
 
         # link_id (OBJ exports don't have json)
-        chr_cache.link_id = link_id
+        chr_cache.set_link_id(link_id)
 
         # determine the main texture dir
         chr_cache.import_embedded = False
@@ -809,10 +833,12 @@ class ImportFlags(IntFlag):
     GLB = 4
     VRM = 8
     USD = 16
+    RLX = 32
     RL = 1024
     KEY = 2048
     RL_FBX = RL | FBX
     RL_OBJ = RL | OBJ
+    RL_RLX = RL | RLX
     RL_FBX_KEY = RL_FBX | KEY
     RL_OBJ_KEY = RL_OBJ | KEY
 
@@ -1014,12 +1040,12 @@ class CC3Import(bpy.types.Operator):
                 for action in actions:
                     action.use_fake_user = self.use_fake_user
 
-                armatures, rl_armatures, import_flags = self.get_character_armatures(imported, avatar_type, json_generation, import_flags)
+                armatures, rl_armatures, cameras, lights, import_flags = self.get_import_contents(imported, avatar_type, json_generation, import_flags)
 
                 # detect characters and objects
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
-                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures,
+                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, cameras, lights,
                                                             imported, actions, json_data, self.import_report, self.link_id,
                                                             only_objects=only_objects,
                                                             motion_prefix=self.motion_prefix)
@@ -1057,9 +1083,11 @@ class CC3Import(bpy.types.Operator):
                 # detect characters and objects
                 armatures = []
                 rl_armatures = []
+                cameras = []
+                lights = []
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
-                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures,
+                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, cameras, lights,
                                                             imported, actions, json_data, self.import_report, self.link_id,
                                                             motion_prefix=self.motion_prefix)
                 elif prefs.import_auto_convert:
@@ -1076,6 +1104,9 @@ class CC3Import(bpy.types.Operator):
                 #        pass
 
                 utils.log_timer("Done .Obj Import.")
+
+            elif ImportFlags.RLX in import_flags:
+                imported = rlx.import_rlx(filepath)
 
             elif ImportFlags.GLB in import_flags:
 
@@ -1155,7 +1186,7 @@ class CC3Import(bpy.types.Operator):
         utils.log_info("Building Character Materials:")
         utils.log_info("-----------------------------")
 
-        nodeutils.check_node_groups()
+        lib.check_node_groups()
 
         if self.imported_character_ids:
             on_import = True
@@ -1170,6 +1201,13 @@ class CC3Import(bpy.types.Operator):
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
 
+            # for any objects with shape keys expand the slider range to -1.5 - 1.5
+            # Character Creator and iClone both use negative ranges extensively.
+            for obj in chr_cache.get_cache_objects():
+                obj_cache = chr_cache.get_object_cache(obj)
+                if obj_cache and obj_cache.is_mesh():
+                    init_shape_key_range(obj)
+
             json_data = self.read_json_data(chr_cache.import_file, stage = 1)
             if not on_import:
                 # when rebuilding, use the currently selected render target
@@ -1179,6 +1217,9 @@ class CC3Import(bpy.types.Operator):
 
             if self.param == "BUILD":
                 chr_cache.check_material_types(chr_json)
+
+            # update character data props
+            chr_cache.check_ids()
 
             if prefs.import_deduplicate:
                 processed_images = []
@@ -1243,19 +1284,32 @@ class CC3Import(bpy.types.Operator):
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
             if ImportFlags.FBX not in ImportFlags(chr_cache.import_flags): continue
 
+            # for any objects with shape keys expand the slider range to -1.5 - 1.5
+            # Character Creator and iClone both use negative ranges extensively.
+            for obj in chr_cache.get_cache_objects():
+                obj_cache = chr_cache.get_object_cache(obj)
+                if obj_cache and obj_cache.is_mesh():
+                    init_shape_key_range(obj)
+
             json_data = self.read_json_data(chr_cache.import_file, stage=1)
             chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
 
+            # update character data props
+            chr_cache.check_ids()
+
             if chr_cache.rigified:
+                rigify_rig = chr_cache.get_armature()
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
-                rigging.add_shape_key_drivers(chr_cache, chr_cache.get_armature())
+                if rigutils.is_face_rig(rigify_rig):
+                    facerig.build_facerig_drivers(chr_cache, rigify_rig)
+                else:
+                    rigging.add_shape_key_drivers(chr_cache, chr_cache.get_armature())
             else:
-                objects = chr_cache.get_all_objects(include_armature=False,
-                                                    of_type="MESH")
-                facial_profile, viseme_profile = meshutils.get_facial_profile(objects)
-                utils.log_info(f"Facial Profile: {facial_profile}")
-                utils.log_info(f"Viseme Profile: {viseme_profile}")
-                if facial_profile == "Std" or facial_profile == "Ext" or facial_profile == "ExPlus":
+                facial_profile, viseme_profile = chr_cache.get_facial_profile()
+                facial_name, viseme_name = chr_cache.get_facial_profile_names()
+                utils.log_info(f"Facial Profile: {facial_name}")
+                utils.log_info(f"Viseme Profile: {viseme_name}")
+                if facial_profile == "STD" or facial_profile == "EXT" or facial_profile == "TRA":
                     drivers.add_facial_shape_key_bone_drivers(chr_cache,
                                                prefs.build_shape_key_bone_drivers_jaw,
                                                prefs.build_shape_key_bone_drivers_eyes,
@@ -1292,12 +1346,21 @@ class CC3Import(bpy.types.Operator):
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
 
-            drivers.clear_facial_shape_key_bone_drivers(chr_cache)
+            # update character data props
+            chr_cache.check_ids()
 
+            if chr_cache.rigified:
+                rigify_rig = chr_cache.get_armature()
+                # by very careful removing drivers from a rigify rig ...
+            else:
+                drivers.clear_facial_shape_key_bone_drivers(chr_cache)
+
+            # remove all expression based shape key drivers
             driver_objects = chr_cache.get_all_objects(include_armature=False,
                                                        of_type="MESH",
                                                        only_selected=(props.build_mode=="SELECTED"))
-            drivers.add_body_shape_key_drivers(chr_cache, False, driver_objects)
+            #drivers.add_body_shape_key_drivers(chr_cache, False, driver_objects)
+            drivers.clear_body_shape_key_drivers(chr_cache, driver_objects)
 
         utils.log_timer("Done Build.", "s")
 
@@ -1335,6 +1398,13 @@ class CC3Import(bpy.types.Operator):
                 utils.log_info("Importing as editable character with fbxkey.")
                 return import_flags, param
 
+        elif utils.is_file_ext(ext, "RLX"):
+            import_flags = import_flags | ImportFlags.RLX
+            import_flags = import_flags | ImportFlags.RL
+            param = "IMPORT_RLX"
+            utils.log_info("Importing RLX ...")
+            return import_flags, param
+
         elif utils.is_file_ext(ext, "GLB") or utils.is_file_ext(ext, "GLTF"):
             import_flags = import_flags | ImportFlags.GLB
             utils.log_info("Importing generic GLB/GLTF character.")
@@ -1361,9 +1431,11 @@ class CC3Import(bpy.types.Operator):
         return import_flags, param
 
 
-    def get_character_armatures(self, objects, avatar_type, json_generation, import_flags):
+    def get_import_contents(self, objects, avatar_type, json_generation, import_flags):
         armatures = []
         rl_armatures = []
+        cameras = []
+        lights = []
         if not avatar_type:
             if json_generation is not None and json_generation == "":
                 avatar_type = "NoneStandard"
@@ -1386,7 +1458,21 @@ class CC3Import(bpy.types.Operator):
                 else:
                     if obj not in armatures:
                         armatures.append(obj)
-        return armatures, rl_armatures, import_flags
+            elif utils.object_exists_is_camera(obj):
+                if (avatar_type == "CAMERA" or
+                    json_generation == "CAMERA"):
+                    utils.log_info(f"RL Camera found: {obj.name}")
+                    import_flags = import_flags | ImportFlags.RL
+                if obj not in cameras:
+                    cameras.append(obj)
+            elif utils.object_exists_is_light(obj):
+                if (avatar_type == "LIGHT" or
+                    json_generation == "LIGHT"):
+                    utils.log_info(f"RL Light found: {obj.name}")
+                    import_flags = import_flags | ImportFlags.RL
+                if obj not in lights:
+                    lights.append(obj)
+        return armatures, rl_armatures, cameras, lights, import_flags
 
 
     def do_import_report(self, context, stage = 0):
@@ -1426,15 +1512,7 @@ class CC3Import(bpy.types.Operator):
             for chr_cache in imported_characters:
 
                 if ImportFlags.RL in ImportFlags(chr_cache.import_flags):
-
                     rl_import = True
-
-                    # for any objects with shape keys expand the slider range to -1.0 <> 1.0
-                    # Character Creator and iClone both use negative ranges extensively.
-                    for obj in chr_cache.get_cache_objects():
-                        obj_cache = chr_cache.get_object_cache(obj)
-                        if obj_cache and obj_cache.is_mesh():
-                            init_shape_key_range(obj)
 
             if rl_import:
 
@@ -1452,10 +1530,10 @@ class CC3Import(bpy.types.Operator):
                 if bpy.context.scene.cycles.transparent_max_bounces < 100:
                     bpy.context.scene.cycles.transparent_max_bounces = 100
 
+                bpy.ops.object.select_all(action='DESELECT')
+                for chr_cache in imported_characters:
+                    chr_cache.select(only=False)
                 if self.zoom:
-                    bpy.ops.object.select_all(action='DESELECT')
-                    for chr_cache in imported_characters:
-                        chr_cache.select_all(only=False)
                     scene.zoom_to_selected()
 
                 # clean up unused images from the import
@@ -1613,7 +1691,7 @@ class CC3Import(bpy.types.Operator):
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
             utils.object_mode()
-            nodeutils.rebuild_node_groups()
+            lib.rebuild_node_groups()
             utils.clean_collection(bpy.data.images)
             self.build_materials(context)
             self.build_drivers(context)

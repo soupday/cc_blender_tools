@@ -18,7 +18,7 @@ import bpy, os, socket
 from mathutils import Vector
 
 from . import (channel_mixer, imageutils, meshutils, sculpting, materials,
-               springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
+               facerig, springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
 from .meshutils import get_head_body_object_quick
 
@@ -516,7 +516,7 @@ def update_rig_target(self, context):
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         if self.hair_rig_target == "CC4":
-            self.hair_rig_bone_length = 7.5
+            self.hair_rig_bone_length = 5.0
             self.hair_rig_bind_skip_length = 0.0
             self.hair_rig_bind_trunc_length = 0.5
             self.hair_rig_bind_bone_radius = 11.25
@@ -525,7 +525,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
-            self.hair_rig_bind_bone_variance = 0.75
+            self.hair_rig_bind_bone_variance = 0.85
         elif self.hair_rig_target == "UNITY":
             self.hair_rig_bone_length = 7.5
             self.hair_rig_bind_skip_length = 7.5
@@ -536,7 +536,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
-            self.hair_rig_bind_bone_variance = 0.75
+            self.hair_rig_bind_bone_variance = 0.85
         elif self.hair_rig_target == "BLENDER":
             self.hair_rig_bone_length = 7.5
             self.hair_rig_bind_skip_length = 7.5/2.0
@@ -547,7 +547,11 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
-            self.hair_rig_bind_bone_variance = 0.75
+            self.hair_rig_bind_bone_variance = 0.85
+
+
+def update_facerig_color(self, context):
+    facerig.update_facerig_color(context)
 
 
 def clean_collection_property(collection_prop):
@@ -1468,6 +1472,21 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     build_count: bpy.props.IntProperty(default=0)
     # auto index
     auto_index: bpy.props.IntProperty(default=0)
+    # facial profile
+    facial_profile: bpy.props.EnumProperty(items=[
+                        ("NONE","None","None"),
+                        ("UNKNOWN","Unknown","Unknown"),
+                        ("TRA","Traditional",""),
+                        ("STD","Standard",""),
+                        ("EXT","Extended","")
+                    ], default="NONE")
+    viseme_profile: bpy.props.EnumProperty(items=[
+                        ("NONE","None","None"),
+                        ("UNKNOWN","Unknown","Unknown"),
+                        ("DIRECT","Direct",""),
+                        ("PAIRS3","Pairs (CC3)",""),
+                        ("PAIRS4","Pairs (CC4)",""),
+                    ], default="NONE")
 
     setup_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic","Build basic PBR materials."),
@@ -1484,6 +1503,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     rigified: bpy.props.BoolProperty(default=False)
     rigified_full_face_rig: bpy.props.BoolProperty(default=False)
+    rigify_expression_rig: bpy.props.EnumProperty(items=[
+                        ("NONE","None","No expression rig, just eye and jaw controls"),
+                        ("RIGIFY","Rigify","Rigify full face rig"),
+                        ("META","Meta","Metahuman style expression rig"),
+                    ], default="META", name="Expression Rig")
     rig_mode: bpy.props.EnumProperty(items=[
                         ("QUICK","Quick","Rig the character all in one go."),
                         ("ADVANCED","Advanced","Split the process so that user adjustments can be made to the meta rig before generating."),
@@ -1498,6 +1522,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     retarget_arm_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Arm spread angle (radians)")
     retarget_leg_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Leg spread angle (radians)")
     retarget_z_correction_height: bpy.props.FloatProperty(default = 0.0, min=-0.2, max=0.2, description="Height Adjustment (m)")
+    arkit_proxy: bpy.props.PointerProperty(type=bpy.types.Object)
 
     non_standard_type: bpy.props.EnumProperty(items=[
                     ("HUMANOID","Humanoid","Non standard character is a Humanoid"),
@@ -1570,7 +1595,18 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     baked_target_mode: bpy.props.EnumProperty(items=vars.BAKE_TARGETS, default="NONE")
 
+    rigify_face_control_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                                                             default=(1.0, 0.95, 0.4, 1.0),
+                                                             min = 0.0, max = 1.0,
+                                                             name="Rig Color",
+                                                             update=update_facerig_color)
+
     disabled: bpy.props.BoolProperty(default=False)
+
+    def set_link_id(self, link_id):
+        self.link_id = link_id
+        arm = self.get_armature()
+        utils.set_rl_link_id(arm, link_id)
 
     def get_auto_index(self):
         self.auto_index += 1
@@ -1735,21 +1771,32 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return True
         return False
 
-    def can_rig_full_face(self):
+    def can_expression_rig(self):
         if (self.generation == "G3" or
             self.generation == "G3Plus"):
             return True
         return False
 
-    def is_rig_full_face(self):
-        prefs = vars.prefs()
-        if self.rig_mode == "ADVANCED":
-            return prefs.rigify_build_face_rig
+    def can_rigify_face(self):
+        if (self.generation == "G3" or
+            self.generation == "G3Plus"):
+            return True
+        return False
+
+    def get_facial_profile(self, update=True):
+        if self.facial_profile != "NONE" and self.viseme_profile != "NONE":
+            return self.facial_profile, self.viseme_profile
         else:
-            if self.can_rig_full_face():
-                return prefs.rigify_build_face_rig
-            else:
-                return False
+            objects = self.get_cache_objects()
+            facial_profile, viseme_profile = meshutils.get_facial_profile(objects)
+            if update:
+                meshutils.set_facial_profile(objects, facial_profile, viseme_profile)
+            return facial_profile, viseme_profile
+
+    def get_facial_profile_names(self, update=True):
+        facial_profile, viseme_profile = self.get_facial_profile(update)
+        return utils.get_enum_prop_name(self, "facial_profile", facial_profile), \
+               utils.get_enum_prop_name(self, "viseme_profile", viseme_profile),
 
     def get_rig_mapping_data(self):
         return rigify_mapping_data.get_mapping_for_generation(self.generation)
@@ -1836,6 +1883,19 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         source, proxy, is_proxy = self.get_related_physics_objects(obj)
         result = ("rl_collision_proxy" in obj or obj.name.endswith("_Collision_Proxy") or is_proxy)
         return result
+
+    def is_related_object(self, obj):
+        if self.is_sculpt_object(obj):
+            return True
+        elif self.is_collision_object(obj):
+            return True
+        elif self.rig_meta_rig == obj:
+            return True
+        elif self.arkit_proxy == obj:
+            return True
+        elif self.rig_original_rig == obj:
+            return True
+        return False
 
     def get_all_objects(self,
                         include_armature=True,
@@ -2111,6 +2171,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         # update the object id
                         obj_cache.object_id = utils.generate_random_id(20)
                         utils.set_rl_object_id(new_arm, obj_cache.object_id)
+                        utils.set_rl_link_id(new_arm, self.link_id)
         except:
             pass
 
@@ -2318,6 +2379,28 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_character_json(self):
         json_data = self.get_json_data()
         return jsonutils.get_character_json(json_data, self.get_character_id())
+
+    def check_ids(self):
+        rig = self.get_armature()
+        # ensure link id is on rig
+        if not utils.get_rl_link_id(rig):
+            if not self.link_id:
+                self.link_id = utils.generate_random_id(20)
+            utils.set_rl_link_id(rig, self.link_id)
+        # if rigified, ensure the face rig type is on the rig
+        if self.rigified:
+            if not utils.prop(rig, "rl_face_rig"):
+                bone_collection = rig.data.edit_bones if utils.get_mode() == "EDIT" else rig.pose.bones
+                if "facerig" in bone_collection:
+                    self.rigify_expression_rig = "META"
+                elif "nose" in bone_collection:
+                    self.rigify_expression_rig = "RIGIFY"
+                else:
+                    self.rigify_expression_rig = "NONE"
+                utils.set_prop(rig, self.rigify_expression_rig)
+        # ensure the facial profile & viseme profile types are in the character data
+        self.get_facial_profile()
+
 
     def recast_type(self, collection, index, chr_json):
         mat_cache = collection[index]
@@ -2539,6 +2622,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if self.disabled:
             utils.log_info(f"Deleting Character Meta Objects: {self.character_name}")
             utils.delete_object_tree(self.rig_meta_rig)
+            utils.delete_object_tree(self.arkit_proxy)
             utils.delete_object_tree(self.rig_export_rig)
             utils.delete_object_tree(self.rig_original_rig)
             utils.delete_object_tree(self.rig_retarget_rig)
@@ -2662,7 +2746,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     section_rigify_action_sets: bpy.props.BoolProperty(default=True)
-    section_rigify_controls: bpy.props.BoolProperty(default=False)
+    section_rigify_arkit: bpy.props.BoolProperty(default=True)
+    section_rigify_controls: bpy.props.BoolProperty(default=True)
     section_rigify_spring: bpy.props.BoolProperty(default=False)
     section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)
     section_physics_cloth_settings: bpy.props.BoolProperty(default=False)
@@ -2880,8 +2965,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                 if not chr_cache.disabled:
                     if chr_cache.has_cache_objects(objects):
                         return chr_cache
-                    if chr_cache.rig_meta_rig and chr_cache.rig_meta_rig in objects:
-                        return chr_cache
+                    #if chr_cache.rig_meta_rig and chr_cache.rig_meta_rig in objects:
+                    #    return chr_cache
+                    for obj in objects:
+                        if chr_cache.is_related_object(obj):
+                            return chr_cache
 
         if search_materials:
             materials = []

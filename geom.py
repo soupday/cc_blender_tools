@@ -415,7 +415,71 @@ def map_image_to_vertex_weights(obj, mat, image, vertex_group, func):
     bm.to_mesh(mesh)
 
 
-def remove_vertex_groups_from_selected(obj, vertex_groups):
+def add_vertex_groups_to_selected(obj: bpy.types.Object, vertex_groups, weight, remove_empty=True):
+    # get the vertex group indices
+    vg_indices = []
+    vg_map = {}
+    for vgname in vertex_groups:
+        if vgname in obj.vertex_groups:
+            vg = obj.vertex_groups[vgname]
+            vgi = vg.index
+        else:
+            vg = obj.vertex_groups.new(name=vgname)
+            vgi = vg.index
+        vg_indices.append(vgi)
+        vg_map[vgi] = { "name": vgname, "sum": 0 }
+
+    # get the bmesh
+    mesh = obj.data
+    bm = get_bmesh(mesh)
+    bm.verts.layers.deform.verify()
+    dl = bm.verts.layers.deform.active
+
+    # set the weights for the vertex groups in each selected vertex to zero
+    for vert in bm.verts:
+        for vg_index in vg_indices:
+            if vg_index in vert[dl]:
+                if vert.select:
+                    vert[dl][vg_index] = weight
+                    vg_map[vg_index]["sum"] += weight
+                else:
+                    unselected_weight = vert[dl][vg_index]
+                    vg_map[vg_index]["sum"] += unselected_weight
+
+    # apply the changes
+    bm.to_mesh(mesh)
+
+    # remove empty groups
+    if remove_empty:
+        for vg_index in vg_map:
+            if vg_map[vg_index]["sum"] < 0.0001:
+                vg_name = vg_map[vg_index]["name"]
+                vg = obj.vertex_groups[vg_name]
+                utils.log_info(f"Removing empty vertex group: {vg_name} from: {obj.name}")
+                obj.vertex_groups.remove(vg)
+
+
+def clean_empty_vertex_groups(obj: bpy.types.Object, bm: bmesh.types.BMesh, exclude=None):
+    bm.verts.ensure_lookup_table()
+    bm.verts.layers.deform.verify()
+    dl = bm.verts.layers.deform.active
+
+    vgwt = {}
+    for vg in obj.vertex_groups:
+        if exclude and vg.name in exclude:
+            continue
+        vgwt[vg.name] = 0.0
+        for vert in bm.verts:
+            if vg.index in vert[dl].keys():
+                vgwt[vg.name] += vert[dl][vg.index]
+
+    for vg_name, total_weight in vgwt.items():
+        if total_weight < 0.0001:
+            vg = obj.vertex_groups[vg_name]
+            obj.vertex_groups.remove(vg)
+
+
+def remove_vertex_groups_from_selected(obj, vertex_groups, remove_empty=True):
     # get the bmesh
     mesh = obj.data
     bm = get_bmesh(mesh)
@@ -444,12 +508,13 @@ def remove_vertex_groups_from_selected(obj, vertex_groups):
     bm.to_mesh(mesh)
 
     # remove empty groups
-    for vg_index in vg_map:
-        if vg_map[vg_index]["sum"] < 0.0001:
-            vg_name = vg_map[vg_index]["name"]
-            vg = obj.vertex_groups[vg_name]
-            utils.log_info(f"Removing empty vertex group: {vg_name} from: {obj.name}")
-            obj.vertex_groups.remove(vg)
+    if remove_empty:
+        for vg_index in vg_map:
+            if vg_map[vg_index]["sum"] < 0.0001:
+                vg_name = vg_map[vg_index]["name"]
+                vg = obj.vertex_groups[vg_name]
+                utils.log_info(f"Removing empty vertex group: {vg_name} from: {obj.name}")
+                obj.vertex_groups.remove(vg)
 
 
 def parse_island_recursive(bm, face_index, faces_left, island, face_map, vert_map):

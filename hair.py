@@ -207,6 +207,8 @@ def card_dir_from_uv_map(card_dirs, uv_map):
     # analyse uv bounds
     uv_min, uv_max = geom.get_uv_bounds(uv_map)
     uv_extent = uv_max - uv_min
+    if abs(uv_extent.x) < 0.0001 or abs(uv_extent.y < 0.0001):
+        return card_dirs["SQUARE"]
     uv_aspect = uv_extent.x / uv_extent.y
 
     # only deal with vertical or horizontal cards
@@ -1066,8 +1068,9 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
         smoothed_loops_set = []
         for card in cards:
             loops = card["loops"]
-            card_smoothed_loops_set = get_smoothed_loops_set(loops)
-            smoothed_loops_set.extend(card_smoothed_loops_set)
+            if loops:
+                card_smoothed_loops_set = get_smoothed_loops_set(loops)
+                smoothed_loops_set.extend(card_smoothed_loops_set)
         remove_existing_loop_bones(chr_cache, arm, smoothed_loops_set)
         for edit_bone in arm.data.edit_bones:
                 edit_bone.select_head = False
@@ -1245,7 +1248,7 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
                 weight_distance = min(max_radius, max(0, max_radius - bone_distance))
                 weight = bone_weight_variance_mods[b] * (weight_distance / max_radius) / max_bones
 
-                # bone_fac is used to scale the weights, on the very first bone in the chain, from 0 to 1
+                # bone_fac is used to scale the weights on the very first bone in the chain, from 0 to 1
                 # (unless it's for a CC4 accessory)
                 if CC4_SPRING_RIG:
                     bone_fac = 1.0
@@ -1313,6 +1316,31 @@ def remove_hair_bone_weights(obj, hair_bone_list, card_mode):
         geom.remove_vertex_groups_from_selected(obj, hair_bone_list)
 
 
+def reset_weights_to_bones(obj, bone_names, card_mode):
+
+    if card_mode == "ALL":
+        utils.object_mode_to(obj)
+        while obj.vertex_groups:
+            obj.vertex_groups.remove(obj.vertex_groups[0])
+        for bone_name in bone_names:
+            meshutils.add_vertex_group(obj, bone_name)
+            meshutils.set_vertex_group(obj, bone_name, 1.0 / len(bone_names))
+        utils.edit_mode_to(obj)
+        utils.object_mode_to(obj)
+
+    else:
+        # select linked and set to edge mode
+        utils.edit_mode_to(obj, only_this=True)
+        bpy.ops.mesh.select_linked(delimit={'UV'})
+        bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='VERT')
+        # object mode to save edit changes
+        utils.object_mode_to(obj)
+        # remove weights from selected verts
+        bone_list = [ vg.name for vg in obj.vertex_groups if vg.name != bone_names ]
+        geom.remove_vertex_groups_from_selected(obj, bone_list)
+        geom.add_vertex_groups_to_selected(obj, bone_names, 1.0 / len(bone_names))
+
+
 def scale_existing_weights(obj, bm, scale, exclude_bone_names: list = None):
     bm.verts.ensure_lookup_table()
     bm.verts.layers.deform.verify()
@@ -1335,13 +1363,13 @@ def scale_existing_weights(obj, bm, scale, exclude_bone_names: list = None):
         return
 
     normalizing_scale = 1.0 / max_weight
-
-    for vert in bm.verts:
-        for vg in obj.vertex_groups:
-            if exclude_bone_names and vg.name in exclude_bone_names:
-                continue
+    for vg in obj.vertex_groups:
+        if exclude_bone_names and vg.name in exclude_bone_names:
+            continue
+        for vert in bm.verts:
             if vg.index in vert[dl].keys():
                 vert[dl][vg.index] *= normalizing_scale * scale
+
 
 
 def add_bone_chain_def(arm, edit_bone : bpy.types.EditBone, chain):
@@ -1625,15 +1653,27 @@ def get_active_grease_pencil_layer():
     #note_layer = bpy.data.grease_pencils['Annotations'].layers.active
     #frame = note_layer.active_frame
     try:
-        return bpy.context.scene.grease_pencil.layers.active
+        layer_index = bpy.context.scene.grease_pencil.layers.active_index
+        layer = bpy.context.scene.grease_pencil.layers[layer_index]
+        return layer
     except:
-        return None
+        try:
+            return bpy.context.scene.grease_pencil.layers.active
+        except:
+            return None
 
 
 def clear_grease_pencil():
     active_layer = get_active_grease_pencil_layer()
     if active_layer:
-        active_layer.active_frame.clear()
+        active_frame = active_layer.active_frame
+        try:
+            active_layer.frames.remove(active_frame)
+        except:
+            try:
+                active_layer.active_frame.clear()
+            except:
+                utils.log_error("Unable to remove active grease pencil frame!")
 
 
 def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
@@ -1669,6 +1709,16 @@ def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length
     remove_duplicate_bones(chr_cache, arm)
 
     utils.edit_mode_to(arm)
+
+
+def bind_to_first_bones(chr_cache, arm, objects, card_mode, parent_mode):
+    bone_chains = get_bone_chain_defs(chr_cache, arm, "ALL", parent_mode)
+    first_bones = []
+    for chain in bone_chains:
+        if chain:
+            first_bones.append(chain[0]["name"])
+    for obj in objects:
+        reset_weights_to_bones(obj, first_bones, card_mode)
 
 
 def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
@@ -1714,7 +1764,9 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
                                                     one_loop_per_card=True, card_selection_mode=card_mode)
             scale_existing_weights(obj, bm, existing_scale, all_spring_bone_names)
             assign_bones(obj, bm, cards, bone_chain_defs, max_radius, max_bones, max_weight, curve, variance)
+
             bm.to_mesh(obj.data)
+            geom.clean_empty_vertex_groups(obj, bm)
 
             smooth_hair_bone_weights(arm, obj, bone_chain_defs, smoothing)
 
@@ -1829,6 +1881,13 @@ class CC3OperatorHair(bpy.types.Operator):
 
                 utils.restore_mode_selection_state(mode_selection)
 
+        if self.param == "RESET_ACCESSORY_WEIGHTS":
+
+            objects = utils.get_selected_meshes(context)
+            if arm and objects:
+                bind_to_first_bones(chr_cache, arm, objects, props.hair_rig_bind_card_mode, props.hair_rig_bone_root)
+
+
         if self.param == "BIND_TO_BONES":
 
             objects = utils.get_selected_meshes(context)
@@ -1836,9 +1895,7 @@ class CC3OperatorHair(bpy.types.Operator):
             seed = props.hair_rig_bind_seed
             random.seed(seed)
 
-            existing_scale = props.hair_rig_bind_existing_scale
-            if props.hair_rig_target == "CC4":
-                existing_scale = 0.0
+            existing_scale = props.hair_rig_bind_existing_scale if props.hair_rig_target != "CC4" else 0.0
 
             if arm and objects:
                 utils.unhide(arm)
@@ -1855,16 +1912,6 @@ class CC3OperatorHair(bpy.types.Operator):
                                     props.hair_rig_bind_bone_mode,
                                     props.hair_rig_bind_smoothing,
                                     props.hair_rig_bone_root)
-
-                if props.hair_rig_target == "CC4":
-                    #props.hair_rig_bind_existing_scale = 0.0
-
-                    # for CC4 rigs, convert the hair meshes to accesories
-                    springbones.convert_spring_rig_to_accessory(chr_cache, arm, props.hair_rig_bone_root)
-                else:
-                    #props.hair_rig_bind_existing_scale = 1.0
-                    pass
-
             else:
                 self.report({"ERROR"}, "Selected Object(s) to bind must be Meshes!")
 
@@ -1890,7 +1937,10 @@ class CC3OperatorHair(bpy.types.Operator):
 
             if arm and objects:
                 utils.unhide(arm)
-                springbones.convert_spring_rig_to_accessory(chr_cache, arm, props.hair_rig_bone_root)
+                accessory_name = springbones.convert_spring_rig_to_accessory(chr_cache, arm, objects, props.hair_rig_bone_root)
+                if accessory_name:
+                    self.report({'INFO'}, f"Accesssory: {accessory_name} created!")
+
 
         if self.param == "GROUP_NAME_BONES":
 
@@ -2028,12 +2078,15 @@ class CC3OperatorHair(bpy.types.Operator):
             return "Remove all grease pencil lines from the current annotation layer"
         elif properties.param == "CARDS_TO_CURVES":
             return "Convert all the hair cards into curves"
+        elif properties.param == "RESET_ACCESSORY_WEIGHTS":
+            return "Resets the weights on the mesh to the base weights needed by an accesssory, i.e. weighted only to the first bone in each bone chain.\n" \
+                   "Useful for setting a base weighting for further selective mesh binding"
         elif properties.param == "MAKE_ACCESSORY":
-            return "Removes all none hair rig vertex groups from objects so that CC4 recognizes them as accessories and not cloth or hair.\n\n" \
+            return "Converts the hair spring rig and selected objects into an accessory named after the active object.\n" \
                    "Accessories are categorized by:\n" \
                    "    1. A bone representing the accessory parented to a CC Base bone.\n" \
                    "    2. Child accessory deformation bone(s) parented to the accessory bone in 1.\n" \
-                   "    3. Object(s) with vertex weights to ONLY these accessory deformation bones in 2.\n" \
+                   "    3. Object(s) with vertex weights ONLY to these accessory deformation bones in 2.\n" \
                    "    4. All vertices in the accessory must be weighted"
 
         elif properties.param == "GROUP_NAME_BONES":

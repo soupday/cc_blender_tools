@@ -568,7 +568,7 @@ ADD_DEF_BONES = [
     ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29, "DEF"],
     ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29, "DEF"],
 
-    ["MCH-jaw_master", "MCH-teeth_master", "ORG-face", "LR", 30, "", 0.9, "MCH-jaw_master", 0.8],
+    ["MCH-jaw_master", "MCH-teeth_master", "ORG-face", "LR", 30, "MCH", 0.9, "MCH-jaw_master", 0.8, 1.0],
     ["-", "teeth.B", "MCH-teeth_master", "", "", ""],
     ["-", "tongue.003", "MCH-teeth_master", "", "", ""],
 
@@ -1544,14 +1544,12 @@ RETARGET_CORRECTIONS = {
 
 
 IKFK_RIG_CONTROLS = {
-    "Limb Controls": ["IK-FK", "Follow", "Stretch"],
-    "Left Arm": [ ["upper_arm_parent.L", "IK_FK"], ["upper_arm_parent.L", "FK_limb_follow"], ["upper_arm_parent.L", "IK_Stretch"] ],
-    "Right Arm": [ ["upper_arm_parent.R", "IK_FK"], ["upper_arm_parent.R", "FK_limb_follow"], ["upper_arm_parent.R", "IK_Stretch"] ],
-    "Left Leg": [ ["thigh_parent.L", "IK_FK"], ["thigh_parent.L", "FK_limb_follow"], ["thigh_parent.L", "IK_Stretch"] ],
-    "Right Leg": [ ["thigh_parent.R", "IK_FK"], ["thigh_parent.R", "FK_limb_follow"], ["thigh_parent.R", "IK_Stretch"] ],
-    "Head Controls": ["Head Controls", "", ""],
-    "Neck Follow": [ ["torso", "neck_follow"] ],
-    "Head Follow": [ ["torso", "head_follow"] ],
-    "Mouth Lock": [ ["jaw_master", "mouth_lock"] ],
-    "Eyes Follow": [ ["eyes", "eyes_follow"] ],
+    "Limb Controls": ["IK-FK", "Follow", "Stretch", (3, 0.6)],
+    "Left Arm": [ ["upper_arm_parent.L", "IK_FK", "Left Arm"], ["upper_arm_parent.L", "FK_limb_follow", ""], ["upper_arm_parent.L", "IK_Stretch", ""] ],
+    "Right Arm": [ ["upper_arm_parent.R", "IK_FK", "Right Arm"], ["upper_arm_parent.R", "FK_limb_follow", ""], ["upper_arm_parent.R", "IK_Stretch", ""] ],
+    "Left Leg": [ ["thigh_parent.L", "IK_FK", "Left Leg"], ["thigh_parent.L", "FK_limb_follow", ""], ["thigh_parent.L", "IK_Stretch", ""] ],
+    "Right Leg": [ ["thigh_parent.R", "IK_FK", "Right Leg"], ["thigh_parent.R", "FK_limb_follow", ""], ["thigh_parent.R", "IK_Stretch", ""] ],
+    "Head Controls": ["Head Controls", "", "", (2, 0.5)],
+    "Neck Follow": [ ["torso", "neck_follow", "Neck Follow"], ["torso", "head_follow", "Head Follow"] ],
+    "Mouth Lock": [ ["jaw_master", "mouth_lock", "Mouth Lock"], ["eyes", "eyes_follow", "Eyes Follow"] ],
 }

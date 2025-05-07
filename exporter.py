@@ -18,8 +18,8 @@ import os
 import copy
 import shutil
 import re
-import mathutils
 import math
+from mathutils import Vector, Quaternion, Euler
 
 import bpy
 from filecmp import cmp
@@ -214,7 +214,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
         json_data[new_name].pop("Import_Name", None)
 
     if not chr_cache.link_id:
-        chr_cache.link_id = utils.generate_random_id(20)
+        chr_cache.set_link_id(utils.generate_random_id(20))
     json_data[new_name]["Link_ID"] = chr_cache.link_id
 
     if chr_cache.is_non_standard():
@@ -1231,7 +1231,7 @@ def set_T_pose(arm, chr_json):
         left_arm_edit = bones.get_edit_bone(arm, ["CC_Base_L_Upperarm", "L_Upperarm", "upperarm_l"])
         right_arm_edit = bones.get_edit_bone(arm, ["CC_Base_R_Upperarm", "R_Upperarm", "upperarm_r"])
         # test for A-pose
-        world_x = mathutils.Vector((1, 0, 0))
+        world_x = Vector((1, 0, 0))
         a_pose = False
         if left_arm_edit and world_x.dot(left_arm_edit.y_axis) < 0.9:
             a_pose = True
@@ -1243,14 +1243,8 @@ def set_T_pose(arm, chr_json):
             left_arm_pose = bones.get_pose_bone(arm, ["CC_Base_L_Upperarm", "L_Upperarm", "upperarm_l"])
             right_arm_pose = bones.get_pose_bone(arm, ["CC_Base_R_Upperarm", "R_Upperarm", "upperarm_r"])
             angle = 30.0 * math.pi / 180.0
-            if left_arm_pose:
-                left_arm_pose.rotation_mode = "XYZ"
-                left_arm_pose.rotation_euler = [0,0,angle]
-                left_arm_pose.rotation_mode = "QUATERNION"
-            if right_arm_pose:
-                right_arm_pose.rotation_mode = "XYZ"
-                right_arm_pose.rotation_euler = [0,0,-angle]
-                right_arm_pose.rotation_mode = "QUATERNION"
+            utils.set_transform_rotation(left_arm_pose, Euler((0,0,angle)))
+            utils.set_transform_rotation(right_arm_pose, Euler((0,0,-angle)))
             if chr_json:
                 chr_json["Bind_Pose"] = "APose"
             return True
@@ -1809,9 +1803,6 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
         armature_settings = bones.store_armature_settings(arm, include_pose=True)
         object_state = utils.store_object_state(objects)
 
-        # restore quaternion rotation modes
-        rigutils.reset_rotation_modes(arm)
-
         utils.log_info("Preparing character for export:")
         utils.log_indent()
 
@@ -1937,9 +1928,6 @@ def export_non_standard(self, context, file_path, include_selected):
     armature_settings = bones.store_armature_settings(arm, include_pose=True)
     object_state = utils.store_object_state(objects)
 
-    # restore quaternion rotation modes
-    rigutils.reset_rotation_modes(arm)
-
     utils.log_info("Generating JSON data for export:")
     utils.log_indent()
     json_data = prep_non_standard_export(context, objects, dir, name, prefs.export_non_standard_mode)
@@ -2049,9 +2037,6 @@ def export_to_unity(self, context, chr_cache, export_anim, file_path, include_se
     # store states and settings
     armature_settings = bones.store_armature_settings(arm, include_pose=True)
     object_state = utils.store_object_state(objects)
-
-    # restore quaternion rotation modes
-    rigutils.reset_rotation_modes(arm)
 
     export_actions = False
     export_strips = True
@@ -2263,9 +2248,6 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
     # store states and settings
     armature_settings = bones.store_armature_settings(arm, include_pose=True)
     object_state = utils.store_object_state(objects)
-
-    # restore quaternion rotation modes
-    rigutils.reset_rotation_modes(arm)
 
     export_actions = False
     export_strips = True

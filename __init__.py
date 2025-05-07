@@ -21,6 +21,7 @@ if "bpy" in locals():
     importlib.reload(vars)
     importlib.reload(params)
     importlib.reload(utils)
+    importlib.reload(lib)
     importlib.reload(jsonutils)
     importlib.reload(nodeutils)
     importlib.reload(imageutils)
@@ -45,6 +46,8 @@ if "bpy" in locals():
     importlib.reload(springbones)
     importlib.reload(drivers)
     importlib.reload(wrinkle)
+    importlib.reload(facerig_data)
+    importlib.reload(facerig)
     importlib.reload(rigify_mapping_data)
     importlib.reload(rigging)
     importlib.reload(rigutils)
@@ -56,6 +59,7 @@ if "bpy" in locals():
     importlib.reload(link)
     importlib.reload(proportion)
     importlib.reload(iconutils)
+    importlib.reload(rlx)
 
 import bpy
 from bpy.app.handlers import persistent
@@ -65,6 +69,7 @@ from . import preferences
 from . import vars
 from . import params
 from . import utils
+from . import lib
 from . import jsonutils
 from . import nodeutils
 from . import imageutils
@@ -89,6 +94,8 @@ from . import rigidbody
 from . import springbones
 from . import drivers
 from . import wrinkle
+from . import facerig_data
+from . import facerig
 from . import rigify_mapping_data
 from . import rigging
 from . import rigutils
@@ -100,12 +107,13 @@ from . import normal
 from . import link
 from . import proportion
 from . import iconutils
+from . import rlx
 
 
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 2, 5),
+    "version": (2, 3, 0),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -117,6 +125,9 @@ bl_info = {
 vars.set_version_string(bl_info)
 
 classes = (
+    preferences.CC3ToolsAddonPreferences,
+    preferences.MATERIAL_UL_weightedmatslots,
+
     channel_mixer.CC3RGBMixer,
     channel_mixer.CC3IDMixer,
     channel_mixer.CC3MixerSettings,
@@ -189,6 +200,7 @@ classes = (
     rigutils.CCICMotionSetRename,
     rigutils.CCICMotionSetInfo,
     rigutils.CCICRigUtils,
+    facerig.CCICImportARKitCSV,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
@@ -208,6 +220,7 @@ classes = (
     # create panels
     panels.CC3ToolsCreatePanel,
     panels.CC3ObjectManagementPanel,
+    panels.CC3WeightPaintPanel,
     panels.CC3ToolsPhysicsPanel,
     panels.CC3SpringRigPanel,
     panels.CC3ToolsSculptingPanel,
@@ -221,10 +234,6 @@ classes = (
     panels.CC3SpringControlPanel,
     # test panels
     panels.CC3ToolsUtilityPanel,
-
-    preferences.CC3ToolsAddonPreferences,
-    preferences.MATERIAL_UL_weightedmatslots,
-
 )
 
 def register():

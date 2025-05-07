@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import drivers, meshutils, nodeutils, utils, params, vars
+from . import drivers, meshutils, nodeutils, lib, utils, params, vars
 
 WRINKLE_SHADER_NAME="rl_wrinkle_shader"
 WRINKLE_STRENGTH_PROP = "wrinkle_strength"
@@ -52,7 +52,7 @@ def get_wrinkle_shader(obj, mat, mat_json, shader_name="rl_wrinkle_shader",
             if n.type == "GROUP":
                 if shader_id in n.name and shader_name in n.node_tree.name:
                     wrinkle_node = n
-                    if vars.VERSION_STRING in n.name and vars.VERSION_STRING in n.node_tree.name:
+                    if lib.is_version(n) and lib.is_version(n.node_tree):
                         ...
                     elif remove:
                         if wrinkle_node == n:
@@ -65,7 +65,7 @@ def get_wrinkle_shader(obj, mat, mat_json, shader_name="rl_wrinkle_shader",
 
     # create a new wrinkle shader group node if none
     if create and not wrinkle_node:
-        group = nodeutils.get_node_group(shader_name)
+        group = lib.get_node_group(shader_name)
         wrinkle_node = nodeutils.make_node_group_node(nodes, group, "Wrinkle Map System", utils.unique_name(shader_id))
         wrinkle_node.width = 240
         utils.log_info("Created new wrinkle system shader group: " + wrinkle_node.name)

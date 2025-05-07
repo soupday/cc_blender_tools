@@ -19,7 +19,7 @@ import os
 import bpy
 import mathutils
 
-from . import utils, vars
+from . import lib, utils, vars
 
 cursor = mathutils.Vector((0,0))
 cursor_top = mathutils.Vector((0,0))
@@ -589,7 +589,7 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
             else:
                 nodes.remove(n)
 
-        elif n.type == "GROUP" and n.node_tree and shader_name in n.name and vars.VERSION_STRING in n.node_tree.name:
+        elif n.type == "GROUP" and n.node_tree and shader_name in n.name and lib.is_version(n.node_tree):
 
             if wrinkle_id in n.node_tree.name:
                 utils.log_info("Keeping old wrinkle shader group: " + n.name)
@@ -633,7 +633,7 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
             nodes.remove(n)
 
     if has_group_node and not group_node:
-        group = get_node_group(shader_group)
+        group = lib.get_node_group(shader_group)
         group_node = nodes.new("ShaderNodeGroup")
         group_node.node_tree = group
         group_node.name = utils.unique_name(shader_id)
@@ -642,7 +642,7 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
         utils.log_info("Creating new shader group: " + group_node.name)
 
     if has_mix_node and not mix_node:
-        group = get_node_group(mix_shader_group)
+        group = lib.get_node_group(mix_shader_group)
         mix_node = nodes.new("ShaderNodeGroup")
         mix_node.node_tree = group
         mix_node.name = utils.unique_name(mix_id)
@@ -660,7 +660,7 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
 
     if has_bsdf and not bsdf_node:
         if custom_bsdf:
-            template_group = get_node_group(custom_bsdf)
+            template_group = lib.get_node_group(custom_bsdf)
             # single user copy of template group:
             group = template_group.copy()
             bsdf_node = nodes.new("ShaderNodeGroup")
@@ -774,39 +774,6 @@ def is_texture_pack_system(node):
         return False
 
 
-def get_node_group(name):
-    for group in bpy.data.node_groups:
-        if vars.NODE_PREFIX in group.name and name in group.name:
-            if vars.VERSION_STRING in group.name:
-                return group
-    return fetch_node_group(name)
-
-
-def get_lib_image(name):
-    for image in bpy.data.images:
-        if vars.NODE_PREFIX in image.name and name in image.name:
-            if vars.VERSION_STRING in image.name:
-                return image
-    return fetch_lib_image(name)
-
-
-def check_node_groups():
-    for name in vars.NODE_GROUPS:
-        get_node_group(name)
-
-
-def remove_all_groups():
-    for group in bpy.data.node_groups:
-        if vars.NODE_PREFIX in group.name:
-            bpy.data.node_groups.remove(group)
-
-
-def rebuild_node_groups():
-    remove_all_groups()
-    check_node_groups()
-    return
-
-
 def find_node_by_keywords(nodes, *keywords):
     for node in nodes:
         match = True
@@ -890,87 +857,14 @@ def store_texture_mapping(image_node, mat_cache, texture_type):
         image_node.name = utils.unique_name(image_id)
 
 
-# link utils
-
-def append_node_group(path, object_name):
-    if utils.B341():
-        filename = "_LIB341.blend"
-    else:
-        filename = "_LIB293.blend"
-    datablock = "NodeTree"
-    file = os.path.join(path, filename)
-    appended_group = None
-
-    if os.path.exists(file):
-        bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=False, link=False)
-
-        for g in bpy.data.node_groups:
-            if object_name in g.name and vars.NODE_PREFIX not in g.name:
-                appended_group = g
-                g.name = utils.unique_name(object_name)
-
-    return appended_group
-
-
-def fetch_node_group(name):
-    paths = []
-    local_path = utils.local_path()
-    if local_path:
-        paths.append(local_path)
-    paths.append(os.path.dirname(os.path.realpath(__file__)))
-
-    for path in paths:
-        utils.log_info("Trying to append: " + path + " > " + name)
-        if os.path.exists(path):
-            group = append_node_group(path, name)
-            if group is not None:
-                return group
-    utils.log_error("Trying to append group: " + name + ", _LIB.blend library file not found?")
-    raise ValueError(f"Unable to append node group: {name} from library file!")
-
-
-def append_lib_image(path, object_name):
-    if utils.B341():
-        filename = "_LIB341.blend"
-    else:
-        filename = "_LIB293.blend"
-    datablock = "Image"
-    file = os.path.join(path, filename)
-    appended_image = None
-
-    if os.path.exists(file):
-        bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=False, link=False)
-
-        for i in bpy.data.images:
-            if object_name in i.name and vars.NODE_PREFIX not in i.name:
-                utils.log_info("Trying to append image: " + path + " > " + object_name)
-                appended_image = i
-                i.name = utils.unique_name(object_name)
-
-    return appended_image
-
-
-def fetch_lib_image(name):
-    paths = []
-    local_path = utils.local_path()
-    if local_path:
-        paths.append(local_path)
-    paths.append(os.path.dirname(os.path.realpath(__file__)))
-
-    for path in paths:
-        if os.path.exists(path):
-            image = append_lib_image(path, name)
-            if image:
-                return image
-    utils.log_error("Trying to append image: " + name + ", _LIB.blend library file not found?")
-    raise ValueError("Unable to append iamge from library file!")
-
-
 def get_shader_node(nodes):
     for n in nodes:
         if n.type == "GROUP" and "(rl_" in n.name and "_shader)" in n.name:
             name = n.node_tree.name
-            if vars.NODE_PREFIX in name and "_rl_" in name and "_shader_" in name:
+            if ((vars.NODE_PREFIX in name or
+                 utils.prop(n.node_tree, "RL_Node_Group")) and
+                 "_rl_" in name and
+                 "_shader_" in name):
                 return n
     return None
 

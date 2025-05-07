@@ -18,7 +18,7 @@ import os
 import bpy
 import mathutils
 
-from . import nodeutils, imageutils, meshutils, geom, materials, bake, modifiers, utils, params, vars
+from . import nodeutils, imageutils, meshutils, geom, materials, bake, modifiers, lib, utils, params, vars
 
 LAYER_TARGET_SCULPT = "BODY"
 LAYER_TARGET_DETAIL = "DETAIL"
@@ -429,7 +429,7 @@ def setup_bake_nodes(context, chr_cache, multires_mesh, layer_target):
         # find or create the layer mix group
         mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
         if not mix_node:
-            mix_group = nodeutils.get_node_group("rl_tex_mod_normal_ao_blend")
+            mix_group = lib.get_node_group("rl_tex_mod_normal_ao_blend")
             mix_node = nodeutils.make_node_group_node(nodes, mix_group, "Normal Blend", mix_node_name)
             if layer_target == LAYER_TARGET_DETAIL:
                 chr_cache.detail_normal_strength = 1.0

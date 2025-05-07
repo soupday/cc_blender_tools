@@ -19,7 +19,7 @@ import math
 import os
 from mathutils import Vector, Color
 
-from . import imageutils, jsonutils, meshutils, materials, modifiers, wrinkle, nodeutils, params, utils, vars
+from . import imageutils, jsonutils, meshutils, materials, modifiers, wrinkle, nodeutils, params, lib, utils, vars
 
 
 def get_prop_value(mat_cache, prop_name):
@@ -724,7 +724,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
             tiling_mode = "CENTERED"
 
     if tiling_mode == "CENTERED":
-        node_group = nodeutils.get_node_group("tiling_pivot_mapping")
+        node_group = lib.get_node_group("tiling_pivot_mapping")
         tiling_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
         tiling_node.location = location
         nodeutils.set_node_input_value(tiling_node, "Tiling", tiling)
@@ -732,7 +732,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
         nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
 
     elif tiling_mode == "OFFSET":
-        node_group = nodeutils.get_node_group("tiling_offset_mapping")
+        node_group = lib.get_node_group("tiling_offset_mapping")
         tiling_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
         tiling_node.location = location
         nodeutils.set_node_input_value(tiling_node, "Tiling", tiling)
@@ -740,7 +740,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
         nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
 
     elif tiling_mode == "EYE_PARALLAX":
-        node_group = nodeutils.get_node_group("tiling_cornea_parallax_mapping")
+        node_group = lib.get_node_group("tiling_cornea_parallax_mapping")
         mapping_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
         mapping_node.location = location
         nodeutils.link_nodes(links, mapping_node, "Vector", node, "Vector")

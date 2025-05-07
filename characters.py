@@ -19,7 +19,7 @@ import re
 import os
 
 from . import (springbones, rigidbody, materials, modifiers, meshutils, geom, bones, physics, rigutils,
-               shaders, basic, imageutils, nodeutils, jsonutils, utils, vars)
+               shaders, basic, imageutils, nodeutils, jsonutils, lib, utils, vars)
 
 from mathutils import Vector, Matrix, Quaternion
 import mathutils.geometry
@@ -82,7 +82,7 @@ def duplicate_character(chr_cache):
     old_cache = chr_cache
     chr_cache = props.add_character_cache()
     utils.copy_property_group(old_cache, chr_cache)
-    chr_cache.link_id = utils.generate_random_id(20)
+    chr_cache.set_link_id(utils.generate_random_id(20))
 
     for obj_cache in chr_cache.object_cache:
         old_id = obj_cache.object_id
@@ -351,7 +351,7 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
     chr_cache.non_standard_type = chr_type
     if not link_id:
         link_id = utils.generate_random_id(20)
-    chr_cache.link_id = link_id
+    chr_cache.set_link_id(link_id)
 
     chr_cache.add_object_cache(chr_rig)
 
@@ -910,6 +910,8 @@ def make_accessory(chr_cache, objects):
 
     rig = chr_cache.get_armature()
 
+    cursor_pos = bpy.context.scene.cursor.location.copy()
+
     # store parent objects (as the parenting is destroyed when adding objects to character)
     obj_data = {}
     for obj in objects:
@@ -931,21 +933,24 @@ def make_accessory(chr_cache, objects):
             parent_to_rig(rig, obj)
 
     cursor_pos = bpy.context.scene.cursor.location
+    accessory_root_name = None
     if utils.try_select_objects(objects, True, "MESH", True):
         if utils.set_mode("EDIT"):
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.view3d.snap_cursor_to_selected()
+            root_pos = bpy.context.scene.cursor.location.copy()
 
             if rig and utils.edit_mode_to(rig, only_this = True):
 
                 # add accessory named bone to rig
-                accessory_root = rig.data.edit_bones.new("Accessory")
-                root_head = rig.matrix_world.inverted() @ bpy.context.scene.cursor.location
-                root_tail = rig.matrix_world.inverted() @ (bpy.context.scene.cursor.location + Vector((0, 1/4, 0)))
-                piv_tail = rig.matrix_world.inverted() @ (bpy.context.scene.cursor.location + Vector((0, 1/10000, 0)))
+                accessory_name = objects[0].name + "_Accessory"
+                accessory_root = rig.data.edit_bones.new(accessory_name)
+                root_head = rig.matrix_world.inverted() @ root_pos
+                root_tail = rig.matrix_world.inverted() @ (root_pos + Vector((0, 0.05, 0)))
                 utils.log_info(f"Adding accessory root bone: {accessory_root.name}/({root_head})")
                 accessory_root.head = root_head
                 accessory_root.tail = root_tail
+                accessory_root_name = accessory_root.name
 
                 default_parent = bones.get_rl_edit_bone(rig, chr_cache.accessory_parent_bone)
                 accessory_root.parent = default_parent
@@ -956,36 +961,19 @@ def make_accessory(chr_cache, objects):
                         # add object bone to rig
                         obj_bone = rig.data.edit_bones.new(obj.name)
                         obj_head = rig.matrix_world.inverted() @ (obj.matrix_world @ Vector((0, 0, 0)))
-                        obj_tail = rig.matrix_world.inverted() @ ((obj.matrix_world @ Vector((0, 0, 0))) + Vector((0, 1/8, 0)))
+                        obj_tail = rig.matrix_world.inverted() @ ((obj.matrix_world @ Vector((0, 0, 0))) + Vector((0, 0.025, 0)))
                         utils.log_info(f"Adding object bone: {obj_bone.name}/({obj_head})")
                         obj_bone.head = obj_head
                         obj_bone.tail = obj_tail
-
-                        # add pivot bone to rig
-                        #piv_bone = rig.data.edit_bones.new("CC_Base_Pivot")
-                        #utils.log_info(f"Adding pivot bone: {piv_bone.name}/({root_head})")
-                        #piv_bone.head = root_head + Vector((0, 1/100, 0))
-                        #piv_bone.tail = piv_tail + Vector((0, 1/100, 0))
-                        #piv_bone.parent = obj_bone
-
-                        # add deformation bone to rig
-                        def_bone = rig.data.edit_bones.new(obj.name)
-                        utils.log_info(f"Adding deformation bone: {def_bone.name}/({obj_head})")
-                        def_head = rig.matrix_world.inverted() @ ((obj.matrix_world @ Vector((0, 0, 0))) + Vector((0, 1/32, 0)))
-                        def_tail = rig.matrix_world.inverted() @ ((obj.matrix_world @ Vector((0, 0, 0))) + Vector((0, 1/32 + 1/16, 0)))
-                        def_bone.head = def_head
-                        def_bone.tail = def_tail
-                        def_bone.parent = obj_bone
 
                         # remove all vertex groups from object
                         obj.vertex_groups.clear()
 
                         # add vertex groups for object bone
-                        vg = meshutils.add_vertex_group(obj, def_bone.name)
+                        vg = meshutils.add_vertex_group(obj, obj_bone.name)
                         meshutils.set_vertex_group(obj, vg, 1.0)
 
                         obj_data[obj]["bone"] = obj_bone
-                        obj_data[obj]["def_bone"] = def_bone
 
                 # parent the object bone to the accessory bone (or object transform parent bone)
                 for obj in objects:
@@ -1007,10 +995,15 @@ def make_accessory(chr_cache, objects):
 
         # object mode to save new bones
         utils.object_mode()
+        if accessory_root_name:
+            bones.set_bone_collection(rig, accessory_root_name, "Accessory", None, None, "SPECIAL")
+        for obj, obj_def in obj_data.items():
+            obj_bone = obj_def["bone"]
+            bones.set_bone_collection(rig, obj_bone, "Accessory", None, None, "SPECIAL")
 
 
     bpy.context.scene.cursor.location = cursor_pos
-    return
+    return accessory_root
 
 def clean_up_character_data(chr_cache):
 
@@ -1133,7 +1126,7 @@ def convert_to_rl_pbr(mat, mat_cache):
             else:
                 too_complex = True
 
-        elif n.type == "GROUP" and n.node_tree and shader_name in n.name and vars.VERSION_STRING in n.node_tree.name:
+        elif n.type == "GROUP" and n.node_tree and shader_name in n.name and lib.is_version(n.node_tree):
 
             if not group_node:
                 utils.log_info("Found Shader Node: " + n.name)
@@ -1168,7 +1161,7 @@ def convert_to_rl_pbr(mat, mat_cache):
     # make group node if none
     # ensure correct names so find_shader_nodes can find them
     if not group_node:
-        group = nodeutils.get_node_group(shader_group)
+        group = lib.get_node_group(shader_group)
         group_node = nodes.new("ShaderNodeGroup")
         group_node.node_tree = group
     group_node.name = utils.unique_name(shader_id)
@@ -1455,6 +1448,19 @@ def remove_list_body_objects(chr_cache, objects):
             objects.remove(body)
     return objects
 
+
+def smooth_skin_weights(chr_cache, objects, factor, iterations, expand):
+    for obj in objects:
+        if utils.object_exists_is_mesh(obj):
+            utils.object_mode()
+            utils.try_select_object(obj, True)
+            utils.set_active_object(obj)
+            utils.set_mode("WEIGHT_PAINT")
+            try:
+                bpy.ops.object.vertex_group_smooth(group_select_mode='ALL', factor=factor, repeat=iterations, expand=expand)
+            except:
+                utils.log_error(f"Unable to smooth vertex groups on {obj.name}!")
+    utils.object_mode()
 
 def transfer_skin_weights(chr_cache, objects, body_override=None):
 
@@ -1957,6 +1963,20 @@ class CC3OperatorCharacter(bpy.types.Operator):
             obj = context.active_object
             clean_up_character_data(chr_cache)
 
+        elif self.param == "WEIGHTS_LIGHT_SMOOTH":
+            chr_cache = props.get_context_character_cache(context)
+            objects = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH" ]
+            mode_selection = utils.store_mode_selection_state()
+            smooth_skin_weights(chr_cache, objects, 0.5, 5, 0.25)
+            utils.restore_mode_selection_state(mode_selection)
+
+        elif self.param == "WEIGHTS_HEAVY_SMOOTH":
+            chr_cache = props.get_context_character_cache(context)
+            objects = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH" ]
+            mode_selection = utils.store_mode_selection_state()
+            smooth_skin_weights(chr_cache, objects, 1.0, 10, 0.5)
+            utils.restore_mode_selection_state(mode_selection)
+
         elif self.param == "TRANSFER_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
             objects = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH" ]
@@ -2014,7 +2034,7 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif self.param == "REGENERATE_LINK_ID":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
-                chr_cache.link_id = utils.generate_random_id(20)
+                chr_cache.set_link_id(utils.generate_random_id(20))
 
         elif self.param == "CLEAN_SHAPE_KEYS":
             chr_cache = props.get_context_character_cache(context)
@@ -2286,12 +2306,27 @@ class CCICCharacterRename(bpy.types.Operator):
         props = vars.props()
         chr_cache = props.get_context_character_cache(context)
         rig = chr_cache.get_armature()
-        rig_name = utils.unique_object_name(self.name, rig)
         if rig:
-            rig.name = rig_name
-            rig.data.name = rig_name
-            name = rig.name
-        chr_cache.character_name = name
+            if chr_cache.rigified:
+                rigify_name = utils.unique_object_name(self.name, rig, suffix="Rigify")
+                metarig_name = rigify_name[:-7] + "_metarig"
+                source_name = rigify_name[:-7]
+                meta_rig = chr_cache.rig_meta_rig
+                source_rig = chr_cache.rig_original_rig
+                if source_rig:
+                    source_rig.name = source_name
+                    source_rig.data.name = source_name
+                if meta_rig:
+                    meta_rig.name = metarig_name
+                    meta_rig.data.name = metarig_name
+                rig.name = rigify_name
+                rig.data.name = rigify_name
+                chr_cache.character_name = source_name
+            else:
+                rig_name = utils.unique_object_name(self.name, rig)
+                rig.name = rig_name
+                rig.data.name = rig_name
+                chr_cache.character_name = rig_name
         if chr_cache.is_non_standard():
             chr_cache.non_standard_type = self.non_standard_type
         return {"FINISHED"}

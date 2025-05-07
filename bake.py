@@ -1826,7 +1826,6 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
                 prep_diffuse(mat, shader_name, shader_node, "AO" in bake_maps, ao_strength)
                 is_unmodified = not does_shader_modify(shader_node, shader_name, "Diffuse")
                 diffuse_node, diffuse_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Diffuse Map")
-                print(diffuse_node, diffuse_socket, is_unmodified)
                 if "Transmission" in shader_node.outputs and props.target_mode == "BLENDER":
                     utils.log_info("Diffuse from Shader Node Output (Base Color) (includes transmission)")
                     diffuse_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Base Color", "Diffuse", False)

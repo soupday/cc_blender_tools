@@ -20,7 +20,7 @@ import subprocess
 import time
 import difflib
 import random
-import re
+import re, json
 import traceback
 from mathutils import Vector, Quaternion, Matrix, Euler, Color
 from hashlib import md5
@@ -163,6 +163,30 @@ def has_ccic_id(obj: bpy.types.Object):
     return False
 
 
+def deduplicate_names(names: list, func=None, replace: dict=None, partial=False):
+    totals = {}
+    name: str = None
+    for i, name in enumerate(names):
+        if replace:
+            if partial:
+                for r in replace:
+                    if r in name:
+                        name = name.replace(r, replace[r])
+                        break
+            elif name in replace:
+                name = replace[name]
+        if func:
+            name = func(name)
+        if name in totals:
+            count = totals[name]
+        else:
+            count = 0
+            totals[name] = 0
+        names[i] = name if count == 0 else f"{name}.{count:03d}"
+        totals[name] += 1
+    return names
+
+
 def obj_is_linked(obj):
     try:
         if obj.library is not None:
@@ -199,16 +223,20 @@ def unique_image_name(name, image=None, start_index=1):
     return name
 
 
-def unique_object_name(name, obj=None, capitalize=False, start_index=1):
+def unique_object_name(name, obj=None, capitalize=False, start_index=1, suffix=""):
     name = strip_name(name)
     if capitalize:
         name = name.capitalize()
-    if name in bpy.data.objects and bpy.data.objects[name] != obj:
+    if suffix:
+        suffix = "_" + suffix
+    try_name = name + suffix
+    if try_name in bpy.data.objects and bpy.data.objects[try_name] != obj:
         index = start_index
-        while name + "_" + str(index).zfill(2) in bpy.data.objects:
+        try_name = name + str(index).zfill(2) + suffix
+        while try_name in bpy.data.objects:
             index += 1
-        return name + "_" + str(index).zfill(2)
-    return name
+            try_name = name + str(index).zfill(2) + suffix
+    return try_name
 
 
 def un_suffix_name(name):
@@ -321,7 +349,7 @@ def object_exists_is_mesh(obj):
         return False
 
 
-def object_exists_is_armature(obj):
+def object_exists_is_armature(obj) -> bool:
     """Test if Object: obj still exists as an object in the scene, and is an armature."""
     if obj is None:
         return False
@@ -339,6 +367,17 @@ def object_exists_is_light(obj):
     try:
         name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "LIGHT"
+    except:
+        return False
+
+
+def object_exists_is_camera(obj):
+    """Test if Object: obj still exists as an object in the scene, and is a camera."""
+    if obj is None:
+        return False
+    try:
+        name = obj.name
+        return len(obj.users_scene) > 0 and obj.type == "CAMERA"
     except:
         return False
 
@@ -488,6 +527,14 @@ def clean_up_unused():
         clean_collection(bpy.data.node_groups)
 
 
+def same_sign(a, b):
+    if a < 0 and b < 0:
+        return True
+    if a > 0 and b > 0:
+        return True
+    return False
+
+
 def clamp(x, min = 0.0, max = 1.0):
     if x < min:
         x = min
@@ -517,12 +564,13 @@ def saturate(x):
     return x
 
 
-def remap(edge0, edge1, min, max, x):
-    return min + ((x - edge0) * (max - min) / (edge1 - edge0))
+def remap(from_min, from_max, to_min, to_max, x):
+    return to_min + ((x - from_min) * (to_max - to_min) / (from_max - from_min))
 
 
-def lerp(v0, v1, t):
-    t = max(0, min(1, t))
+def lerp(v0, v1, t, clamp=True):
+    if clamp:
+        t = max(0, min(1, t))
     l = v0 + (v1 - v0) * t
     return l
 
@@ -1066,26 +1114,30 @@ def try_select_child_objects(obj):
         return False
 
 
-def add_child_objects(obj, objects, follow_armatures = False):
+def add_child_objects(obj, objects, follow_armatures=False, of_type=None):
     for child in obj.children:
         if child not in objects:
             if child.type == "ARMATURE" and not follow_armatures:
                 continue
-            objects.append(child)
+            if not of_type or obj.type == of_type:
+                objects.append(child)
             if child.children:
-                add_child_objects(child, objects, follow_armatures)
+                add_child_objects(child, objects, follow_armatures, of_type)
 
 
-def expand_with_child_objects(objects):
+def expand_with_child_objects(objects, follow_armatures=False, of_type=None):
     for obj in objects:
-        add_child_objects(obj, objects)
+        if obj.type == "ARMATURE" and not follow_armatures:
+            continue
+        add_child_objects(obj, objects, follow_armatures, of_type)
 
 
-def get_child_objects(obj, include_parent = False, follow_armatures = False):
+def get_child_objects(obj, include_parent=False, follow_armatures=False, of_type=None):
     objects = []
     if include_parent:
-        objects.append(obj)
-    add_child_objects(obj, objects, follow_armatures)
+        if not of_type or obj.type == of_type:
+            objects.append(obj)
+    add_child_objects(obj, objects, follow_armatures, of_type)
     return objects
 
 
@@ -1457,10 +1509,11 @@ def get_context_character(context, strict=False):
         # if the context object is an armature or child of armature that is not part of this chr_cache
         # clear the chr_cache, as this is a separate generic character.
         if obj and not obj_cache:
-            if obj.type == "ARMATURE" and obj != arm and obj != chr_cache.rig_meta_rig:
+            if obj.type == "ARMATURE" and obj != arm and not chr_cache.is_related_object(obj):
                 chr_cache = None
             elif obj.type == "MESH" and obj.parent and obj.parent != arm:
                 chr_cache = None
+
 
     # if strict only return chr_cache from valid object_cache context object
     # otherwise it could return the first and only chr_cache
@@ -1841,10 +1894,7 @@ def align_object_to_view(obj, context):
         v = Vector((0,0,1)) * D
 
         obj.location = loc + rot @ v
-        if obj.rotation_mode == "XYZ":
-            obj.rotation_euler = rot.to_euler()
-        elif obj.rotation_mode == "QUATERNION":
-            obj.rotation_quaternion = rot.copy()
+        set_transform_rotation(obj, rot)
 
 
 def copy_action(action: bpy.types.Action, new_name):
@@ -1853,17 +1903,79 @@ def copy_action(action: bpy.types.Action, new_name):
     return new_action
 
 
-def set_action_slot(obj, action):
-    """Blender 4.4+ Only:
-       Set the obj.animation_data.action_slot to the first action slot with the matching slot_type"""
-    if obj and action and B440():
-        slot_type = "OBJECT"
-        if type(obj) is bpy.types.Key:
-            slot_type = "KEY"
+def make_action(name, reuse=False, slot_type=None, target_obj=None, slot_name=None, clear=False):
+    action = None
+    if reuse and name in bpy.data.actions:
+        action = bpy.data.actions[name]
+    if not action:
+        action = bpy.data.actions.new(name)
+    if clear:
+        clear_action(action)
+    if B440():
+        if target_obj:
+            if not slot_type:
+                slot_type = get_slot_type_for(target_obj)
+            if not slot_name:
+                slot_name = f"SLOT-{slot_type}"
+            make_action_slot(action, slot_type, slot_name)
+    return action
+
+
+def make_action_slot(action, slot_type, slot_name):
+    if B440():
+        for slot in action.slots:
+            if slot.target_id_type == slot_type and strip_name(slot.name) == slot_name:
+                return slot
         for slot in action.slots:
             if slot.target_id_type == slot_type:
+                return slot
+        return action.slots.new(slot_type, slot_name)
+    return None
+
+
+def get_action_slot(action, slot_type):
+    if B440():
+        for slot in action.slots:
+            if slot.target_id_type == slot_type:
+                return slot
+    return None
+
+
+def get_slot_type_for(obj):
+    T = type(obj)
+    slot_type = "OBJECT"
+    if T is bpy.types.Key:
+        slot_type = "KEY"
+    if (T is bpy.types.Light or
+        T is bpy.types.SpotLight or
+        T is bpy.types.SunLight or
+        T is bpy.types.AreaLight or
+        T is bpy.types.PointLight):
+        slot_type = "LIGHT"
+    if T is bpy.types.Camera:
+        slot_type = "CAMERA"
+    return slot_type
+
+
+def set_action_slot(obj, action, slot=None):
+    """Blender 4.4+ Only:
+       Set the obj.animation_data.action_slot to the supplied slot or
+       the first action slot with the matching slot_type"""
+    if obj and action and B440():
+        if slot:
+            try:
                 obj.animation_data.action_slot = slot
-                return True
+            except:
+                log_error(f"Unable to set action slot {action} / {slot}")
+            return True
+        else:
+            slot_type = get_slot_type_for(obj)
+            slot = get_action_slot(action, slot_type)
+            if slot:
+                try:
+                    obj.animation_data.action_slot = slot
+                except:
+                    log_error(f"Unable to set action slot by type: {slot_type} / {action} / {slot}")
         return False
     return True
 
@@ -1878,7 +1990,7 @@ def safe_get_action(obj) -> bpy.types.Action:
     return None
 
 
-def safe_set_action(obj, action, create=True):
+def safe_set_action(obj, action, create=True, slot=None):
     result = False
     if obj:
         try:
@@ -1886,13 +1998,55 @@ def safe_set_action(obj, action, create=True):
                 obj.animation_data_create()
             if obj.animation_data:
                 obj.animation_data.action = action
-                set_action_slot(obj, action)
+                set_action_slot(obj, action, slot)
                 result = True
         except Exception as e:
             action_name = action.name if action else "None"
             log_error(f"Unable to set action {action_name} to {obj.name}", e)
             result = False
     return result
+
+
+def clear_action(action, slot_type=None, slot_name=None):
+    if action:
+        try:
+            if B440():
+                for layer in action.layers:
+                    for strip in layer.strips:
+                        for channelbag in strip.channelbags:
+                            channelbag.fcurves.clear()
+                while action.slots:
+                    action.slots.remove(action.slots[0])
+            action.fcurves.clear()
+            if B440():
+                if slot_type and slot_name:
+                    action.slots.new(slot_type, slot_name)
+            return True
+        except:
+            log_error(f"Unable to clear action: {action}")
+    return False
+
+
+def get_action_channels(action: bpy.types.Action, slot=None, slot_type=None):
+    if not action:
+        return None
+    if B440() and (slot or slot_type):
+        if not action.layers:
+            layer = action.layers.new("Layer")
+        else:
+            layer = action.layers[0]
+        if not layer.strips:
+            strip = layer.strips.new(type='KEYFRAME')
+        else:
+            strip = layer.strips[0]
+        if not slot and slot_type:
+            slot = get_action_slot(action, slot_type)
+        if slot:
+            channelbag = strip.channelbag(slot, ensure=True)
+            return channelbag
+        return action
+    else:
+        return action
 
 
 def index_of_collection(item, collection):
@@ -2405,6 +2559,46 @@ def make_transform_matrix(loc: Vector, rot: Quaternion, sca: Vector):
     return Matrix.Translation(loc) @ (rot.to_matrix().to_4x4()) @ Matrix.Diagonal(sca).to_4x4()
 
 
+def set_transform_rotation(obj: bpy.types.Object, rotation: Quaternion):
+    if obj and rotation:
+        T = type(rotation)
+        if T is Euler:
+            rotation_quaternion = Quaternion(rotation)
+        elif T is tuple and len(rotation) == 2:
+            axis, angle = rotation
+            rotation_quaternion = axis_angle_to_quaternion(axis, angle)
+        elif T is Quaternion:
+            rotation_quaternion = rotation.copy()
+        else:
+            return
+
+        if obj.rotation_mode == "QUATERNION":
+            obj.rotation_quaternion = rotation_quaternion
+        elif obj.rotation_mode == "AXIS_ANGLE":
+            axis_angle = rotation_quaternion.to_axis_angle()
+            obj.rotation_axis_angle = axis_angle
+        else:
+            euler = rotation_quaternion.to_euler(obj.rotation_mode)
+            obj.rotation_euler = euler
+
+
+def axis_angle_to_quaternion(axis: Vector, angle: float):
+    return Matrix.Rotation(angle, 4, axis).to_quaternion()
+
+
+def get_transform_rotation(obj: bpy.types.Object) -> Quaternion:
+    if obj:
+        if obj.rotation_mode == "QUATERNION":
+            return obj.rotation_quaternion.copy()
+        elif obj.rotation_mode == "AXIS_ANGLE":
+            axis = obj.rotation_axis_angle[0:3]
+            angle = obj.rotation_axis_angle[3]
+            return axis_angle_to_quaternion(axis, angle)
+        else:
+            return Quaternion(obj.rotation_euler)
+    return None
+
+
 def is_local_view(context):
     try:
         return context.space_data.local_view is not None
@@ -2452,11 +2646,17 @@ def make_empty(name, loc=None, rot=None, scale=None, matrix=None):
         if loc:
             ob.location = loc
         if rot:
-            ob.rotation_mode = "QUATERNION"
-            ob.rotation_quaternion = rot
+            set_transform_rotation(ob, rot)
         if scale:
             ob.scale = scale
     bpy.context.scene.collection.objects.link(ob)
+
+
+def is_n_panel_sub_tabs():
+    for prefs in bpy.context.preferences.addons.keys():
+        if "n_panel_sub_tabs" in prefs:
+            return True
+    return False
 
 
 def generate_random_id(length):
@@ -2467,7 +2667,33 @@ def generate_random_id(length):
     return id
 
 
-def set_rl_object_id(obj, new_id):
+def set_prop(obj, prop_name, value):
+    obj[prop_name] = value
+
+
+def set_rl_link_id(obj, link_id=None):
+    if link_id is None:
+        link_id = generate_random_id(20)
+    if obj:
+        obj["rl_link_id"] = link_id
+    return link_id
+
+
+def get_rl_link_id(obj):
+    if obj:
+        if "link_id" in obj:
+            link_id = obj["link_id"]
+            del(obj["link_id"])
+            set_rl_link_id(obj, link_id)
+            return link_id
+        elif "rl_link_id" in obj:
+            return obj["rl_link_id"]
+    return None
+
+
+def set_rl_object_id(obj, new_id=None):
+    if new_id is None:
+        new_id = generate_random_id(20)
     if obj:
         if obj.type == "ARMATURE":
             obj["rl_armature_id"] = new_id
@@ -2475,6 +2701,7 @@ def set_rl_object_id(obj, new_id):
                 del(obj["rl_object_id"])
         else:
             obj["rl_object_id"] = new_id
+    return new_id
 
 
 def get_rl_object_id(obj):
@@ -2486,10 +2713,18 @@ def get_rl_object_id(obj):
     return None
 
 
-def custom_prop(obj, prop_name, default=None):
-    if prop_name in obj:
+def prop(obj, prop_name, default=None):
+    if obj and prop_name in obj:
         return obj[prop_name]
     return default
+
+
+def merge(a: list, b: list):
+    c = a.copy()
+    for i in b:
+        if i not in c:
+            c.append(i)
+    return c
 
 
 def fix_texture_rel_path(rel_path: str):
@@ -2547,5 +2782,28 @@ def make_sub_folder(parent_folder, folder_name):
     return folder_path
 
 
+def timestampns():
+    return str(time.time_ns())
+
+
+def datetimes():
+    return time.strftime("%Y%m%d%H%M%S")
+
+
+def json_dumps(json_data):
+    print(json.dumps(json_data, indent=4))
+
+
 def open_folder(folder_path):
     os.startfile(folder_path)
+
+
+def get_enum_prop_name(obj, prop_name, enum_value=None):
+    try:
+        prop = type(obj).bl_rna.properties[prop_name]
+        if enum_value is None:
+            enum_value = getattr(obj, prop_name)
+        return prop.enum_items[enum_value].name
+    except:
+        return prop_name
+

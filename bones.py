@@ -36,87 +36,100 @@ def cmp_rl_bone_names(name, bone_name):
 
 
 def get_rl_edit_bone(rig, name) -> bpy.types.EditBone:
-    if name:
-        if name in rig.data.edit_bones:
-            return rig.data.edit_bones[name]
-        # remove "CC_Base_" from start of bone name and try again...
+    rl_edit_bone = get_edit_bone(rig, name)
+    if not rl_edit_bone:
         if name.startswith("CC_Base_"):
             name = name[8:]
-            if name in rig.data.edit_bones:
-                return rig.data.edit_bones[name]
-        if name.startswith("RL_"):
+        elif name.startswith("RL_"):
             name = name[3:]
-            if name in rig.data.edit_bones:
-                return rig.data.edit_bones[name]
-    return None
+        rl_edit_bone = get_edit_bone(rig, name)
+    return rl_edit_bone
 
 
 def get_rl_bone(rig, name):
-    if name:
-        if name in rig.data.bones:
-            return rig.data.bones[name]
-        # remove "CC_Base_" from start of bone name and try again...
+    rl_bone = get_bone(rig, name)
+    if not rl_bone:
         if name.startswith("CC_Base_"):
             name = name[8:]
-            if name in rig.data.bones:
-                return rig.data.bones[name]
-        if name.startswith("RL_"):
+        elif name.startswith("RL_"):
             name = name[3:]
-            if name in rig.data.bones:
-                return rig.data.bones[name]
-    return None
+        rl_bone = get_bone(rig, name)
+    return rl_bone
 
 
 def get_rl_pose_bone(rig, name) -> bpy.types.PoseBone:
-    if name:
-        if name in rig.pose.bones:
-            return rig.pose.bones[name]
-        # remove "CC_Base_" from start of bone name and try again...
+    rl_pose_bone = get_pose_bone(rig, name)
+    if not rl_pose_bone:
         if name.startswith("CC_Base_"):
             name = name[8:]
-            if name in rig.pose.bones:
-                return rig.pose.bones[name]
-        if name.startswith("RL_"):
+        elif name.startswith("RL_"):
             name = name[3:]
-            if name in rig.pose.bones:
-                return rig.pose.bones[name]
-    return None
+        rl_pose_bone = get_pose_bone(rig, name)
+    return rl_pose_bone
 
 
-def get_edit_bone(rig, name) -> bpy.types.EditBone:
-    if name:
-        if type(name) is list:
-            for n in name:
+def get_edit_bone(rig, name_or_bone) -> bpy.types.EditBone:
+    if name_or_bone:
+        T = type(name_or_bone)
+        if T is bpy.types.EditBone:
+            return name_or_bone
+        if T is list:
+            for n in name_or_bone:
                 if n in rig.data.edit_bones:
                     return rig.data.edit_bones[n]
-        else:
-            if name in rig.data.edit_bones:
-                return rig.data.edit_bones[name]
+        elif T is str:
+            if name_or_bone in rig.data.edit_bones:
+                return rig.data.edit_bones[name_or_bone]
+        elif T is bpy.types.Bone or T is bpy.types.PoseBone:
+            n = name_or_bone.name
+            if n in rig.data.edit_bones:
+                return rig.data.edit_bones[n]
     return None
 
 
-def get_bone(rig, name) -> bpy.types.Bone:
-    if name:
-        if type(name) is list:
-            for n in name:
+def get_bone(rig, name_or_bone) -> bpy.types.Bone:
+    if name_or_bone:
+        T = type(name_or_bone)
+        if T is bpy.types.Bone:
+            return name_or_bone
+        if T is list:
+            for n in name_or_bone:
                 if n in rig.data.bones:
                     return rig.data.bones[n]
-        else:
-            if name in rig.data.bones:
-                return rig.data.bones[name]
+        elif T is str:
+            if name_or_bone in rig.data.bones:
+                return rig.data.bones[name_or_bone]
+        elif T is bpy.types.PoseBone or T is bpy.types.EditBone:
+            n = name_or_bone.name
+            if n in rig.data.bones:
+                return rig.data.bones[n]
     return None
 
 
-def get_pose_bone(rig, name) -> bpy.types.PoseBone:
-    if name:
-        if type(name) is list:
-            for n in name:
+def get_pose_bone(rig, name_or_bone) -> bpy.types.PoseBone:
+    if name_or_bone:
+        T = type(name_or_bone)
+        if T is bpy.types.PoseBone:
+            return name_or_bone
+        if T is list:
+            for n in name_or_bone:
                 if n in rig.pose.bones:
                     return rig.pose.bones[n]
-        else:
-            if name in rig.pose.bones:
-                return rig.pose.bones[name]
+        elif T is str:
+            if name_or_bone in rig.pose.bones:
+                return rig.pose.bones[name_or_bone]
+        elif T is bpy.types.Bone or T is bpy.types.EditBone:
+            n = name_or_bone.name
+            if n in rig.pose.bones:
+                return rig.pose.bones[n]
     return None
+
+
+def get_pose_edit_bone(rig, name_or_bone):
+    pose_bone = get_pose_bone(rig, name_or_bone)
+    if pose_bone:
+        return pose_bone
+    return get_edit_bone(rig, name_or_bone)
 
 
 def find_target_pose_bone(rig, rl_bone_name, bone_mapping = None) -> bpy.types.PoseBone:
@@ -241,7 +254,7 @@ def rename_bone(rig, from_name, to_name):
             utils.log_error(f"Bone {from_name} cannot be renamed as {to_name} already exists in rig!")
 
 
-def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
+def copy_edit_bone(rig, src_name, dst_name, parent_name, scale) -> bpy.types.EditBone:
     if utils.edit_mode_to(rig):
         src_bone = get_edit_bone(rig, src_name)
         if src_bone and dst_name not in rig.data.edit_bones:
@@ -265,7 +278,7 @@ def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
     return None
 
 
-def new_edit_bone(rig, bone_name, parent_name, allow_existing = True):
+def new_edit_bone(rig, bone_name, parent_name, allow_existing = True) -> bpy.types.EditBone:
     if utils.edit_mode_to(rig):
         can_add = allow_existing or bone_name not in rig.data.edit_bones
         if can_add:
@@ -305,7 +318,7 @@ def reparent_edit_bone(rig, bone_name, parent_name):
     return None
 
 
-def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, scale):
+def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, scale) -> bpy.types.EditBone:
     if utils.edit_mode_to(cc3_rig):
         src_bone = get_rl_edit_bone(cc3_rig, cc3_name)
         if src_bone:
@@ -483,21 +496,24 @@ def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influen
         return None
 
 
-def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
+def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD",
+                                 use_x=True, use_y=True, use_z=True, invert_x=False, invert_y=False, invert_z=False,
+                                 use_offset=False):
     try:
         if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.CopyRotationConstraint = to_pose_bone.constraints.new(type="COPY_ROTATION")
             c.target = from_rig
             c.subtarget = from_bone
-            c.use_x = True
-            c.use_y = True
-            c.use_z = True
-            c.invert_x = False
-            c.invert_y = False
-            c.invert_z = False
+            c.use_x = use_x
+            c.use_y = use_y
+            c.use_z = use_z
+            c.invert_x = invert_x
+            c.invert_y = invert_y
+            c.invert_z = invert_z
             c.mix_mode = "REPLACE"
             c.target_space = space
+            c.use_offset = use_offset
             if space == "LOCAL_OWNER_ORIENT":
                 space = "LOCAL"
             c.owner_space = space
@@ -595,7 +611,41 @@ def add_damped_track_constraint(rig, bone_name, target_name, influence):
         return None
 
 
-def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance, influence = 1.0, space="WORLD"):
+def add_limit_location_constraint(rig, bone_name, min_x=None, min_y=None, min_z=None, max_x=None, max_y=None, max_z=None, use_transform_limit=False, influence=1.0, space="WORLD"):
+    try:
+        if utils.object_mode():
+            pose_bone : bpy.types.PoseBone = rig.pose.bones[bone_name]
+            c : bpy.types.LimitLocationConstraint = pose_bone.constraints.new(type="LIMIT_LOCATION")
+            if min_x is not None:
+                c.min_x = min_x
+                c.use_min_x = True
+            if min_y is not None:
+                c.min_y = min_y
+                c.use_min_y = True
+            if min_z is not None:
+                c.min_z = min_z
+                c.use_min_z = True
+            if max_x is not None:
+                c.max_x = max_x
+                c.use_max_x = True
+            if max_y is not None:
+                c.max_y = max_y
+                c.use_max_y = True
+            if max_z is not None:
+                c.max_z = max_z
+                c.use_max_z = True
+            c.use_transform_limit = use_transform_limit
+            c.target_space = space
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except Exception as e:
+        utils.log_error(f"Unable to add limit location constraint: {bone_name}", e)
+        return None
+
+
+def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance, influence = 1.0, space="WORLD", head_tail=0.0, limit_mode="LIMITDIST_ONSURFACE"):
+    """LIMITDIST_ONSURFACE, LIMITDIST_INSIDE"""
     try:
         if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
@@ -603,7 +653,8 @@ def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance
             c.target = from_rig
             c.subtarget = from_bone
             c.distance = distance
-            c.limit_mode = "LIMITDIST_ONSURFACE"
+            c.head_tail = head_tail
+            c.limit_mode = limit_mode
             c.target_space = space
             c.owner_space = space
             c.influence = influence
@@ -684,7 +735,52 @@ def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_deform = deform
 
 
-def store_armature_settings(rig, include_pose=False):
+def keep_locks(pose_bone, no_bake=False):
+    pose_bone["keep_locks"] = True
+    if no_bake:
+        pose_bone["no_bake"] = True
+
+
+def can_unlock(pose_bone):
+    if "keep_locks" in pose_bone:
+        return not pose_bone["keep_locks"]
+    return True
+
+
+def can_bake(pose_bone):
+    if "no_bake" in pose_bone:
+        return not pose_bone["no_bake"]
+    return True
+
+
+def store_bone_locks_visibility(rig):
+    vis = {}
+    pose_bone: bpy.types.PoseBone = None
+    for pose_bone in rig.pose.bones:
+        bone = pose_bone.bone
+        vis[pose_bone.name] = (bone.hide, bone.hide_select,
+                               [pose_bone.lock_location[0], pose_bone.lock_location[1], pose_bone.lock_location[2]],
+                               [pose_bone.lock_rotation[0], pose_bone.lock_rotation[1], pose_bone.lock_rotation[2]],
+                               pose_bone.lock_rotation_w,
+                               pose_bone.lock_rotations_4d,
+                               [pose_bone.lock_scale[0], pose_bone.lock_scale[1], pose_bone.lock_scale[2]])
+    return vis
+
+
+def restore_bone_locks_visibility(rig, vis):
+    pose_bone: bpy.types.PoseBone = None
+    for pose_bone in rig.pose.bones:
+        bone = pose_bone.bone
+        if bone.name in vis:
+            (bone.hide, bone.hide_select,
+            pose_bone.lock_location,
+            pose_bone.lock_rotation,
+            pose_bone.lock_rotation_w,
+            pose_bone.lock_rotations_4d,
+            pose_bone.lock_scale) = vis[pose_bone.name]
+
+
+def store_armature_settings(rig, include_pose=False, include_selection=False):
     if not rig: return None
     collections = {}
     layers = []
@@ -712,10 +808,17 @@ def store_armature_settings(rig, include_pose=False):
                                          pose_bone.rotation_quaternion, pose_bone.scale, pose_bone.rotation_mode]
         visibility["pose"] = pose_data
 
+    if include_selection:
+        selection_data = {}
+        pose_bone: bpy.types.PoseBone
+        for pose_bone in rig.pose.bones:
+            selection_data[pose_bone.name] = pose_bone.bone.select
+        visibility["selection"] = selection_data
+
     return visibility
 
 
-def restore_armature_settings(rig, visibility, include_pose=False):
+def restore_armature_settings(rig, visibility, include_pose=False, include_selection=False):
     if not rig: return
 
     if utils.B400():
@@ -741,6 +844,11 @@ def restore_armature_settings(rig, visibility, include_pose=False):
             rig.pose.bones[bone_name].rotation_euler = pose_data[bone_name][2]
             rig.pose.bones[bone_name].rotation_quaternion = pose_data[bone_name][3]
             rig.pose.bones[bone_name].scale = pose_data[bone_name][4]
+
+    if include_selection:
+        selection_data = visibility["selection"]
+        for bone_name in selection_data:
+            rig.data.bones[bone_name].select = selection_data[bone_name]
 
 
 def set_rig_bind_pose(rig):
@@ -795,33 +903,31 @@ def is_bone_in_collections(rig, bone: bpy.types.Bone, collections=None, groups=N
     return False
 
 
-def set_bone_collection(rig, bone, collection=None, group=None, layer=None, color=None):
+def set_bone_collection(rig, pose_edit_bone, collection=None, group=None, layer=None, color=None):
     """Sets the bone collection (Any) (Blender 4.0+),
        or group (PoseBone only) or layer (Bone or EditBone) (< Blender 4.0)"""
-    if utils.B400():
-        if collection:
-            if not collection in rig.data.collections:
-                rig.data.collections.new(collection)
-            bone_collection = rig.data.collections[collection]
-            bone_collection.assign(bone)
-        if color is not None:
-            set_bone_color(bone, color)
-    else:
-        if group:
-            if group not in rig.pose.bone_groups:
-                rig.pose.bone_groups.new(name=group)
-            group = rig.pose.bone_groups[group]
-            if type(bone) is not bpy.types.PoseBone and bone.name in rig.pose.bones:
-                pose_bone = rig.pose.bones[bone.name]
-                pose_bone.bone_group = group
-            elif type(bone) is bpy.types.PoseBone:
-                bone.bone_group = group
-        if layer:
-            if type(bone) is bpy.types.PoseBone:
-                bone = bone.bone
-            bone.layers[layer] = True
-            for i, l in enumerate(bone.layers):
-                bone.layers[i] = i == layer
+    pose_edit_bone = get_pose_edit_bone(rig, pose_edit_bone)
+    if pose_edit_bone:
+        if utils.B400():
+            if collection:
+                if not collection in rig.data.collections:
+                    rig.data.collections.new(collection)
+                bone_collection = rig.data.collections[collection]
+                bone_collection.assign(pose_edit_bone)
+            if color is not None:
+                set_bone_color(rig, pose_edit_bone, color)
+        else:
+            if group:
+                if group not in rig.pose.bone_groups:
+                    rig.pose.bone_groups.new(name=group)
+                group = rig.pose.bone_groups[group]
+                pose_edit_bone.bone_group = group
+            if layer:
+                bone = pose_edit_bone.bone
+                bone.layers[layer] = True
+                for i, l in enumerate(bone.layers):
+                    bone.layers[i] = i == layer
+
 
 CUSTOM_COLORS = {
     "Active": (0.7686275243759155, 1.0, 1.0),
@@ -838,36 +944,80 @@ CUSTOM_COLORS = {
     "SKIN": (0.647059, 0.780392, 0.588235),
     "PIVOT": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
     "MESH": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
+    "WHITE": (1,1,1),
+    "BLACK": (0,0,0),
+    "LABEL": (0.85, 0.85, 0.85),
+    "GROUP": (0.7, 0.7, 0.7),
+    "SLIDER": (0.9803922176361084*0.8, 0.9019608497619629*0.7, 0.2392157018184662*0.5),
+    "NUB": (1.0, 0.95, 0.4),
+    "LINES": (0.5*0.8, 1.0*0.8, 0.5*0.8),
+    "DRIVER": (0.82, 0.46, 1.0),
 }
 
-def set_bone_color(bone, color_code):
-    if utils.B400():
-        bone.color.palette = "CUSTOM"
-        bone.color.custom.normal = CUSTOM_COLORS[color_code]
-        bone.color.custom.active = CUSTOM_COLORS["Active"]
-        bone.color.custom.select = CUSTOM_COLORS["Select"]
+
+def get_custom_color(code, chr_cache=None):
+    prefs = vars.prefs()
+    if code == "FACERIG":
+        rgba = chr_cache.rigify_face_control_color if chr_cache else prefs.rigify_face_control_color
+        return (rgba[0], rgba[1], rgba[2])
+    elif code == "FACERIG_DARK":
+        rgba = chr_cache.rigify_face_control_color if chr_cache else prefs.rigify_face_control_color
+        return (rgba[0] * 0.7, rgba[1] * 0.6, rgba[2] * 0.5)
+    elif code in CUSTOM_COLORS:
+        return CUSTOM_COLORS[code]
+    else:
+        return (1,1,1)
 
 
-def set_bone_collection_visibility(rig, collection, layer, visible, only=False):
+def set_bone_color(rig, pose_bone: bpy.types.PoseBone, color_code, active_code=None, selected_code=None, chr_cache=None):
+    pose_bone = get_pose_bone(rig, pose_bone)
+    if pose_bone:
+        if not active_code:
+            active_code = "Active"
+        if not selected_code:
+            selected_code = "Select"
+        if utils.B400():
+            normal_color = get_custom_color(color_code, chr_cache=chr_cache)
+            active_color = get_custom_color(active_code, chr_cache=chr_cache)
+            select_color = get_custom_color(selected_code, chr_cache=chr_cache)
+            pose_bone.color.palette = "CUSTOM"
+            pose_bone.color.custom.normal = normal_color
+            pose_bone.color.custom.active = active_color
+            pose_bone.color.custom.select = select_color
+            bone = pose_bone.bone
+            bone.color.palette = "CUSTOM"
+            bone.color.custom.normal = normal_color
+            bone.color.custom.active = active_color
+            bone.color.custom.select = select_color
+
+
+def set_bone_collection_visibility(rig, collection, layer, visible, only=False, invert=False):
     if utils.B400():
         if only:
             for coll in rig.data.collections:
                 coll.is_visible = False
+        elif invert:
+            for coll in rig.data.collections:
+                coll.is_visible = visible
         if collection in rig.data.collections:
-            rig.data.collections[collection].is_visible = visible
+            rig.data.collections[collection].is_visible = visible if not invert else not visible
     else:
-        rig.data.layers[layer] = visible
+        rig.data.layers[layer] = visible if not invert else not visible
         if only:
             for i in range(0, 32):
                 if i != layer:
-                    rig.data.layers[i] = not visible
+                    rig.data.layers[i] = False
+        elif invert:
+            for i in range(0, 32):
+                if i != layer:
+                    rig.data.layers[i] = visible
 
 
 def make_bones_visible(arm, protected=False, collections=None, layers=None):
     bone : bpy.types.Bone
     pose_bone : bpy.types.PoseBone
-    for bone in arm.data.bones:
-        pose_bone = get_pose_bone(arm, bone.name)
+    for pose_bone in arm.pose.bones:
+        bone = pose_bone.bone
         # make all active bone layers visible so they can be unhidden and selectable
         if utils.B400():
             for collection in arm.data.collections:
@@ -888,7 +1038,8 @@ def make_bones_visible(arm, protected=False, collections=None, layers=None):
                         arm.data.layers_protected[i] = False
         # show and select bone
         bone.hide = False
-        bone.hide_select = False
+        if can_unlock(pose_bone):
+            bone.hide_select = False
 
 def is_bone_collection_visible(arm, collection=None, layer=None):
     if utils.B400():
@@ -1017,7 +1168,58 @@ def add_widget_to_collection(widget, collection_name=None, collection_suffix=Non
                 collection.objects.unlink(widget)
 
 
-def make_sphere_widget(widget_name, size):
+def make_text_widget(widget_name, text, size=1.0, location=None, scale=1.0):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        if not location:
+            location = (0,0,0)
+        bpy.ops.object.text_add(radius=size, location=location)
+        wgt = utils.get_active_object()
+        wgt.scale = (scale, scale, scale)
+        wgt.data.body = text
+        wgt.data.fill_mode = "NONE"
+        wgt.data.align_x = "CENTER"
+        wgt.data.align_y = "TOP_BASELINE"
+        bpy.ops.object.convert(target='MESH')
+        bpy.ops.object.transform_apply(rotation=True, location=True, scale=True)
+        wgt.name = widget_name
+    return wgt
+
+
+def make_line_widget(widget_name, size=1.0):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        mesh = bpy.data.meshes.new(widget_name)
+        mesh.from_pydata([(0, 0, 0), (0, size, 0)],
+                            [(0, 1)],
+                            [])
+        mesh.update()
+        wgt = bpy.data.objects.new(widget_name, mesh)
+        wgt.location = [0,0,0]
+        bpy.context.collection.objects.link(wgt)
+        wgt.name = widget_name
+    return wgt
+
+
+def make_box_widget(widget_name, size=1.0):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        mesh = bpy.data.meshes.new(widget_name)
+        mesh.from_pydata([(-size/2, 0, 0), (-size/2, size, 0), (size/2, size, 0), (size/2, 0, 0)],
+                            [(0, 1), (1, 2), (2, 3), (3, 0)],
+                            [])
+        mesh.update()
+        wgt = bpy.data.objects.new(widget_name, mesh)
+        wgt.location = [0,0,0]
+        bpy.context.collection.objects.link(wgt)
+        wgt.name = widget_name
+    return wgt
+
+
+def make_sphere_widget(widget_name, size=1.0):
     if widget_name in bpy.data.objects:
         wgt = bpy.data.objects[widget_name]
     else:
@@ -1264,7 +1466,9 @@ def add_pose_bone_custom_property(rig, pose_bone_name, prop_name, prop_value):
             rna_idprop_ui_create(pose_bone, prop_name, default=prop_value, overridable=True, min=0, max=1)
 
 
-def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, variable_name, constraint = None, constraint_type = "", expression = ""):
+def add_constraint_influence_driver(rig, pose_bone_name,
+                                    source_object, source_data_path, source_var_name,
+                                    constraint=None, constraint_type="", expression=""):
     if utils.object_mode():
         if pose_bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[pose_bone_name]
@@ -1281,7 +1485,9 @@ def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, var
                 else:
                     driver = drivers.make_driver(con, "influence", "SUM")
                 if driver:
-                    var = drivers.make_driver_var(driver, "SINGLE_PROP", variable_name, rig, target_type = "OBJECT", data_path = data_path)
+                    var = drivers.make_driver_var(driver, "SINGLE_PROP",
+                                                          source_var_name, source_object,
+                                                          target_type="OBJECT", data_path=source_data_path)
 
 
 def get_data_path_pose_bone_property(pose_bone_name, variable_name):
@@ -1311,7 +1517,7 @@ def get_data_rigify_limb_property(limb_id, variable_name):
     return ""
 
 
-def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, props, prop_name, variable_name):
+def add_bone_import_props_driver(rig, pose_bone_name, bone_data_path, bone_data_index, props, prop_name, variable_name):
     if utils.object_mode():
         pose_bone : bpy.types.PoseBone
         if pose_bone_name in rig.pose.bones:
@@ -1324,6 +1530,27 @@ def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, p
             var.name = variable_name
             var.type = "SINGLE_PROP"
             var.targets[0].id_type = "SCENE"
+            var.targets[0].id = props.id_data
+            var.targets[0].data_path = props.path_from_id(prop_name)
+
+
+def add_bone_custom_props_driver(rig, pose_bone_name, bone_data_path, bone_data_index, props, prop_name, variable_name, expression=""):
+    if utils.object_mode():
+        pose_bone : bpy.types.PoseBone
+        if pose_bone_name in rig.pose.bones:
+            pose_bone = rig.pose.bones[pose_bone_name]
+            fcurve : bpy.types.FCurve
+            fcurve = pose_bone.driver_add(bone_data_path, bone_data_index)
+            driver : bpy.types.Driver = fcurve.driver
+            if not expression:
+                driver.type = "SUM"
+            else:
+                driver.type = "SCRIPTED"
+                driver.expression = expression
+            var : bpy.types.DriverVariable = driver.variables.new()
+            var.name = variable_name
+            var.type = "SINGLE_PROP"
+            var.targets[0].id_type = "OBJECT"
             var.targets[0].id = props.id_data
             var.targets[0].data_path = props.path_from_id(prop_name)
 
@@ -1350,6 +1577,7 @@ def find_constraint(pose_bone: bpy.types.PoseBone, of_type, with_subtarget=None)
                         continue
                 return con
     return None
+
 
 def clear_drivers(rig):
     # rig object drivers (pose bone drivers)
@@ -1424,7 +1652,7 @@ def get_roll(bone):
     return roll
 
 
-def clear_pose(arm):
+def clear_pose(arm, bones=None):
     """Clears the pose, makes all bones visible and clears the bone selections."""
 
     # select all bones in pose mode
@@ -1432,21 +1660,24 @@ def clear_pose(arm):
     utils.pose_mode_to(arm)
     bone : bpy.types.Bone
     make_bones_visible(arm)
-    for bone in arm.data.bones:
-        # show and select bone
+    for pose_bone in arm.pose.bones:
+        bone = pose_bone.bone
         bone.hide = False
-        bone.hide_select = False
-        bone.select = True
-        bone.select_head = True
-        bone.select_tail = True
+        if can_unlock(pose_bone):
+            bone.hide_select = False
+        select = (not bones or bone.name in bones)
+        bone.select = select
+        bone.select_head = select
+        bone.select_tail = select
 
     # unlock the bones
     pose_bone : bpy.types.PoseBone
     for pose_bone in arm.pose.bones:
-        pose_bone.lock_location = [False, False, False]
-        pose_bone.lock_rotation = [False, False, False]
-        pose_bone.lock_rotation_w = False
-        pose_bone.lock_scale = [False, False, False]
+        if can_unlock(pose_bone):
+            pose_bone.lock_location = [False, False, False]
+            pose_bone.lock_rotation = [False, False, False]
+            pose_bone.lock_rotation_w = False
+            pose_bone.lock_scale = [False, False, False]
 
     # clear pose
     bpy.ops.pose.transforms_clear()

@@ -1,4 +1,5 @@
 import bpy
+from mathutils import Euler
 from . import bones, utils
 
 
@@ -9,8 +10,7 @@ def fix_armature(arm):
         utils.log_info(f"VRM Alignment: Forward = {facing}")
         if facing != "-Y":
             utils.log_info("Aligning armature: Forward = -Y")
-            arm.rotation_mode = "XYZ"
-            arm.rotation_euler = (0, 0, 3.1415926535897)
+            utils.set_transform_rotation(arm, Euler((0, 0, 3.1415926535897)))
             bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
         restore_bone_display(arm)
 
