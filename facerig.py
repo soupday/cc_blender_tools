@@ -41,20 +41,46 @@ def objects_have_shape_key(objects, shape_key_name):
     return False
 
 
+def get_objects_shape_key_name(objects, shape_key_name, try_substitutes=False):
+    for obj in objects:
+        if obj.type == "MESH":
+            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                if shape_key_name in obj.data.shape_keys.key_blocks:
+                    return shape_key_name
+    if try_substitutes:
+        if shape_key_name.endswith("_L"):
+            shape_key_name = shape_key_name[:-2] + "_Left"
+        elif shape_key_name.endswith("_R"):
+            shape_key_name = shape_key_name[:-2] + "_Right"
+        else:
+            return None
+        for obj in objects:
+            if obj.type == "MESH":
+                if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                    if shape_key_name in obj.data.shape_keys.key_blocks:
+                        return shape_key_name
+    return None
+
+
 def is_valid_control_def(control_def, rigify_rig, objects):
     bone_collection = rigify_rig.data.edit_bones if utils.get_mode() == "EDIT" else rigify_rig.pose.bones
+    count = 0
+    total = 0
     if control_def["widget_type"] == "slider":
         if "blendshapes" in control_def:
             blendshapes = control_def["blendshapes"]
             for shape_key_name in blendshapes:
-                if not objects_have_shape_key(objects, shape_key_name):
-                    return False
+                total += 1
+                real_shape_key_name = get_objects_shape_key_name(objects, shape_key_name)
+                if real_shape_key_name:
+                    count += 1
         if "rigify" in control_def:
             control_bones = control_def["rigify"]
             for bone_def in control_bones:
+                total += 1
                 bone_name = bone_def["bone"]
-                if bone_name not in bone_collection:
-                    return False
+                if bone_name in bone_collection:
+                    count += 1
         #if "bones" in control_def:
         #    control_bones = control_def["bones"]
         #    for bone_def in control_bones:
@@ -66,22 +92,28 @@ def is_valid_control_def(control_def, rigify_rig, objects):
             blendshapes_x = control_def["blendshapes"]["x"]
             blendshapes_y = control_def["blendshapes"]["y"]
             for shape_key_name in blendshapes_x:
-                if not objects_have_shape_key(objects, shape_key_name):
-                    return False
+                total += 1
+                real_shape_key_name = get_objects_shape_key_name(objects, shape_key_name)
+                if real_shape_key_name:
+                    count += 1
             for shape_key_name in blendshapes_y:
-                if not objects_have_shape_key(objects, shape_key_name):
-                    return False
+                total += 1
+                real_shape_key_name = get_objects_shape_key_name(objects, shape_key_name)
+                if real_shape_key_name:
+                    count += 1
         if "rigify" in control_def:
             control_bones_x = control_def["rigify"]["horizontal"]
             control_bones_y = control_def["rigify"]["horizontal"]
             for bone_def in control_bones_x:
+                total += 1
                 bone_name = bone_def["bone"]
-                if bone_name not in bone_collection:
-                    return False
+                if bone_name in bone_collection:
+                    count += 1
             for bone_def in control_bones_y:
+                total += 1
                 bone_name = bone_def["bone"]
-                if bone_name not in bone_collection:
-                    return False
+                if bone_name in bone_collection:
+                    count += 1
         #if "bones" in control_def:
         #    control_bones_x = control_def["bones"]["horizontal"]
         #    control_bones_y = control_def["bones"]["horizontal"]
@@ -93,7 +125,7 @@ def is_valid_control_def(control_def, rigify_rig, objects):
         #        bone_name = bone_def["bone"]
         #        if bone_name not in rigify_rig.pose.bones:
         #            return False
-    return True
+    return count, total
 
 
 def get_facerig_config(chr_cache):
@@ -152,9 +184,13 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
 
         for control_name, control_def in FACERIG_CONFIG.items():
 
-            if not is_valid_control_def(control_def, rigify_rig, objects):
+            count, total = is_valid_control_def(control_def, rigify_rig, objects)
+
+            if count == 0:
                 utils.log_warn(f"Invalid expression control: {control_name}")
                 continue
+            elif count != total:
+                utils.log_warn(f"Missing shape keys or bones for control: {control_name}")
 
             if control_def["widget_type"] == "slider":
                 zero = utils.inverse_lerp(control_def["range"][0], control_def["range"][1], 0.0)
@@ -286,8 +322,8 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
                 min_y = (height * zero_y) * control_range_y[0]
                 max_y = height * (1 - zero_y) * control_range_y[1]
 
-            drivers.add_custom_float_property(line_bone, "x_slider_length", width)
-            drivers.add_custom_float_property(line_bone, "y_slider_length", height)
+            drivers.add_custom_float_property(box_bone, "x_slider_length", width)
+            drivers.add_custom_float_property(box_bone, "y_slider_length", height)
             bones.add_limit_location_constraint(rigify_rig, nub_bone_name, min_x, min_y, 0, max_x, max_y, 0, True, space="LOCAL")
 
 
@@ -303,21 +339,23 @@ def get_generated_controls(chr_cache, rigify_rig):
             zero_point = utils.inverse_lerp(control_def["range"][0], control_def["range"][1], 0.0)
             line_bone_name = control_name + "_line"
             nub_bone_name = control_name
-            line_pose_bone = rigify_rig.pose.bones[line_bone_name]
-            line_bone = line_pose_bone.bone
-            length = line_pose_bone["slider_length"] if "slider_length" in line_pose_bone else line_bone.length * 2
-            slider_controls[control_name] = (control_def, line_bone_name, nub_bone_name, length, zero_point)
+            if line_bone_name in rigify_rig.pose.bones:
+                line_pose_bone = rigify_rig.pose.bones[line_bone_name]
+                line_bone = line_pose_bone.bone
+                length = line_pose_bone["slider_length"] if "slider_length" in line_pose_bone else line_bone.length * 2
+                slider_controls[control_name] = (control_def, line_bone_name, nub_bone_name, length, zero_point)
 
         if control_def["widget_type"] == "rect":
             zero_x = utils.inverse_lerp(control_def["x_range"][0], control_def["x_range"][1], 0.0)
             zero_y = utils.inverse_lerp(control_def["y_range"][0], control_def["y_range"][1], 0.0)
             box_bone_name = control_name+"_box"
             nub_bone_name = control_name
-            box_pose_bone = rigify_rig.pose.bones[box_bone_name]
-            box_bone = box_pose_bone.bone
-            width = box_pose_bone["x_slider_length"] if "x_slider_length" in box_pose_bone else box_bone.length * 2
-            height = box_pose_bone["y_slider_length"] if "y_slider_length" in box_pose_bone else box_bone.length * 2
-            rect_controls[control_name] = (control_def, box_bone_name, nub_bone_name, width, height, zero_x, zero_y)
+            if box_bone_name in rigify_rig.pose.bones:
+                box_pose_bone = rigify_rig.pose.bones[box_bone_name]
+                box_bone = box_pose_bone.bone
+                width = box_pose_bone["x_slider_length"] if "x_slider_length" in box_pose_bone else box_bone.length * 2
+                height = box_pose_bone["y_slider_length"] if "y_slider_length" in box_pose_bone else box_bone.length * 2
+                rect_controls[control_name] = (control_def, box_bone_name, nub_bone_name, width, height, zero_x, zero_y)
 
     return slider_controls, rect_controls
 
@@ -545,6 +583,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
 
         # build shape key drivers from shape key driver defs
         for shape_key_name, shape_key_driver_def in shape_key_driver_defs.items():
+            real_shape_key_name = get_objects_shape_key_name(objects, shape_key_name)
             expression = ""
             var_defs = []
             vidx = 0
@@ -591,7 +630,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
 
             for obj in objects:
                 if utils.object_has_shape_keys(obj):
-                    drivers.add_shape_key_driver(rigify_rig, obj, shape_key_name, driver_def, var_defs, 1.0)
+                    drivers.add_shape_key_driver(rigify_rig, obj, real_shape_key_name, driver_def, var_defs, 1.0)
 
         # build bone transform drivers from bone driver defs
         for driver_id, bone_driver_def in bone_driver_defs.items():
@@ -631,14 +670,6 @@ def build_facerig_drivers(chr_cache, rigify_rig):
             drivers.add_bone_driver(rigify_rig, bone_name, driver_def, var_defs, 1.0)
 
 
-def get_key_object(objects, shape_key_name):
-    for obj in objects:
-        key = drivers.get_shape_key(obj, shape_key_name)
-        if key:
-            return obj
-    return None
-
-
 def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects, shape_key_only=False, arkit=False):
 
     bone_drivers = {}
@@ -670,6 +701,7 @@ def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_obj
                     rl_bones = rl_bones[bone_group]
                 line_bone_name = control_name + line_suffix
                 line_bone = bones.get_pose_bone(rigify_rig, line_bone_name)
+                if not line_bone: continue
                 slider_length = line_bone[f"{prefix}slider_length"] if f"{prefix}slider_length" in line_bone else line_bone.bone.length * 2
                 #inv = -1 if control_def.get(f"{prefix}invert") else 1
                 inv = 1
@@ -797,8 +829,8 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
                 scale *= length_override / length
                 length = length_override
             shape_key_name = key_def["shape_key"]
-            obj = get_key_object(source_objects, shape_key_name)
-            if obj:
+            real_shape_key_name = get_objects_shape_key_name(source_objects, shape_key_name)
+            if real_shape_key_name:
                 var_name = f"var{vidx}"
                 if count > 0:
                     expression += "+"
@@ -807,7 +839,7 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
                     var_expression = add_arkit_driver_func(chr_cache, var_expression, length,
                                                            shape_key_name, prop_defs)
                 expression += var_expression
-                var_defs.append((var_name, shape_key_name))
+                var_defs.append((var_name, real_shape_key_name))
                 vidx += 1
                 count += 1
 
