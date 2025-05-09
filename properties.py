@@ -1773,7 +1773,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def can_expression_rig(self):
         if (self.generation == "G3" or
-            self.generation == "G3Plus"):
+            self.generation == "G3Plus" or
+            self.generation == "ActorBuild" or
+            self.generation == "ActorCore" or
+            self.generation == "ActorScan" or
+            self.generation == "GameBase"):
             return True
         return False
 
