@@ -1893,11 +1893,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return True
         elif self.is_collision_object(obj):
             return True
-        elif self.rig_meta_rig == obj:
+        elif self.rig_meta_rig and self.rig_meta_rig == obj:
             return True
-        elif self.arkit_proxy == obj:
+        elif self.arkit_proxy and (self.arkit_proxy == obj or self.arkit_proxy == obj.parent):
             return True
-        elif self.rig_original_rig == obj:
+        elif self.rig_original_rig and self.rig_original_rig == obj:
             return True
         return False
 
