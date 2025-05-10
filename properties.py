@@ -1903,7 +1903,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return True
         elif self.arkit_proxy and (self.arkit_proxy == obj or self.arkit_proxy == obj.parent):
             return True
-        elif self.rig_original_rig and self.rig_original_rig == obj:
+        elif self.rigified and self.rig_original_rig and self.rig_original_rig == obj:
             return True
         elif self.is_rigidbody_collider(obj):
             return True
