@@ -17,7 +17,7 @@
 import bpy, os, socket
 from mathutils import Vector
 
-from . import (channel_mixer, imageutils, meshutils, sculpting, materials,
+from . import (channel_mixer, imageutils, meshutils, sculpting, materials, rigidbody,
                facerig, springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
 from .meshutils import get_head_body_object_quick
@@ -1888,6 +1888,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         result = ("rl_collision_proxy" in obj or obj.name.endswith("_Collision_Proxy") or is_proxy)
         return result
 
+    def is_rigidbody_collider(self, obj):
+        collider_collection = rigidbody.get_rigidbody_collider_collection()
+        if collider_collection and obj.name in collider_collection.objects:
+            return True
+        return False
+
     def is_related_object(self, obj):
         if self.is_sculpt_object(obj):
             return True
@@ -1898,6 +1904,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         elif self.arkit_proxy and (self.arkit_proxy == obj or self.arkit_proxy == obj.parent):
             return True
         elif self.rig_original_rig and self.rig_original_rig == obj:
+            return True
+        elif self.is_rigidbody_collider(obj):
             return True
         return False
 

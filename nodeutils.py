@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import os
-
 import bpy
 import mathutils
 
