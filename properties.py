@@ -1895,6 +1895,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return False
 
     def is_related_object(self, obj):
+        """Objects not directly part of the character, but related to or used by the character in Blender.
+           If selected should indicate this chr_cache as the selected character.
+           These objects should not be exported."""
         if self.is_sculpt_object(obj):
             return True
         elif self.is_collision_object(obj):
