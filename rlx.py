@@ -203,7 +203,7 @@ def import_rlx_light(data: BinaryData, data_folder):
     frames = data.block()
 
     loc_cache = frame_cache(num_frames, 3)
-    rot_cache = frame_cache(num_frames, 4)
+    rot_cache = frame_rotation_cache(light, num_frames)
     sca_cache = frame_cache(num_frames, 3)
     color_cache = frame_cache(num_frames, 3)
     energy_cache = frame_cache(num_frames)
@@ -230,33 +230,33 @@ def import_rlx_light(data: BinaryData, data_folder):
         if not active:
             multiplier = 0.0
         cutoff_distance = range
-        store_frame(loc_cache, frame, loc)
-        store_frame(rot_cache, frame, rot)
-        store_frame(sca_cache, frame, sca)
-        store_frame(color_cache, frame, color)
-        store_frame(cutoff_distance_cache, frame, cutoff_distance)
+        store_frame(light, loc_cache, frame, loc)
+        store_frame(light, rot_cache, frame, rot)
+        store_frame(light, sca_cache, frame, sca)
+        store_frame(light, color_cache, frame, color)
+        store_frame(light, cutoff_distance_cache, frame, cutoff_distance)
         if light_type == "SUN":
             energy = SUN_SCALE * multiplier
-            store_frame(energy_cache, frame, energy)
+            store_frame(light, energy_cache, frame, energy)
         elif light_type == "SPOT":
             energy = ENERGY_SCALE * multiplier
             spot_blend = (falloff + attenuation) / 2
             spot_size = angle
-            store_frame(energy_cache, frame, energy)
-            store_frame(spot_blend_cache, frame, spot_blend)
-            store_frame(spot_size_cache, frame, spot_size)
+            store_frame(light, energy_cache, frame, energy)
+            store_frame(light, spot_blend_cache, frame, spot_blend)
+            store_frame(light, spot_size_cache, frame, spot_size)
         elif light_type == "AREA":
             energy = ENERGY_SCALE * multiplier
-            store_frame(energy_cache, frame, energy)
+            store_frame(light, energy_cache, frame, energy)
         elif light_type == "POINT":
             energy = ENERGY_SCALE * multiplier
-            store_frame(energy_cache, frame, energy)
+            store_frame(light, energy_cache, frame, energy)
 
     ob_action, light_action, ob_slot, light_slot = prep_rlx_actions(light, name, "Export",
                                                                     reuse_existing=False,
                                                                     timestamp=True)
     add_cache_fcurves(ob_action, light.path_from_id("location"), loc_cache, num_frames, "Location", slot=ob_slot)
-    add_cache_fcurves(ob_action, light.path_from_id("rotation_quaternion"), rot_cache, num_frames, "Rotation Quaternion", slot=ob_slot)
+    add_cache_rotation_fcurves(light, ob_action, rot_cache, num_frames, slot=ob_slot)
     add_cache_fcurves(ob_action, light.path_from_id("scale"), sca_cache, num_frames, "Scale", slot=ob_slot)
     add_cache_fcurves(light_action, light.data.path_from_id("color"), color_cache, num_frames, "Color", slot=light_slot)
     add_cache_fcurves(light_action, light.data.path_from_id("energy"), energy_cache, num_frames, "Energy", slot=light_slot)
@@ -287,7 +287,7 @@ def import_rlx_camera(data: BinaryData, data_folder):
     num_frames = camera_data["frame_count"]
     frames = data.block()
     loc_cache = frame_cache(num_frames, 3)
-    rot_cache = frame_cache(num_frames, 4)
+    rot_cache = frame_rotation_cache(camera, num_frames)
     sca_cache = frame_cache(num_frames, 3)
     lens_cache = frame_cache(num_frames)
     dof_cache = frame_cache(num_frames)
@@ -312,27 +312,46 @@ def import_rlx_camera(data: BinaryData, data_folder):
         dof_near_transition = frames.float() / 100
         dof_min_blend_distance = frames.float()
         fov = frames.float()
-        store_frame(loc_cache, frame, loc)
-        store_frame(rot_cache, frame, rot)
-        store_frame(sca_cache, frame, sca)
-        store_frame(lens_cache, frame, focal_length)
-        store_frame(dof_cache, frame, 1.0 if dof_enable else 0.0)
-        store_frame(focus_distance_cache, frame, dof_focus)
+        store_frame(camera, loc_cache, frame, loc)
+        store_frame(camera, rot_cache, frame, rot)
+        store_frame(camera, sca_cache, frame, sca)
+        store_frame(camera, lens_cache, frame, focal_length)
+        store_frame(camera, dof_cache, frame, 1.0 if dof_enable else 0.0)
+        store_frame(camera, focus_distance_cache, frame, dof_focus)
         blur = (dof_far_blur + dof_near_blur) / 2
         transition = (dof_far_transition + dof_near_transition) / 2
         f_stop = transition
-        store_frame(f_stop_cache, frame, f_stop)
+        store_frame(camera, f_stop_cache, frame, f_stop)
 
     ob_action, cam_action, ob_slot, cam_slot = prep_rlx_actions(camera, name, "Export",
                                                                 reuse_existing=False,
                                                                 timestamp=True)
     add_cache_fcurves(ob_action, "location", loc_cache, num_frames, "Location", slot=ob_slot)
-    add_cache_fcurves(ob_action, "rotation_quaternion", rot_cache, num_frames, "Rotation Quaternion", slot=ob_slot)
+    add_cache_rotation_fcurves(camera, ob_action, rot_cache, num_frames, slot=ob_slot)
     add_cache_fcurves(ob_action, "scale", sca_cache, num_frames, "Scale", slot=ob_slot)
     add_cache_fcurves(cam_action, "lens", lens_cache, num_frames, "Camera", slot=cam_slot)
     add_cache_fcurves(cam_action, "dof.use_dof", dof_cache, num_frames, "DOF", slot=cam_slot)
     add_cache_fcurves(cam_action, "dof.focus_distance", focus_distance_cache, num_frames, "DOF", slot=cam_slot)
     add_cache_fcurves(cam_action, "dof.f_stop", f_stop_cache, num_frames, "DOF", slot=cam_slot)
+
+
+def frame_rotation_cache(obj, frames):
+    if obj.rotation_mode == "QUATERNION":
+        indices = 4
+        defaults = [1,0,0,0]
+    elif obj.rotation_mode == "AXIS_ANGLE":
+        indices = 4
+        defaults = [0,0,1,0]
+    else: # transform_object.rotation_mode in [ "XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX" ]:
+        indices = 3
+        defaults = [0,0,0]
+    cache = []
+    for i in range(0, indices):
+        data = [0, defaults[i]] * frames
+        for j in range(0, frames):
+            data[j * 2] = j
+        cache.append(data)
+    return cache
 
 
 def frame_cache(frames, indices=1, default_value=0.0):
@@ -345,14 +364,55 @@ def frame_cache(frames, indices=1, default_value=0.0):
     return cache
 
 
-def store_frame(cache, frame, value):
+def store_frame(obj, cache, frame, value):
     T = type(value)
-    if T is Vector or T is Color or T is Quaternion:
+    index = frame * 2
+    if T is Quaternion:
+        if obj.rotation_mode == "QUATERNION":
+            l = len(value)
+            for i in range(0, l):
+                curve = cache[i]
+                curve[index] = frame
+                curve[index + 1] = value[i]
+        elif obj.rotation_mode == "AXIS_ANGLE":
+            # convert quaternion to angle axis
+            v,a = value.to_axis_angle()
+            l = len(v)
+            for i in range(0, l):
+                curve = cache[i]
+                curve[index] = frame
+                curve[index + 1] = v[i]
+            curve = cache[3]
+            curve[index] = frame
+            curve[index + 1] = a
+        else:
+            euler = value.to_euler(obj.rotation_mode)
+            l = len(euler)
+            for i in range(0, l):
+                curve = cache[i]
+                curve[index] = frame
+                curve[index + 1] = euler[i]
+    elif T is Vector or T is Color:
         l = len(value)
         for i in range(0, l):
-            cache[i][frame * 2 + 1] = value[i]
+            cache[i][index] = frame
+            cache[i][index + 1] = value[i]
     else:
-        cache[0][frame * 2 + 1] = value
+        cache[0][index] = frame
+        cache[0][index + 1] = value
+
+
+def add_cache_rotation_fcurves(obj, action: bpy.types.Action, cache, num_frames, slot=None):
+    if obj.rotation_mode == "QUATERNION":
+        data_path = obj.path_from_id("rotation_quaternion")
+        group_name = "Rotation Quaternion"
+    elif obj.rotation_mode == "AXIS_ANGLE":
+        data_path = obj.path_from_id("rotation_axis_angle")
+        group_name = "Rotation Axis-Angle"
+    else: # Euler
+        data_path = obj.path_from_id("rotation_euler")
+        group_name = "Rotation Euler"
+    add_cache_fcurves(action, data_path, cache, num_frames, group_name=group_name, slot=slot)
 
 
 def add_cache_fcurves(action: bpy.types.Action, data_path, cache, num_frames, group_name=None, slot=None):

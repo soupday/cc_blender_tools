@@ -153,7 +153,7 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
     rect_controls = {}
 
     facial_profile, viseme_profile = chr_cache.get_facial_profile()
-    print(f"Building Expression Rig for facial profile: {facial_profile}")
+    utils.log_info(f"Building Expression Rig for facial profile: {facial_profile}")
 
     if rigutils.edit_rig(rigify_rig):
         # place the face rig parent at eye level
