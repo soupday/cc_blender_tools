@@ -193,13 +193,14 @@ class LinkActor():
         utils.log_detail(f"Looking for LinkActor: {search_name} {link_id} {search_type}")
         actor: LinkActor = None
 
-        if search_type == "LIGHT" or search_type == "CAMERA":
-            for obj in bpy.data.objects:
-                obj_link_id = utils.get_rl_link_id(obj)
-                if obj_link_id == link_id:
-                    actor = LinkActor(obj)
-                    utils.log_detail(f"Staging (Light/Camera) found by link_id: {actor.name} / {link_id}")
-                    return actor
+        for obj in bpy.data.objects:
+            if obj.type == "LIGHT" or obj.type == "CAMERA":
+                if not search_type or (obj.type == search_type):
+                    obj_link_id = utils.get_rl_link_id(obj)
+                    if obj_link_id is not None and link_id == obj_link_id:
+                        actor = LinkActor(obj)
+                        utils.log_detail(f"Staging (Light/Camera) found by link_id: {actor.name} / {link_id}")
+                        return actor
 
         chr_cache = props.find_character_by_link_id(link_id)
         if chr_cache:
@@ -312,7 +313,7 @@ class LinkActor():
         for id, id_def in self.id_map.items():
             if id_def["mesh"]:
                 obj = bpy.data.objects[id_def["name"]]
-                skin_meshes[id] = [obj, Vector((0,0,0), Quaternion((1,0,0,0)), Vector(1,1,1))]
+                skin_meshes[id] = [obj, Vector((0,0,0)), Quaternion((1,0,0,0)), Vector((1,1,1))]
         self.skin_meshes = skin_meshes
 
     def set_id_tree(self, bones, ids, id_tree):
@@ -1260,9 +1261,13 @@ def store_light_cache_keyframes(actor: LinkActor, frame):
     transform_cache = actor.cache["transform"]
     light_cache = actor.cache["light"]
     start = actor.cache["start"]
-    store_cache_curves_frame(transform_cache, "loc", frame, start, light.location)
-    store_cache_curves_frame(transform_cache, "rot", frame, start, light.rotation_quaternion)
-    store_cache_curves_frame(transform_cache, "sca", frame, start, light.scale)
+    M: Matrix = light.matrix_local
+    loc = M.to_translation()
+    rot = M.to_quaternion()
+    sca = M.to_scale()
+    store_cache_curves_frame(transform_cache, "loc", frame, start, loc)
+    store_cache_curves_frame(transform_cache, "rot", frame, start, rot)
+    store_cache_curves_frame(transform_cache, "sca", frame, start, sca)
     store_cache_curves_frame(light_cache, "color", frame, start, data.color)
     store_cache_curves_frame(light_cache, "energy", frame, start, data.energy)
     store_cache_curves_frame(light_cache, "cutoff_distance", frame, start, data.cutoff_distance)
@@ -1282,9 +1287,13 @@ def store_camera_cache_keyframes(actor: LinkActor, frame):
     transform_cache = actor.cache["transform"]
     camera_cache = actor.cache["camera"]
     start = actor.cache["start"]
-    store_cache_curves_frame(transform_cache, "loc", frame, start, camera.location)
-    store_cache_curves_frame(transform_cache, "rot", frame, start, camera.rotation_quaternion)
-    store_cache_curves_frame(transform_cache, "sca", frame, start, camera.scale)
+    M: Matrix = camera.matrix_local
+    loc = M.to_translation()
+    rot = M.to_quaternion()
+    sca = M.to_scale()
+    store_cache_curves_frame(transform_cache, "loc", frame, start, loc)
+    store_cache_curves_frame(transform_cache, "rot", frame, start, rot)
+    store_cache_curves_frame(transform_cache, "sca", frame, start, sca)
     store_cache_curves_frame(camera_cache, "lens", frame, start, data.lens)
     store_cache_curves_frame(camera_cache, "dof", frame, start, 1.0 if data.dof.use_dof else 0.0)
     store_cache_curves_frame(camera_cache, "focus_distance", frame, start, data.dof.focus_distance)
@@ -3054,6 +3063,8 @@ class LinkService():
 
         lights_data = decode_to_json(data)
 
+        utils.log_info(f"Light Decoded, Use Lights: {lights_data['use_lights']}")
+
         ambient_color = utils.array_to_color(lights_data["ambient_color"])
         ambient_strength = 0.125 + ambient_color.v
 
@@ -3791,7 +3802,7 @@ class LinkService():
         self.do_motion_import(link_id, fbx_path, character_type)
 
     def do_motion_import(self, link_id, fbx_path, character_type):
-        actor = LinkActor.find_actor(link_id)
+        actor = LinkActor.find_actor(link_id, search_type=character_type)
         update_link_status(f"Receving Motion Import: {actor.name}")
 
         if actor.get_type() != character_type:

@@ -1190,19 +1190,8 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
     # exclude non-exportable objects
     to_remove = []
     for obj in objects:
-        # exclude rigid body colliders (parented to armature)
-        if collider_collection and obj.name in collider_collection.objects:
-            utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
-            to_remove.append(obj)
-            continue
-        # exclude collider proxies
-        if chr_cache and chr_cache.is_collision_object(obj):
-            utils.log_info(f"   Excluding Collider Proxy Object: {obj.name}")
-            to_remove.append(obj)
-            continue
-        # exclude sculpt objects
-        if chr_cache and chr_cache.is_sculpt_object(obj):
-            utils.log_info(f"   Excluding Sculpt Object: {obj.name}")
+        if chr_cache and chr_cache.is_related_object(obj):
+            utils.log_info(f"   Excluding Related Object: {obj.name}")
             to_remove.append(obj)
             continue
     for o in to_remove:

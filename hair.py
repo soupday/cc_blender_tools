@@ -17,7 +17,7 @@
 import bpy, bmesh
 import os, math, random
 from mathutils import Vector
-from . import physics, rigidbody, springbones, modifiers, geom, utils, jsonutils, bones, meshutils, vars
+from . import springbones, modifiers, geom, utils, jsonutils, bones, meshutils, vars
 
 
 STROKE_JOIN_THRESHOLD = 1.0 / 100.0 # 1cm

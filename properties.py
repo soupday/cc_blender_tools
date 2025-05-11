@@ -17,7 +17,7 @@
 import bpy, os, socket
 from mathutils import Vector
 
-from . import (channel_mixer, imageutils, meshutils, sculpting, materials,
+from . import (channel_mixer, imageutils, meshutils, sculpting, materials, rigidbody,
                facerig, springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
 from .meshutils import get_head_body_object_quick
@@ -1888,16 +1888,27 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         result = ("rl_collision_proxy" in obj or obj.name.endswith("_Collision_Proxy") or is_proxy)
         return result
 
+    def is_rigidbody_collider(self, obj):
+        collider_collection = rigidbody.get_rigidbody_collider_collection()
+        if collider_collection and obj.name in collider_collection.objects:
+            return True
+        return False
+
     def is_related_object(self, obj):
+        """Objects not directly part of the character, but related to or used by the character in Blender.
+           If selected should indicate this chr_cache as the selected character.
+           These objects should not be exported."""
         if self.is_sculpt_object(obj):
             return True
         elif self.is_collision_object(obj):
             return True
-        elif self.rig_meta_rig == obj:
+        elif self.rig_meta_rig and self.rig_meta_rig == obj:
             return True
-        elif self.arkit_proxy == obj:
+        elif self.arkit_proxy and (self.arkit_proxy == obj or self.arkit_proxy == obj.parent):
             return True
-        elif self.rig_original_rig == obj:
+        elif self.rigified and self.rig_original_rig and self.rig_original_rig == obj:
+            return True
+        elif self.is_rigidbody_collider(obj):
             return True
         return False
 

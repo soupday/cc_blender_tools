@@ -20,9 +20,9 @@ import bpy
 from enum import IntEnum, IntFlag
 
 from . import (rlx, characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
-               facerig, modifiers, wrinkle, drivers, meshutils, nodeutils, physics,
+               facerig, modifiers, wrinkle, drivers, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
-               basic, properties, lib, utils, vars)
+               basic, lib, utils, vars)
 
 debug_counter = 0
 
@@ -1177,7 +1177,7 @@ class CC3Import(bpy.types.Operator):
 
     def build_materials(self, context):
         objects_processed = []
-        props: properties.CC3ImportProps = vars.props()
+        props = vars.props()
         prefs = vars.prefs()
 
         utils.start_timer()
@@ -1196,7 +1196,6 @@ class CC3Import(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             imported_characters = [ chr_cache ]
 
-        chr_cache: properties.CC3CharacterCache
         for chr_cache in imported_characters:
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
@@ -1263,7 +1262,7 @@ class CC3Import(bpy.types.Operator):
 
 
     def build_drivers(self, context, rebuild_wrinkle=False):
-        props: properties.CC3ImportProps = vars.props()
+        props = vars.props()
         prefs = vars.prefs()
 
         utils.start_timer()
@@ -1278,7 +1277,6 @@ class CC3Import(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             imported_characters = [ chr_cache ]
 
-        chr_cache: properties.CC3CharacterCache
         for chr_cache in imported_characters:
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
@@ -1327,7 +1325,7 @@ class CC3Import(bpy.types.Operator):
 
 
     def remove_drivers(self, context):
-        props: properties.CC3ImportProps = vars.props()
+        props = vars.props()
 
         utils.start_timer()
 
@@ -1341,7 +1339,6 @@ class CC3Import(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             imported_characters = [ chr_cache ]
 
-        chr_cache: properties.CC3CharacterCache
         for chr_cache in imported_characters:
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue

@@ -38,6 +38,7 @@ Links
     - Meta-human like facial expression rig for Extended, Standard and Traditional facial profiles.
     - Expression rig supports retargeting, datalink motion transfer and Pose/Sequences to and from CC4/iClone8.
     - Options to adjust control colours, and face rig placement and attachment to character.
+    - Supports ActorCore, ActorScan and ActorBuild characters.
     - The expression rig allows for more advanced targeting and transfer, for now:
     - ARKit Proxy:
         - The ARKit proxy can be used as a target for LiveLink face transfer (e.g. from Face-it add-on)

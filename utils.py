@@ -1509,11 +1509,11 @@ def get_context_character(context, strict=False):
         # if the context object is an armature or child of armature that is not part of this chr_cache
         # clear the chr_cache, as this is a separate generic character.
         if obj and not obj_cache:
-            if obj.type == "ARMATURE" and obj != arm and not chr_cache.is_related_object(obj):
-                chr_cache = None
-            elif obj.type == "MESH" and obj.parent and obj.parent != arm:
-                chr_cache = None
-
+            if not chr_cache.is_related_object(obj):
+                if obj.type == "ARMATURE" and obj != arm:
+                    chr_cache = None
+                elif obj.type == "MESH" and obj.parent and obj.parent != arm:
+                    chr_cache = None
 
     # if strict only return chr_cache from valid object_cache context object
     # otherwise it could return the first and only chr_cache

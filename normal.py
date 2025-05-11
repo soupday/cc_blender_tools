@@ -1,7 +1,6 @@
 import bpy
 from mathutils import Vector
 from . import nodeutils, utils, vars
-from .properties import CC3CharacterCache, CC3MaterialCache
 
 def normal_to_height(normal_image: bpy.types.Image, height_image: bpy.types.Image, iterations = 10):
 
@@ -85,7 +84,7 @@ def normal_to_height(normal_image: bpy.types.Image, height_image: bpy.types.Imag
     height_image.pixels[:] = pixels
 
 
-def build_displacement_system(chr_cache: CC3CharacterCache, mat_cache: CC3MaterialCache):
+def build_displacement_system(chr_cache, mat_cache):
 
     mat: bpy.types.Material = mat_cache.material
     nodes = mat.node_tree.nodes

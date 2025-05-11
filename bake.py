@@ -17,7 +17,7 @@
 import bpy
 import os
 from mathutils import Vector
-from . import normal, colorspace, imageutils, wrinkle, nodeutils, properties, materials, utils, params, vars
+from . import normal, colorspace, imageutils, wrinkle, nodeutils, materials, utils, params, vars
 from .exporter import get_export_objects
 
 BAKE_SAMPLES = 4

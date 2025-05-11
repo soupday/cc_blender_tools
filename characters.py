@@ -22,7 +22,6 @@ from . import (springbones, rigidbody, materials, modifiers, meshutils, geom, bo
                shaders, basic, imageutils, nodeutils, jsonutils, lib, utils, vars)
 
 from mathutils import Vector, Matrix, Quaternion
-import mathutils.geometry
 
 MANDATORY_OBJECTS = ["BODY", "TEETH", "TONGUE", "TEARLINE", "OCCLUSION", "EYE"]
 
