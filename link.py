@@ -3063,6 +3063,8 @@ class LinkService():
 
         lights_data = decode_to_json(data)
 
+        utils.log_info(f"Light Decoded, Use Lights: {lights_data['use_lights']}")
+
         ambient_color = utils.array_to_color(lights_data["ambient_color"])
         ambient_strength = 0.125 + ambient_color.v
 
