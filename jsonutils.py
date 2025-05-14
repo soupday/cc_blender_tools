@@ -369,6 +369,8 @@ def get_material_json_var(mat_json, var_path: str):
     var_name = paths[1]
     if var_type == "Custom":
         return get_shader_var(mat_json, var_name)
+    elif var_type == "Reflection":
+        return get_direct_shader_var(mat_json, var_name)
     elif var_type == "SSS":
         return get_sss_var(mat_json, var_name)
     elif var_type == "Pbr":
@@ -382,6 +384,15 @@ def get_shader_var(mat_json, var_name):
         return None
     try:
         return mat_json["Custom Shader"]["Variable"][var_name]
+    except:
+        return None
+
+
+def get_direct_shader_var(mat_json, var_name):
+    if not mat_json:
+        return None
+    try:
+        return mat_json["Custom Shader"][var_name]
     except:
         return None
 

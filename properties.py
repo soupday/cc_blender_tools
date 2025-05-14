@@ -676,7 +676,7 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                             default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                             update=lambda s,c: update_property(s,c,"skin_emissive_color"))
-    skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
+    skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_head_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
     skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
@@ -729,7 +729,7 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                             default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                             update=lambda s,c: update_property(s,c,"skin_emissive_color"))
-    skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
+    skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_skin_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=25, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
     skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
@@ -780,10 +780,10 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_color_blend_strength: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_color_blend_strength"))
     eye_sclera_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sclera_emissive_color"))
-    eye_sclera_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_emission_strength"))
+    eye_sclera_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"eye_sclera_emission_strength"))
     eye_iris_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_emissive_color"))
-    eye_iris_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_emission_strength"))
+    eye_iris_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"eye_iris_emission_strength"))
     eye_sclera_normal_strength: bpy.props.FloatProperty(default=0.1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_sclera_normal_strength"))
     eye_sclera_normal_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_normal_tiling"))
     # non shader properties
@@ -864,7 +864,7 @@ class CC3TeethParameters(bpy.types.PropertyGroup):
     teeth_micro_normal_tiling: bpy.props.FloatProperty(default=10, min=0, max=20, update=lambda s,c: update_property(s,c,"teeth_micro_normal_tiling"))
     teeth_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"teeth_emissive_color"))
-    teeth_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_emission_strength"))
+    teeth_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"teeth_emission_strength"))
 
 
 class CC3TongueParameters(bpy.types.PropertyGroup):
@@ -890,7 +890,7 @@ class CC3TongueParameters(bpy.types.PropertyGroup):
     tongue_micro_normal_tiling: bpy.props.FloatProperty(default=4, min=0, max=20, update=lambda s,c: update_property(s,c,"tongue_micro_normal_tiling"))
     tongue_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"tongue_emissive_color"))
-    tongue_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_emission_strength"))
+    tongue_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"tongue_emission_strength"))
 
 
 class CC3HairParameters(bpy.types.PropertyGroup):
@@ -961,7 +961,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"hair_emissive_color"))
-    hair_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_emission_strength"))
+    hair_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"hair_emission_strength"))
     # not done yet
     hair_enable_color: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_enable_color"))
     hair_tangent_vector: bpy.props.FloatVectorProperty(subtype="XYZ", size=3,
@@ -980,7 +980,7 @@ class CC3PBRParameters(bpy.types.PropertyGroup):
     default_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend_multiply_strength"))
     default_metallic: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_metallic"))
     default_specular: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular"))
-    default_roughness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
+    default_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
     default_specular_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_strength"))
     default_specular_scale: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular_scale"))
     default_specular_mask: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_mask"))
@@ -996,7 +996,9 @@ class CC3PBRParameters(bpy.types.PropertyGroup):
     default_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_emissive_color"))
-    default_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_emission_strength"))
+    default_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"default_emission_strength"))
+    default_reflection_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_reflection_strength"))
+    default_reflection_blur: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_reflection_blur"))
 
 
 class CC3SSSParameters(bpy.types.PropertyGroup):
@@ -1013,7 +1015,7 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend_multiply_strength"))
     default_metallic: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_metallic"))
     default_specular: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular"))
-    default_roughness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
+    default_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
     default_specular_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_strength"))
     default_specular_scale: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular_scale"))
     default_specular_mask: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_mask"))
@@ -1029,7 +1031,7 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_emissive_color"))
-    default_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_emission_strength"))
+    default_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"default_emission_strength"))
     default_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 1, 1, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_subsurface_falloff"))
@@ -1048,6 +1050,8 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_b_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"default_b_roughness_mod"))
     default_a_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"default_a_roughness_mod"))
     default_micro_normal_tiling: bpy.props.FloatProperty(default=5, min=0, max=50, update=lambda s,c: update_property(s,c,"default_micro_normal_tiling"))
+    default_reflection_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_reflection_strength"))
+    default_reflection_blur: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_reflection_blur"))
 
 
 class CC3BasicParameters(bpy.types.PropertyGroup):

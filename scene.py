@@ -269,9 +269,16 @@ def compositor_setup(context):
     c_node.location = (150,140)
     glare_node.location = (-430,230)
     lens_node.location = (-100,150)
-    glare_node.glare_type = 'FOG_GLOW'
-    glare_node.quality = 'HIGH'
-    glare_node.threshold = 0.85
+    try:
+        glare_node.glare_type = 'BLOOM'
+        glare_node.quality = 'HIGH'
+    except:
+        glare_node.glare_type = 'FOG_GLOW'
+        glare_node.quality = 'HIGH'
+        glare_node.threshold = 0.85
+    nodeutils.set_node_input_value(glare_node, "Threshold", 1.5)
+    nodeutils.set_node_input_value(glare_node, "Strength", 0.5)
+    nodeutils.set_node_input_value(glare_node, "Saturation", 1.0)
     lens_node.use_fit = True
     nodeutils.set_node_input_value(lens_node, "Dispersion", 0.025)
     nodeutils.link_nodes(links, rlayers_node, "Image", glare_node, "Image")
