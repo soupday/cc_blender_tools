@@ -1142,6 +1142,7 @@ def make_widget_collection(collection_name) -> bpy.types.Collection:
         if collection.name.startswith(collection_name):
             wgt_collection = collection
     if not wgt_collection:
+        active_collection = utils.get_active_layer_collection()
         wgt_collection = bpy.data.collections.new(collection_name)
         bpy.context.scene.collection.children.link(wgt_collection)
         wgt_collection.hide_render = True
@@ -1149,6 +1150,7 @@ def make_widget_collection(collection_name) -> bpy.types.Collection:
         for collection in layer_collections:
             collection.exclude = True
             collection.hide_viewport = True
+        utils.set_active_layer_collection(active_collection)
     return wgt_collection
 
 

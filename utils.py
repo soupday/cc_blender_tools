@@ -2089,6 +2089,10 @@ def set_active_layer_collection(layer_collection):
      return old
 
 
+def get_active_layer_collection():
+     return bpy.context.view_layer.active_layer_collection
+
+
 def set_active_layer_collection_from(obj):
     nlc = find_layer_collection_containing(obj)
     return set_active_layer_collection(nlc)

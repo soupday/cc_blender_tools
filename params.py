@@ -1319,6 +1319,11 @@ SHADER_MATRIX = [
             ["Displacement Strength", "func_divide_200", "default_displacement_strength"],
             ["Displacement Base", "", "default_displacement_base"],
         ],
+        # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
+        "bsdf": [
+            ["Clearcoat", "", "default_reflection_strength"],
+            ["Clearcoat Roughness", "", "default_reflection_blur"],
+        ],
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
         "textures": [
@@ -1349,6 +1354,8 @@ SHADER_MATRIX = [
             ["default_bump_strength", 1, "func_divide_2", "Pbr/Bump"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             ["default_metallic", 0, "", "Pbr/Metallic"],
+            ["default_reflection_strength", 0, "", "Reflection/Reflection Strength"],
+            ["default_reflection_blur", 0, "", "Reflection/Reflection Blur"],
             # non json properties (just defaults)
             ["default_ao_power", 1, "DEF"],
             ["default_specular_scale", 1.0, "DEF"],
@@ -1357,7 +1364,7 @@ SHADER_MATRIX = [
             ["default_roughness_max", 1, "DEF"],
             ["default_emissive_color", (1,1,1,1), "DEF"],
             ["default_specular", 0.5, "DEF"],
-            ["default_roughness", 0.5, "DEF"],
+            ["default_roughness", 0.0, "DEF"],
         ],
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
@@ -1382,6 +1389,8 @@ SHADER_MATRIX = [
             ["PROP", "*Roughness Power", "default_roughness_power", True],
             ["PROP", "Roughness Min", "default_roughness_min", True],
             ["PROP", "Roughness Max", "default_roughness_max", True],
+            ["PROP", "Coat Strength", "default_reflection_strength", True],
+            ["PROP", "Coat Roughness", "default_reflection_blur", True],
             ["HEADER",  "Opacity", "MOD_OPACITY"],
             ["PROP", "Alpha Strength", "default_alpha_strength", True],
             ["PROP", "Opacity", "default_opacity", True],
@@ -1459,7 +1468,9 @@ SHADER_MATRIX = [
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
-            ["Subsurface Radius", "func_sss_radius_default_eevee", "default_subsurface_radius", "default_subsurface_falloff"]
+            ["Subsurface Radius", "func_sss_radius_default_eevee", "default_subsurface_radius", "default_subsurface_falloff"],
+            ["Clearcoat", "", "default_reflection_strength"],
+            ["Clearcoat Roughness", "", "default_reflection_blur"],
         ],
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
@@ -1515,10 +1526,12 @@ SHADER_MATRIX = [
             ["default_displacement_strength", 0, "", "Pbr/Displacement"],
             ["default_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
             ["default_bump_strength", 1, "func_divide_2", "Pbr/Bump"],
+            ["default_reflection_strength", 0, "", "Reflection/Reflection Strength"],
+            ["default_reflection_blur", 0, "", "Reflection/Reflection Blur"],
             # non json properties (just defaults)
             ["default_ao_power", 1, "DEF"],
             ["default_specular", 0.5, "DEF"],
-            ["default_roughness", 0.5, "DEF"],
+            ["default_roughness", 0.0, "DEF"],
             ["default_hue", 0.5, "", "/Diffuse Hue"],
             ["default_saturation", 1.0, "func_saturation_mod", "/Diffuse Saturation"],
             ["default_brightness", 1.0, "func_brightness_mod", "/Diffuse Brightness"],
@@ -1560,6 +1573,8 @@ SHADER_MATRIX = [
             ["PROP", "*Roughness Power", "default_roughness_power", True],
             ["PROP", "Roughness Min", "default_roughness_min", True],
             ["PROP", "Roughness Max", "default_roughness_max", True],
+            ["PROP", "Coat Strength", "default_reflection_strength", True],
+            ["PROP", "Coat Roughness", "default_reflection_blur", True],
             ["SPACER"],
             ["PROP", "Micro Roughness Mod", "default_micro_roughness_mod", True],
             ["PROP", "R Roughness Mod", "default_r_roughness_mod", True, "RGBA Map"],

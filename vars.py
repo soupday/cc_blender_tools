@@ -58,7 +58,7 @@ TEETH_SSS_RADIUS_SCALE = 0.01
 TONGUE_SSS_RADIUS_SCALE = 0.01
 HAIR_SSS_RADIUS_SCALE = 0.01
 EYES_SSS_RADIUS_SCALE = 0.01 / 5.0
-EMISSION_SCALE = 3.0
+EMISSION_SCALE = 50.0
 SSS_CYCLES_MOD = 1 #0.05
 
 # https://docs.blender.org/manual/en/latest/files/media/image_formats.html
