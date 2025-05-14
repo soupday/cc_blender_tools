@@ -59,7 +59,7 @@ Links
 - Partial fix to incorrect prop mesh positioning due to bugged exports from iClone.
 - Fix to incorrect embedded alpha channels from FBX importer.
 - Fix to embedded alpha channel custom UV mappings.
-- Emission rework, as multiplier on base color.
+- Emission rework, as multiplier on base color, with expanded strength.
 - Reflection surface supported as clearcoat.
 
 
