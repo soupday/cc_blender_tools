@@ -1281,6 +1281,13 @@ class CC3Import(bpy.types.Operator):
 
                     chr_cache.build_count += 1
 
+            for obj in objects_processed:
+                obj.update_tag()
+            for mat in processed_materials:
+                mat.update_tag()
+
+        bpy.context.view_layer.update()
+
         # enable SSR
         if prefs.refractive_eyes == "SSR":
             if not utils.B420():

@@ -52,6 +52,13 @@ def exec_var_param(var_def, mat_cache, mat_json):
         func = var_def[2]
         args = var_def[3:]
 
+        if type(default_value) is list:
+            material_type = jsonutils.get_json(mat_json, "Material Type")
+            if material_type == "Tra":
+                default_value = default_value[1]
+            else:
+                default_value = default_value[0]
+
         exec_expression = str(default_value)
 
         if mat_json:
@@ -239,29 +246,35 @@ def apply_prop_matrix(bsdf_node, group_node, mat_cache, shader_name):
 
     if group_node and matrix_group and "inputs" in matrix_group.keys():
         for input_def in matrix_group["inputs"]:
-            if input_def[0] in group_node.inputs:
+            socket_name = input_def[0]
+            socket = nodeutils.input_socket(group_node, socket_name)
+            if socket:
                 prop_value = eval_input_param(input_def, mat_cache)
                 if prop_value is not None:
-                    nodeutils.set_node_input_value(group_node, input_def[0], prop_value)
+                    nodeutils.set_node_input_value(group_node, socket, prop_value)
 
     if bsdf_node and matrix_group and "bsdf" in matrix_group.keys():
         bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
         for input_def in matrix_group["bsdf"]:
+            socket_name = input_def[0]
             for n in bsdf_nodes:
-                if input_def[0] in n.inputs:
+                socket = nodeutils.input_socket(n, socket_name)
+                if socket:
                     prop_value = eval_input_param(input_def, mat_cache)
                     if prop_value is not None:
-                        nodeutils.set_node_input_value(n, input_def[0], prop_value)
+                        nodeutils.set_node_input_value(n, socket, prop_value)
 
 
 def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
     matrix_group = params.get_shader_def(shader_name)
     if matrix_group and "inputs" in matrix_group.keys():
-        for input in matrix_group["inputs"]:
-            if input[0] in node.inputs:
-                prop_value = eval_input_param(input, mat_cache)
+        for input_def in matrix_group["inputs"]:
+            socket_name = input_def[0]
+            socket = nodeutils.input_socket(node, socket_name)
+            if socket:
+                prop_value = eval_input_param(input_def, mat_cache)
                 if prop_value is not None:
-                    nodeutils.set_node_input_value(node, input[0], prop_value)
+                    nodeutils.set_node_input_value(node, socket, prop_value)
 
 
 # Prop matrix eval, parameter conversion functions
