@@ -691,6 +691,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
 
     tiling = (1, 1, 1)
     offset = (0, 0, 0)
+    rotation = (0, 0, 0)
 
     # fetch any tiling and offset from the json data (if available)
     if tex_json:
@@ -707,6 +708,15 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
                 offset.append(0)
             if offset != [0,0,0]:
                 tiling_mode = "OFFSET"
+    elif mat_cache:
+        for tex_mapping in mat_cache.texture_mappings:
+            if tex_mapping:
+                if tex_mapping.image == node.image:
+                    tiling = tex_mapping.scale
+                    offset = tex_mapping.location
+                    rotation = tex_mapping.rotation
+                    tiling_mode = "OFFSET"
+                    break
 
     # evaluate any tiling parameter from the texture def
     if len(texture_def) > 5:
@@ -873,6 +883,12 @@ def apply_texture_matrix(nodes, links, shader_node,
                     image_id = "(" + tex_type + ")"
                     image_node = nodeutils.get_node_by_id(nodes, image_id)
 
+                    # if using json, assume if no tex_json then there is no texture in this socket
+                    # this should prevent rogue diffuse alpha channels getting set into alpha channels
+                    # (The FBX import will do this)
+                    if mat_json and not tex_json:
+                        continue
+
                     # for user added materials, don't mess with the users textures...
                     image = None
                     if image_node and image_node.image and mat_cache.user_added:
@@ -933,7 +949,7 @@ def apply_texture_matrix(nodes, links, shader_node,
                             y -= 700
 
                         set_image_node_tiling(nodes, links, image_node, mat_cache, texture_def,
-                                            shader_name, tex_json)
+                                              shader_name, tex_json)
 
                         # ensure bump maps are connected to the correct socket
                         if socket_name == "Normal Map" and suffix and suffix.lower() == "bump":

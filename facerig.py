@@ -1436,10 +1436,10 @@ class TCurve():
         fcurve.keyframe_points.foreach_set('co', fcurve_data)
 
     def dump(self):
-        print(self.name)
-        print(self.length)
+        utils.log_always(self.name)
+        utils.log_always(self.length)
         for i, (f, v) in enumerate(self.points):
-            print(i, f, v)
+            utils.log_always(i, f, v)
             if i > 10:
                 return
 

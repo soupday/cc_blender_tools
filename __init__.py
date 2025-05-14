@@ -22,6 +22,7 @@ if "bpy" in locals():
     importlib.reload(params)
     importlib.reload(utils)
     importlib.reload(lib)
+    importlib.reload(cc)
     importlib.reload(jsonutils)
     importlib.reload(nodeutils)
     importlib.reload(imageutils)
@@ -70,6 +71,7 @@ from . import vars
 from . import params
 from . import utils
 from . import lib
+from . import cc
 from . import jsonutils
 from . import nodeutils
 from . import imageutils

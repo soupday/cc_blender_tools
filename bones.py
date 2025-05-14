@@ -1160,11 +1160,16 @@ def add_widget_to_collection(widget, collection_name=None, collection_suffix=Non
         for collection in bpy.data.collections:
             if remove_other and collection != widget_collection and widget.name in collection.objects:
                 collection.objects.unlink(widget)
+        collection = bpy.context.scene.collection
+        if remove_other and widget.name in collection.objects:
+            collection.objects.unlink(widget)
     if collection_suffix:
         for collection in bpy.data.collections:
             if collection.name.startswith(collection_suffix):
                 collection.objects.link(widget)
             elif remove_other and widget.name in collection.objects:
+                collection.objects.unlink(widget)
+            if remove_other and widget.name in collection.objects:
                 collection.objects.unlink(widget)
 
 

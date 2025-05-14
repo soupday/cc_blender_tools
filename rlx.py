@@ -212,10 +212,13 @@ def import_rlx_light(data: BinaryData, data_folder):
     spot_size_cache = frame_cache(num_frames)
 
     frame = 0
+    start = None
     while not frames.eof():
         frame += 1
         time = frames.time()
         frame = frames.int()
+        if start is None:
+            start = frame
         active = frames.bool()
         loc = frames.vector() / 100
         rot = frames.quaternion()
@@ -230,27 +233,27 @@ def import_rlx_light(data: BinaryData, data_folder):
         if not active:
             multiplier = 0.0
         cutoff_distance = range
-        store_frame(light, loc_cache, frame, loc)
-        store_frame(light, rot_cache, frame, rot)
-        store_frame(light, sca_cache, frame, sca)
-        store_frame(light, color_cache, frame, color)
-        store_frame(light, cutoff_distance_cache, frame, cutoff_distance)
+        store_frame(light, loc_cache, frame, start, loc)
+        store_frame(light, rot_cache, frame, start, rot)
+        store_frame(light, sca_cache, frame, start, sca)
+        store_frame(light, color_cache, frame, start, color)
+        store_frame(light, cutoff_distance_cache, frame, start, cutoff_distance)
         if light_type == "SUN":
             energy = SUN_SCALE * multiplier
-            store_frame(light, energy_cache, frame, energy)
+            store_frame(light, energy_cache, frame, start, energy)
         elif light_type == "SPOT":
             energy = ENERGY_SCALE * multiplier
             spot_blend = (falloff + attenuation) / 2
             spot_size = angle
-            store_frame(light, energy_cache, frame, energy)
-            store_frame(light, spot_blend_cache, frame, spot_blend)
-            store_frame(light, spot_size_cache, frame, spot_size)
+            store_frame(light, energy_cache, frame, start, energy)
+            store_frame(light, spot_blend_cache, frame, start, spot_blend)
+            store_frame(light, spot_size_cache, frame, start, spot_size)
         elif light_type == "AREA":
             energy = ENERGY_SCALE * multiplier
-            store_frame(light, energy_cache, frame, energy)
+            store_frame(light, energy_cache, frame, start, energy)
         elif light_type == "POINT":
             energy = ENERGY_SCALE * multiplier
-            store_frame(light, energy_cache, frame, energy)
+            store_frame(light, energy_cache, frame, start, energy)
 
     ob_action, light_action, ob_slot, light_slot = prep_rlx_actions(light, name, "Export",
                                                                     reuse_existing=False,
@@ -295,10 +298,13 @@ def import_rlx_camera(data: BinaryData, data_folder):
     f_stop_cache = frame_cache(num_frames)
 
     frame = 0
+    start = None
     while not frames.eof():
         frame += 1
         time = frames.time()
         frame = frames.int()
+        if start is None:
+            start = frame
         loc = frames.vector() / 100
         rot = frames.quaternion()
         sca = frames.vector()
@@ -312,16 +318,16 @@ def import_rlx_camera(data: BinaryData, data_folder):
         dof_near_transition = frames.float() / 100
         dof_min_blend_distance = frames.float()
         fov = frames.float()
-        store_frame(camera, loc_cache, frame, loc)
-        store_frame(camera, rot_cache, frame, rot)
-        store_frame(camera, sca_cache, frame, sca)
-        store_frame(camera, lens_cache, frame, focal_length)
-        store_frame(camera, dof_cache, frame, 1.0 if dof_enable else 0.0)
-        store_frame(camera, focus_distance_cache, frame, dof_focus)
+        store_frame(camera, loc_cache, frame, start, loc)
+        store_frame(camera, rot_cache, frame, start, rot)
+        store_frame(camera, sca_cache, frame, start, sca)
+        store_frame(camera, lens_cache, frame, start, focal_length)
+        store_frame(camera, dof_cache, frame, start, 1.0 if dof_enable else 0.0)
+        store_frame(camera, focus_distance_cache, frame, start, dof_focus)
         blur = (dof_far_blur + dof_near_blur) / 2
-        transition = (dof_far_transition + dof_near_transition) / 2
+        transition = (1 / blur) * (dof_range + dof_far_transition + dof_near_transition) / 16
         f_stop = transition
-        store_frame(camera, f_stop_cache, frame, f_stop)
+        store_frame(camera, f_stop_cache, frame, start, f_stop)
 
     ob_action, cam_action, ob_slot, cam_slot = prep_rlx_actions(camera, name, "Export",
                                                                 reuse_existing=False,
@@ -332,7 +338,7 @@ def import_rlx_camera(data: BinaryData, data_folder):
     add_cache_fcurves(cam_action, "lens", lens_cache, num_frames, "Camera", slot=cam_slot)
     add_cache_fcurves(cam_action, "dof.use_dof", dof_cache, num_frames, "DOF", slot=cam_slot)
     add_cache_fcurves(cam_action, "dof.focus_distance", focus_distance_cache, num_frames, "DOF", slot=cam_slot)
-    add_cache_fcurves(cam_action, "dof.f_stop", f_stop_cache, num_frames, "DOF", slot=cam_slot)
+    add_cache_fcurves(cam_action, "dof.aperture_fstop", f_stop_cache, num_frames, "DOF", slot=cam_slot)
 
 
 def frame_rotation_cache(obj, frames):
@@ -364,9 +370,9 @@ def frame_cache(frames, indices=1, default_value=0.0):
     return cache
 
 
-def store_frame(obj, cache, frame, value):
+def store_frame(obj, cache, frame, start, value):
     T = type(value)
-    index = frame * 2
+    index = (frame - start) * 2
     if T is Quaternion:
         if obj.rotation_mode == "QUATERNION":
             l = len(value)
@@ -395,11 +401,13 @@ def store_frame(obj, cache, frame, value):
     elif T is Vector or T is Color:
         l = len(value)
         for i in range(0, l):
-            cache[i][index] = frame
-            cache[i][index + 1] = value[i]
+            curve = cache[i]
+            curve[index] = frame
+            curve[index + 1] = value[i]
     else:
-        cache[0][index] = frame
-        cache[0][index + 1] = value
+        curve = cache[0]
+        curve[index] = frame
+        curve[index + 1] = value
 
 
 def add_cache_rotation_fcurves(obj, action: bpy.types.Action, cache, num_frames, slot=None):
@@ -614,7 +622,7 @@ def decode_rlx_camera(camera_data, camera):
     # TODO maybe dof_range too (perfect focus range)
     blur = (dof_far_blur + dof_near_blur) / 2
     # transition range can be interpreted as the f-stop
-    transition = (dof_far_transition + dof_near_transition) / 2
+    transition = (1 / blur) * (dof_range + dof_far_transition + dof_near_transition) / 16
     f_stop = transition
     camera.data.dof.aperture_fstop = f_stop
     return camera
@@ -637,7 +645,7 @@ def apply_camera_pose(camera, loc, rot, sca, focal_length,
     # TODO maybe dof_range too (perfect focus range)
     blur = (dof_far_blur + dof_near_blur) / 2
     # transition range can be interpreted as the f-stop
-    transition = (dof_far_transition + dof_near_transition) / 200
+    transition = (1 / blur) * (dof_range + dof_far_transition + dof_near_transition) / 1600
     f_stop = transition
     camera.data.dof.aperture_fstop = f_stop
 

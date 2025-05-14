@@ -2245,7 +2245,7 @@ def dump_scene_pycode(context):
 
     """
 
-    print(code)
+    utils.log_always(code)
 
 
 # zoom view to imported character
@@ -2316,7 +2316,7 @@ def dump_mesh_pycode(obj: bpy.types.Object):
                      [],
                      [{face_code}])
     """
-    print(code)
+    utils.log_always(code)
 
 
 def create_backdrop(container, color, roughness):
@@ -2620,8 +2620,10 @@ class CC3Scene(bpy.types.Operator):
             lighting_setup_camera(context)
 
         elif self.param == "SETUP_WORLD":
-            compositor_setup(context)
             world_setup(context)
+
+        elif self.param == "SETUP_COMPOSITOR":
+            compositor_setup(context)
 
         else:
             setup_scene_default(context, self.param)
@@ -2674,5 +2676,11 @@ class CC3Scene(bpy.types.Operator):
             return "Align active object to current viewpoint location and rotation. Useful for quickly positioning and aligning lights and cameras"
         elif properties.param == "ADD_CAMERA":
             return "Add a camera aligned with the current viewpoint location and rotation, and make it the currently active camera"
+        elif properties.param == "SETUP_CAMERA":
+            return "Add a tracking camera with track target on the current character"
+        elif properties.param == "SETUP_WORLD":
+            return "Setup the world shader nodes"
+        elif properties.param == "SETUP_COMPOSITOR":
+            return "Setup a default compositor with glare and lens distortion"
 
         return ""
