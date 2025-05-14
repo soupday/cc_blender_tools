@@ -56,6 +56,10 @@ Links
         - (Must already exist in iClone for this to work)
     - Lights can use IES and light cookie textures (Cycles Only)
 - Hair spring bone generation fixes for Blender 4.4.
+- Partial fix to incorrect prop mesh positioning due to bugged exports from iClone.
+- Fix to incorrect embedded alpha channels from FBX importer.
+- Fix to embedded alpha channel custom UV mappings.
+
 
 ### 2.2.5
 - Fix to Blender 4.1 material refraction setting.

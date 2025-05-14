@@ -600,8 +600,8 @@ def store_lash_data(chr_cache):
     body_obj = utils.duplicate_object(get_head_body_object(chr_cache))
     head_obj = separate_mesh_material_type(chr_cache, body_obj, "SKIN_HEAD")
     lash_obj = separate_mesh_material_type(chr_cache, body_obj, "EYELASH")
-    print(f"HEAD: {head_obj.name}")
-    print(f"LASH: {lash_obj.name}")
+    utils.log_always(f"HEAD: {head_obj.name}")
+    utils.log_always(f"LASH: {lash_obj.name}")
     utils.delete_object(body_obj)
 
     mesh = lash_obj.data

@@ -149,6 +149,16 @@ def get_character_json(json_data, character_id):
         utils.log_warn("Failed to get character Json data!")
         return None
 
+def get_object_info_json(json_data, character_id):
+    if not json_data:
+        return None
+    try:
+        info_json = json_data[character_id]["Object_Info"]
+        utils.log_detail("Character Object Info Json data found for: " + character_id)
+        return info_json
+    except:
+        utils.log_warn("Failed to get character object info Json data!")
+        return None
 
 def get_facial_profile_json(json_data, character_id):
     try:

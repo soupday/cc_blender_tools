@@ -7,7 +7,7 @@ import os, socket, time, select, struct, json, copy, shutil, tempfile
 from mathutils import Vector, Quaternion, Matrix, Color, Euler
 from . import (rlx, importer, exporter, bones, geom, colorspace,
                world, rigging, rigutils, drivers, modifiers,
-               jsonutils, utils, vars)
+               cc, jsonutils, utils, vars)
 import textwrap
 
 BLENDER_PORT = 9333
@@ -44,7 +44,6 @@ class OpCodes(IntEnum):
     CHARACTER = 100
     CHARACTER_UPDATE = 101
     PROP = 102
-    PROP_UPDATE = 103
     STAGING = 104
     LIGHTS_UPDATE = 105
     CAMERA = 106
@@ -302,7 +301,6 @@ class LinkActor():
         self.expressions = actor_data.get("expressions")
         self.visemes = self.remap_visemes(actor_data.get("visemes"))
         self.morphs = actor_data.get("morphs")
-        rig = self.get_armature()
         skin_meshes = {}
         if vars.DEV:
             if self.get_type() == "AVATAR" or self.get_type() == "PROP":
@@ -312,7 +310,7 @@ class LinkActor():
                 utils.log_detail(f"{json.dumps(self.id_map, indent=4)}")
         for id, id_def in self.id_map.items():
             if id_def["mesh"]:
-                obj = bpy.data.objects[id_def["name"]]
+                obj: bpy.types.Object = bpy.data.objects[id_def["name"]]
                 skin_meshes[id] = [obj, Vector((0,0,0)), Quaternion((1,0,0,0)), Vector((1,1,1))]
         self.skin_meshes = skin_meshes
 
@@ -323,9 +321,9 @@ class LinkActor():
         if bones and ids and id_tree:
             self.bones = bones
             self.ids = ids
-            self.id_tree, self.id_map = convert_id_tree(arm, id_tree)
+            self.id_tree, self.id_map = cc.convert_id_tree(arm, id_tree)
             self.meshes = [ id_def["name"] for id_def in self.id_map.values() if id_def["mesh"] ]
-            confirm_bone_order(bones, ids, self.id_map)
+            cc.confirm_bone_order(bones, ids, self.id_map)
         else:
             self.bones = None
             self.ids = None
@@ -569,101 +567,6 @@ def RLFA(f):
     return f + 1
 
 
-def bone_name_match(rl_name, blender_name):
-    if rl_name == "_Object_Pivot_Node_":
-        rl_name = "CC_Base_Pivot"
-    export_name = bones.rl_export_bone_name(rl_name)
-    unduplicated_name = utils.strip_name(blender_name)
-    if rl_name == unduplicated_name or export_name == unduplicated_name:
-        return True
-    return False
-
-
-def deduplicate_name(name, names: dict):
-    count = names[name] if name in names else 0
-    names[name] = count + 1
-    return f"{name}.{count:03d}" if count > 0 else name
-
-
-def match_id_tree(rl_tree, arm=None, bone_obj: bpy.types.Bone=None, is_mesh=False, id_map=None, names=None):
-    """If supplying an armature, match the bone tree to the armature and return a mapping (by id)
-       to the armature bones. If no armature (i.e. for rigified avatars), then map the bones (by id)
-       to unduplicated bone names"""
-
-    if arm and not bone_obj:
-        bone_obj = arm.data.bones[0]
-    if id_map is None:
-        id_map = {}
-    if names is None:
-        names = {}
-    bone_obj_name = bone_obj.name if bone_obj else deduplicate_name(rl_tree["name"], names)
-    # id_map is a dict of bones by ID, mapping the source skin_bone name to the armature bone or mesh
-    id_map[rl_tree["id"]] = {
-        "source": rl_tree["name"],
-        "name": bone_obj_name,
-        "mesh": is_mesh,
-    }
-    # id_tree is mostly for diagnostics
-    id_tree = {
-        "name": bone_obj_name,
-        "id": rl_tree["id"],
-        "source": rl_tree["name"],
-        "children": []
-    }
-    if is_mesh:
-        id_tree["mesh"] = True
-    else:
-        #utils.log_detail(f"Bone: {bone.name} / Tree: {rl_tree['name']} {rl_tree['id']}")
-        for child_tree in rl_tree["children"]:
-            child_name = child_tree["name"]
-            #utils.log_detail(f"Trying: {child_name}")
-            if arm:
-                found = False
-                if not found and not child_tree["children"]:
-                    for obj in arm.children:
-                        if obj.parent and obj.parent_type == "BONE" and obj.parent_bone == bone_obj.name:
-                            if bone_name_match(child_name, obj.name):
-                                #utils.log_detail(f" - child_mesh: {obj.name} / child_tree: {child_name} - parented to: {obj.parent_bone}")
-                                found = True
-                                child_tree = match_id_tree(child_tree, arm=arm, bone_obj=obj, is_mesh=True, id_map=id_map)[0]
-                                if child_tree:
-                                    id_tree["children"].append(child_tree)
-                                break
-                if not found:
-                    for child_bone in bone_obj.children:
-                        if bone_name_match(child_name, child_bone.name):
-                            #utils.log_detail(f" - child_bone: {child_bone.name} / child_tree: {child_name}")
-                            found = True
-                            child_tree = match_id_tree(child_tree, arm=arm, bone_obj=child_bone, id_map=id_map)[0]
-                            if child_tree:
-                                id_tree["children"].append(child_tree)
-                            break
-            else:
-                child_tree = match_id_tree(child_tree, id_map=id_map, names=names)[0]
-                if child_tree:
-                    id_tree["children"].append(child_tree)
-    return id_tree, id_map
-
-
-def confirm_bone_order(bones, ids, id_map: dict):
-    result = True
-    for id, id_def in id_map.items():
-        if id not in ids or id_def["source"] not in bones:
-            utils.log_warn(f"bone {id_def['source']} ({id}) not found in skin bones!")
-            result = False
-    if result and len(ids) < len(id_map):
-        utils.log_info("All bones present, but more bones found in id_tree!")
-    elif result:
-        utils.log_info("All bones present!")
-    return result
-
-
-def convert_id_tree(arm, id_tree_root):
-    if not id_tree_root: return None
-    id_tree, id_map = match_id_tree(id_tree_root, arm=arm)
-    return id_tree, id_map
-
-
 def make_datalink_import_rig(actor: LinkActor, objects: list):
     """Creates or re-uses and existing datalink pose rig for the character.
        This uses a pre-generated character template (list of bones in the character)
@@ -680,6 +583,9 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
     if not chr_rig:
         utils.log_error(f"make_datalink_import_rig - Invalid Actor armature: {actor.name}")
         return None
+
+    RV = utils.store_render_visibility_state(chr_rig)
+
     utils.unhide(chr_rig)
     chr_cache = actor.get_chr_cache()
     is_prop = actor.get_type() == "PROP"
@@ -692,6 +598,7 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
         for obj in chr_cache.rig_datalink_rig.children:
             if utils.object_exists_is_mesh(obj):
                 objects.append(obj)
+        utils.restore_render_visibility_state(RV)
         return chr_cache.rig_datalink_rig
 
     rig_name = f"{chr_cache.character_name}_Link_Rig"
@@ -733,6 +640,7 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
                 if chr_bone_name:
                     bones.add_copy_location_constraint(datalink_rig, chr_rig, rig_bone_name, chr_bone_name)
                     bones.add_copy_rotation_constraint(datalink_rig, chr_rig, rig_bone_name, chr_bone_name)
+                    bones.add_copy_scale_constraint(datalink_rig, chr_rig, rig_bone_name, chr_bone_name)
                 else:
                     utils.log_warn(f"Could not find target bone for: {rig_bone_name} in character rig!")
         utils.safe_set_action(datalink_rig, None)
@@ -754,6 +662,8 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
                                                  to_original_rig=True,
                                                  objects=objects,
                                                  shape_keys=actor.expressions)
+
+    utils.restore_render_visibility_state(RV)
     return datalink_rig
 
 
@@ -761,6 +671,9 @@ def remove_datalink_import_rig(actor: LinkActor, apply_contraints=False):
     if actor:
         chr_cache = actor.get_chr_cache()
         chr_rig = actor.get_armature()
+
+        RV = utils.store_render_visibility_state(chr_rig)
+        utils.unhide(chr_rig)
 
         if apply_contraints and chr_rig:
             if utils.set_active_object(chr_rig):
@@ -782,7 +695,6 @@ def remove_datalink_import_rig(actor: LinkActor, apply_contraints=False):
             else:
                 # remove all contraints on the character rig
                 if utils.object_exists(chr_rig):
-                    utils.unhide(chr_rig)
                     if utils.object_mode_to(chr_rig):
                         for pose_bone in chr_rig.pose.bones:
                             bones.clear_constraints(chr_rig, pose_bone.name)
@@ -796,6 +708,7 @@ def remove_datalink_import_rig(actor: LinkActor, apply_contraints=False):
                     bones.paste_pose(chr_rig, pose)
 
         #rigging.reset_shape_keys(chr_cache)
+        utils.restore_render_visibility_state(RV)
         utils.object_mode_to(chr_rig)
 
 
@@ -2987,15 +2900,15 @@ class LinkService():
                                 obj = actor.skin_meshes[id][0]
                                 actor.skin_meshes[id][1] = Vector((tx, ty, tz)) * 0.01
                                 actor.skin_meshes[id][2] = Quaternion((rw, rx, ry, rz))
-                                actor.skin_meshes[id][3] = Vector((sx, sy, sz))
+                                actor.skin_meshes[id][3] = Vector((utils.sign(sx), utils.sign(sy), utils.sign(sz))) * rig.scale
                             else:
                                 bone_name = id_def["name"]
                                 pose_bone: bpy.types.PoseBone = datalink_rig.pose.bones[bone_name]
                                 loc = Vector((tx, ty, tz)) * 0.01
                                 rot = Quaternion((rw, rx, ry, rz))
-                                sca = Vector((sx, sy, sz))
-                                utils.set_transform_rotation(pose_bone, rot)
+                                sca = Vector((utils.sign(sx), utils.sign(sy), utils.sign(sz))) * rig.scale
                                 pose_bone.location = loc
+                                utils.set_transform_rotation(pose_bone, rot)
                                 pose_bone.scale = sca
 
                 # unpack the expression shape keys into the mesh objects
@@ -3055,7 +2968,7 @@ class LinkService():
                     # do not adjust mesh transforms on skinned props
                     mod = modifiers.get_armature_modifier(obj)
                     if mod: continue
-                    obj.matrix_world = utils.make_transform_matrix(loc, rot, rig.scale)
+                    obj.matrix_world = utils.make_transform_matrix(loc, rot, sca)
 
     def decode_lighting_data(self, data):
         props = vars.props()
@@ -3660,6 +3573,8 @@ class LinkService():
             update_link_status(f"Character Imported: {actor.name}")
         if save_after_import:
             self.receive_save()
+        # force frame update (for actions to apply)
+        bpy.context.scene.frame_current = bpy.context.scene.frame_current
 
     def receive_camera_fbx_import(self, data):
         props = vars.props()
@@ -4664,9 +4579,9 @@ class CCICLinkTest(bpy.types.Operator):
 
         rig = chr_cache.get_armature()
         pose_bone = rig.pose.bones["CC_Base_R_Upperarm"]
-        print(pose_bone.rotation_quaternion)
+        utils.log_always(pose_bone.rotation_quaternion)
         pose_bone.rotation_quaternion = (1,0,0,0)
-        print(pose_bone.rotation_quaternion)
+        utils.log_always(pose_bone.rotation_quaternion)
 
 
         return {"FINISHED"}

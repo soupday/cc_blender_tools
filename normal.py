@@ -26,7 +26,7 @@ def normal_to_height(normal_image: bpy.types.Image, height_image: bpy.types.Imag
 
     directional_displacements = []
 
-    print("Building directional displacements")
+    utils.log_always("Building directional displacements")
     for j in range(-1, 2):
         for k in range(-1, 2):
             D = Vector((j, -k, 0))
@@ -47,7 +47,7 @@ def normal_to_height(normal_image: bpy.types.Image, height_image: bpy.types.Imag
 
     heights = [0]*l
     for itx in range(0, iterations):
-        print(f"iteration: {itx}")
+        utils.log_always(f"iteration: {itx}")
         for v in range(0, h):
             for u in range(0, w):
                 i = u+v*w
@@ -72,7 +72,7 @@ def normal_to_height(normal_image: bpy.types.Image, height_image: bpy.types.Imag
         max_height = max(max_height, heights[i])
         abs_height = max(abs_height, abs(heights[i]))
 
-    print(f"min: {min_height} max: {max_height} abs: {abs_height}")
+    utils.log_always(f"min: {min_height} max: {max_height} abs: {abs_height}")
 
     pixels = list(height_image.pixels)
     for i in range(0, l):

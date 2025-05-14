@@ -2837,9 +2837,10 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
 
     box = layout.box().label(text="Camera & World", icon="NODE_COMPOSITING")
 
-    grid = layout.grid_flow(row_major=True, columns=2, align=True)
-    grid.operator("cc3.scene", text="Camera", icon="CAMERA_DATA").param = "SETUP_CAMERA"
-    grid.operator("cc3.scene", text="World", icon="WORLD").param = "SETUP_WORLD"
+    grid = layout.grid_flow(row_major=True, columns=1, align=True)
+    grid.operator("cc3.scene", text="Targeting Camera", icon="CAMERA_DATA").param = "SETUP_CAMERA"
+    grid.operator("cc3.scene", text="World Setup", icon="WORLD").param = "SETUP_WORLD"
+    grid.operator("cc3.scene", text="Compositor Setup", icon="NODE_COMPOSITING").param = "SETUP_COMPOSITOR"
     if vars.DEV:
         grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump Lights").param = "DUMP_SETUP"
         grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump Obj").param = "DUMP_OBJ"

@@ -535,6 +535,12 @@ def same_sign(a, b):
     return False
 
 
+def sign(a):
+    if a >= 0:
+        return 1
+    return -1
+
+
 def clamp(x, min = 0.0, max = 1.0):
     if x < min:
         x = min
@@ -902,12 +908,28 @@ def lin2s(x):
     return y
 
 
-# remove any .001 from the material name
 def strip_name(name: str):
+    """Remove any .001 from the material name"""
     if len(name) >= 4:
-        if name[-3:].isdigit() and name[-4] == ".":
+        if name[-4] == "." and name[-3:].isdigit():
             name = name[:-4]
     return name
+
+
+def deduplicate_name(name: str):
+    """Remove any _01 from the material name"""
+    if len(name) >= 3:
+        if name[-3] == "_" and name[-2:].isdigit():
+            name = name[:-3]
+    return name
+
+
+def source_name(name):
+    return strip_name(deduplicate_name(name))
+
+
+def is_same_source_name(name1, name2):
+    return source_name(name1) == source_name(name2)
 
 
 def names_to_list(names: str, delim: str = "|") -> list:
@@ -1428,17 +1450,21 @@ def delete_object_tree(obj):
         delete_object(obj)
 
 
-def hide_tree(obj, hide = True):
+def hide_tree(obj, hide=True, render=False):
     objects = get_object_tree(obj)
     for obj in objects:
         try:
             obj.hide_set(hide)
+            if render:
+                obj.hide_render = hide
         except: ...
 
 
-def hide(obj, hide=True):
+def hide(obj: bpy.types.Object, hide=True, render=False):
     try:
         obj.hide_set(hide)
+        if render:
+            obj.hide_render = hide
         return True
     except:
         return False
@@ -1709,31 +1735,26 @@ def store_render_visibility_state(objects=None):
     obj : bpy.types.Object
     if objects is None:
         objects = bpy.data.objects
+    elif type(objects) is bpy.types.Object:
+        objects = [objects]
     for obj in objects:
         if object_exists(obj):
             visible = obj.visible_get()
             render = not obj.hide_render
-            if render or visible:
-                rv[obj.name] = [visible, render]
+            rv[obj.name] = [visible, render]
     return rv
 
 
 def restore_render_visibility_state(rv):
     obj : bpy.types.Object
-    for obj in bpy.data.objects:
-        if object_exists(obj):
-            if obj.name in rv:
+    for obj_name in rv:
+        if obj_name in bpy.data.objects:
+            obj = bpy.data.objects[obj_name]
+            if object_exists(obj):
                 visible, render = rv[obj.name]
                 try:
                     obj.hide_render = not render
                     hide(obj, not visible)
-                except:
-                    pass
-
-            else:
-                try:
-                    obj.hide_render = False
-                    hide(obj)
                 except:
                     pass
 

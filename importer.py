@@ -22,7 +22,7 @@ from enum import IntEnum, IntFlag
 from . import (rlx, characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
                facerig, modifiers, wrinkle, drivers, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
-               basic, lib, utils, vars)
+               basic, lib, cc, utils, vars)
 
 debug_counter = 0
 
@@ -546,6 +546,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
 
     processed = []
     chr_json = jsonutils.get_character_json(json_data, name)
+    obj_info_json = jsonutils.get_object_info_json(json_data, name)
 
     multi_import = (len(rl_armatures) + len(armatures) > 1)
 
@@ -650,6 +651,17 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             # character render target
             chr_cache.render_target = prefs.render_target
 
+            # visibility
+            try:
+                if obj_info_json:
+                    for obj_info in obj_info_json:
+                        if (obj_info["Link_ID"] == link_id or
+                            (obj_info["Type"] == "AVATAR" and obj_info["Name"] == name)):
+                            visible = obj_info["Visible"]
+                            if not visible:
+                                utils.hide_tree(arm, hide=True, render=True)
+            except: ...
+
             imported_characters.append(chr_cache.link_id)
 
             utils.log_recess()
@@ -735,6 +747,22 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             json_avatar_type = jsonutils.get_json(json_data, f"{chr_id}/Avatar_Type")
             if json_avatar_type and json_avatar_type == "Prop":
                 rigutils.custom_prop_rig(arm)
+
+            # visibility
+            try:
+                if obj_info_json:
+                    for obj_info in obj_info_json:
+                        if (obj_info["Link_ID"] == link_id or
+                            (obj_info["Type"] == "PROP" and obj_info["Name"] == name)):
+                            visible = obj_info["Visible"]
+                            if not visible:
+                                utils.hide_tree(arm, hide=True, render=True)
+            except: ...
+
+            # bones
+            id_tree = jsonutils.get_json(json_data, f"{name}/ID_Tree")
+            if id_tree:
+                cc.match_id_tree(id_tree, arm, pose=True)
 
             imported_characters.append(chr_cache.link_id)
 
@@ -1060,10 +1088,11 @@ class CC3Import(bpy.types.Operator):
                 if imported_character_ids and ImportFlags.RL in import_flags:
                     imported_characters = props.get_characters_by_link_id(imported_character_ids)
                     for chr_cache in imported_characters:
-                        # set up the collision shapes and store their bind positions in the json data
-                        rigidbody.build_rigid_body_colliders(chr_cache, json_data, first_import = True)
-                        # remove the colliders for now (only needed for spring bones)
-                        rigidbody.remove_rigid_body_colliders(chr_cache.get_armature())
+                        if chr_cache.cache_type() == "AVATAR":
+                            # set up the collision shapes and store their bind positions in the json data
+                            rigidbody.build_rigid_body_colliders(chr_cache, json_data, first_import = True)
+                            # remove the colliders for now (only needed for spring bones)
+                            rigidbody.remove_rigid_body_colliders(chr_cache.get_armature())
 
                 utils.log_timer("Done .Fbx Import.")
 
@@ -1294,6 +1323,8 @@ class CC3Import(bpy.types.Operator):
 
             # update character data props
             chr_cache.check_ids()
+
+            if chr_cache.cache_type() != "AVATAR": continue
 
             if chr_cache.rigified:
                 rigify_rig = chr_cache.get_armature()

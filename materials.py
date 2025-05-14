@@ -854,14 +854,13 @@ def has_same_parameters(cache_a, cache_b):
 
 
 def find_duplicate_material(chr_cache, mat, processed_materials):
-    source_name = utils.strip_name(mat.name)
+    source_name = utils.source_name(mat.name)
     mat_cache = chr_cache.get_material_cache(mat)
     if mat_cache and processed_materials is not None:
         for processed_mat in processed_materials:
             if mat != processed_mat:
-                processed_name = utils.strip_name(processed_mat.name)
                 # only consider materials with the same base name
-                if processed_name == source_name:
+                if source_name == utils.source_name(processed_mat.name):
                     processed_cache = chr_cache.get_material_cache(processed_mat)
                     if processed_cache:
                         # with the same material type

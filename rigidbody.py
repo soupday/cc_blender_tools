@@ -923,6 +923,9 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
         utils.log_error("No armature in character!")
         return False
 
+    RV = utils.store_render_visibility_state(arm)
+    utils.unhide(arm)
+
     collection = utils.create_collection(COLLIDER_COLLECTION_NAME)
     collection.hide_render = True
 
@@ -1058,6 +1061,7 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
     utils.safe_set_action(arm, old_action)
     arm.data.pose_position = old_pose
     bones.restore_armature_settings(arm, arm_settings)
+    utils.restore_render_visibility_state(RV)
 
     return True
 
