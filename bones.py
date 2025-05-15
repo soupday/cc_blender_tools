@@ -392,7 +392,7 @@ def get_bone_children(bone, bone_list = None, include_root = False):
     if bone_list is None:
         is_root = True
         bone_list = []
-    if include_root or not is_root:
+    if (include_root or not is_root) and bone not in bone_list:
         bone_list.append(bone)
     for child in bone.children:
         get_bone_children(child, bone_list, include_root)
