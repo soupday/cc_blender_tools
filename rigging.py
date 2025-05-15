@@ -502,7 +502,8 @@ def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
                 ik_groups[chain_name]["chain_root_names"].append(chain_root.name)
         process_spring_groups(rigify_rig, spring_rig, ik_groups)
         set_spring_rig_constraints(rigify_rig, bone_defs, ik_groups, ik_targets, mch_roots)
-        drivers.add_custom_float_property(rigify_rig.pose.bones[spring_rig_name], "rigified", 1.0)
+        spring_rig = rigify_rig.pose.bones[spring_rig_name]
+        utils.set_prop(spring_rig, "rigified", True)
         bones.set_bone_collection_visibility(rigify_rig, "Spring (FK)", vars.SPRING_FK_LAYER, True)
         bones.set_bone_collection_visibility(rigify_rig, "Spring (IK)", vars.SPRING_IK_LAYER, True)
         bones.set_bone_collection_visibility(rigify_rig, "Spring (Tweak)", vars.SPRING_TWEAK_LAYER, True)
@@ -542,7 +543,7 @@ def derigify_spring_rig(chr_cache, rigify_rig, parent_mode):
                 to_layer.append(bone.name)
             else:
                 to_remove.append(bone.name)
-                # remove any drivers on the contraints
+                # remove any drivers on the constraints
                 for c in bone.constraints:
                     for prop in DRIVER_PROPS:
                         c.driver_remove(prop)
@@ -554,14 +555,17 @@ def derigify_spring_rig(chr_cache, rigify_rig, parent_mode):
         if rigutils.edit_rig(rigify_rig):
             for bone_name in to_remove:
                 utils.log_info(f"Removing spring rigify bone: {bone_name}")
-                bone = rigify_rig.data.edit_bones[bone_name]
-                rigify_rig.data.edit_bones.remove(bone)
+                if bone_name in rigify_rig.data.edit_bones:
+                    bone = rigify_rig.data.edit_bones[bone_name]
+                    rigify_rig.data.edit_bones.remove(bone)
             for bone_name in to_layer:
                 utils.log_info(f"Keeping spring rig bone: {bone_name}")
-                bones.set_bone_collection(rigify_rig, bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
+                if bone_name in rigify_rig.data.edit_bones:
+                    bone = rigify_rig.data.edit_bones[bone_name]
+                    bones.set_bone_collection(rigify_rig, bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
 
         if "rigified" in spring_rig:
-            spring_rig["rigified"] = False
+            utils.set_prop(spring_rig, "rigified", False)
 
         rigutils.select_rig(rigify_rig)
         bones.set_bone_collection_visibility(rigify_rig, "Spring (Edit)", vars.SPRING_EDIT_LAYER, True)

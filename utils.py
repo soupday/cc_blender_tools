@@ -2710,14 +2710,23 @@ def generate_random_id(length):
 
 
 def set_prop(obj, prop_name, value):
-    obj[prop_name] = value
+    try:
+        obj[prop_name] = value
+        return True
+    except:
+        try:
+            del(obj[prop_name])
+            obj[prop_name] = value
+            return True
+        except: ...
+    return False
 
 
 def set_rl_link_id(obj, link_id=None):
     if link_id is None:
         link_id = generate_random_id(20)
     if obj:
-        obj["rl_link_id"] = link_id
+        set_prop(obj, "rl_link_id", link_id)
     return link_id
 
 
@@ -2738,11 +2747,11 @@ def set_rl_object_id(obj, new_id=None):
         new_id = generate_random_id(20)
     if obj:
         if obj.type == "ARMATURE":
-            obj["rl_armature_id"] = new_id
+            set_prop(obj, "rl_armature_id", new_id)
             if "rl_object_id" in obj:
                 del(obj["rl_object_id"])
         else:
-            obj["rl_object_id"] = new_id
+            set_prop(obj, "rl_object_id", new_id)
     return new_id
 
 
