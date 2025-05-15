@@ -50,19 +50,23 @@ Links
 - DataLink:
     - Motion Pose/Sequences no longer dependent on Quaternions, preserves bone rotation modes across the the rig.
     - Avatar/Prop skin bones identified by iClone ID, for accurate transfer and retargeting.
+    - Fix to incorrect prop mesh positioning due to bugged exports from iClone.
+    - Not all prop hierarchies can be exported exactly to Blender, sometimes they must have their transforms or scale reset in iClone.
     - Which now allows for Pose/Sequence transfer of Prop animations from Blender back to iClone.
     - Import & Transfer of lights and cameras with animations, including pose and sequences.
     - Light & Camera sequence can be send back to iClone via Sequence transfer.
         - (Must already exist in iClone for this to work)
     - Lights can use IES and light cookie textures (Cycles Only)
-- Hair spring bone generation fixes for Blender 4.4.
-- Fix to incorrect prop mesh positioning due to bugged exports from iClone.
-    - Not all prop hierarchies can be exported exactly to Blender, sometimes they must have their transforms or scale reset in iClone.
-- Fix to incorrect embedded alpha channels from FBX importer.
-- Fix to embedded alpha channel custom UV mappings.
-- Emission rework, as multiplier on base color, with expanded strength.
-- Reflection surface supported as clearcoat.
-- Fixes for Blender versions 3.4 - 4.4
+- Spring Rigs:
+    - Hair spring bone generation fixes for Blender 4.4.
+    - Fix to remove and rebuild Rigify spring bone control rigs and simulations.
+- Materials:
+    - Fix to incorrect embedded alpha channels from FBX importer.
+    - Fix to embedded alpha channel custom UV mappings.
+    - Emission rework, as multiplier on base color, with expanded strength.
+    - Reflection surface supported as clearcoat.
+    - Default (no texture) roughness and specular value fixes for Pbr and Tra shaders.
+- General Fixes for Blender versions 3.4 - 4.4
 
 
 ### 2.2.5
