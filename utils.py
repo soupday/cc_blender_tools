@@ -586,10 +586,15 @@ def inverse_lerp(vmin, vmax, value):
 
 
 def lerp_color(c0, c1, t):
-    r = (lerp(c0[0], c1[0], t),
-         lerp(c0[1], c1[1], t),
-         lerp(c0[2], c1[2], t),
-         lerp(c0[3], c1[3], t))
+    if len(c0) == 4:
+        r = (lerp(c0[0], c1[0], t),
+            lerp(c0[1], c1[1], t),
+            lerp(c0[2], c1[2], t),
+            lerp(c0[3], c1[3], t))
+    else:
+        r = (lerp(c0[0], c1[0], t),
+            lerp(c0[1], c1[1], t),
+            lerp(c0[2], c1[2], t))
     return r
 
 
@@ -612,11 +617,15 @@ def linear_to_srgbx(x):
 
 
 def linear_to_srgb(color):
-    return (linear_to_srgbx(color[0]),
-            linear_to_srgbx(color[1]),
-            linear_to_srgbx(color[2]),
-            color[3])
-
+    if len(color) == 4:
+        return (linear_to_srgbx(color[0]),
+                linear_to_srgbx(color[1]),
+                linear_to_srgbx(color[2]),
+                color[3])
+    else:
+        return (linear_to_srgbx(color[0]),
+                linear_to_srgbx(color[1]),
+                linear_to_srgbx(color[2]))
 
 def srgb_to_linearx(x):
     if x <= 0.04045:
@@ -628,10 +637,15 @@ def srgb_to_linearx(x):
 
 
 def srgb_to_linear(color):
-    return (srgb_to_linearx(color[0]),
-            srgb_to_linearx(color[1]),
-            srgb_to_linearx(color[2]),
-            color[3])
+    if len(color) == 4:
+        return (srgb_to_linearx(color[0]),
+                srgb_to_linearx(color[1]),
+                srgb_to_linearx(color[2]),
+                color[3])
+    else:
+        return (srgb_to_linearx(color[0]),
+                srgb_to_linearx(color[1]),
+                srgb_to_linearx(color[2]))
 
 
 def count_maps(*maps):
@@ -2173,6 +2187,9 @@ def B341():
 
 def B350():
     return is_blender_version("3.5.0")
+
+def B360():
+    return is_blender_version("3.6.0")
 
 def B400():
     return is_blender_version("4.0.0")

@@ -923,7 +923,9 @@ def set_bone_collection(rig, pose_edit_bone, collection=None, group=None, layer=
                 group = rig.pose.bone_groups[group]
                 pose_edit_bone.bone_group = group
             if layer:
-                bone = pose_edit_bone.bone
+                bone = pose_edit_bone
+                if type(pose_edit_bone) is bpy.types.PoseBone:
+                    bone = pose_edit_bone.bone
                 bone.layers[layer] = True
                 for i, l in enumerate(bone.layers):
                     bone.layers[i] = i == layer
@@ -959,10 +961,10 @@ def get_custom_color(code, chr_cache=None):
     prefs = vars.prefs()
     if code == "FACERIG":
         rgba = chr_cache.rigify_face_control_color if chr_cache else prefs.rigify_face_control_color
-        return (rgba[0], rgba[1], rgba[2])
+        return utils.linear_to_srgb((rgba[0], rgba[1], rgba[2]))
     elif code == "FACERIG_DARK":
         rgba = chr_cache.rigify_face_control_color if chr_cache else prefs.rigify_face_control_color
-        return (rgba[0] * 0.7, rgba[1] * 0.6, rgba[2] * 0.5)
+        return utils.linear_to_srgb((rgba[0] * 0.4, rgba[1] * 0.4, rgba[2] * 0.4))
     elif code in CUSTOM_COLORS:
         return CUSTOM_COLORS[code]
     else:
@@ -1002,15 +1004,16 @@ def set_bone_collection_visibility(rig, collection, layer, visible, only=False, 
         if collection in rig.data.collections:
             rig.data.collections[collection].is_visible = visible if not invert else not visible
     else:
-        rig.data.layers[layer] = visible if not invert else not visible
-        if only:
-            for i in range(0, 32):
-                if i != layer:
-                    rig.data.layers[i] = False
-        elif invert:
-            for i in range(0, 32):
-                if i != layer:
-                    rig.data.layers[i] = visible
+        if layer is not None:
+            rig.data.layers[layer] = visible if not invert else not visible
+            if only:
+                for i in range(0, 32):
+                    if i != layer:
+                        rig.data.layers[i] = False
+            elif invert:
+                for i in range(0, 32):
+                    if i != layer:
+                        rig.data.layers[i] = visible
 
 
 def make_bones_visible(arm, protected=False, collections=None, layers=None):
@@ -1050,43 +1053,72 @@ def is_bone_collection_visible(arm, collection=None, layer=None):
         return arm.data.layers[layer]
 
 
-def add_bone_collection(rig, collection):
-    if collection not in rig.data.collections:
-        rig.data.collections.new(collection)
-    return rig.data.collections[collection]
+def add_bone_collection(arm: bpy.types.Object, collection_name, group_name=None, color_set=None, custom_color=None, lerp=0.33):
+    if not group_name:
+        group_name = collection_name
+    if utils.B400():
+        if collection_name not in arm.data.collections:
+            arm.data.collections.new(collection_name)
+        return arm.data.collections[collection_name]
+    else:
+        if group_name not in arm.pose.bone_groups:
+            bone_group: bpy.types.BoneGroup = arm.pose.bone_groups.new(name=group_name)
+            if color_set:
+                bone_group.color_set = color_set
+                if custom_color:
+                    if len(custom_color) == 4:
+                        custom_color = (custom_color[0], custom_color[1], custom_color[2])
+                    bone_group.colors.normal = utils.linear_to_srgb(utils.lerp_color(custom_color, (0.66,0.66,0.66), lerp))
+                    bone_group.colors.select = utils.linear_to_srgb((0.313989, 0.783538, 1.000000))
+                    bone_group.colors.active = utils.linear_to_srgb((0.552011, 1.000000, 1.000000))
+        return arm.pose.bone_groups[group_name]
 
 
 def assign_rl_base_collections(rig):
+    deform = add_bone_collection(rig, "Deform")
+    none = add_bone_collection(rig, "Non-Deform")
+    twist = add_bone_collection(rig, "Twist")
+    share = add_bone_collection(rig, "Share")
+    root = add_bone_collection(rig, "Root")
+
+    none_deform_bones = [
+        "CC_Base_R_Upperarm",
+        "CC_Base_L_Upperarm",
+        "CC_Base_R_Forearm",
+        "CC_Base_L_Forearm",
+        "CC_Base_R_Thigh",
+        "CC_Base_L_Thigh",
+        "CC_Base_R_Calf",
+        "CC_Base_L_Calf",
+        "CC_Base_FacialBone",
+    ]
+
     if utils.B400():
-        if "Deform" not in rig.data.collections:
-            deform = add_bone_collection(rig, "Deform")
-            none = add_bone_collection(rig, "Non-Deform")
-            twist = add_bone_collection(rig, "Twist")
-            share = add_bone_collection(rig, "Share")
-
-            none_deform_bones = [
-                "CC_Base_R_Upperarm",
-                "CC_Base_L_Upperarm",
-                "CC_Base_R_Forearm",
-                "CC_Base_L_Forearm",
-                "CC_Base_R_Thigh",
-                "CC_Base_L_Thigh",
-                "CC_Base_R_Calf",
-                "CC_Base_L_Calf",
-                "CC_Base_FacialBone",
-                "CC_Base_BoneRoot",
-                "RL_BoneRoot",
-            ]
-
-            for bone in rig.data.bones:
-                if "Twist" in bone.name:
-                    twist.assign(bone)
-                elif "ShareBone" in bone.name:
-                    share.assign(bone)
-                if bone.name in none_deform_bones:
-                    none.assign(bone)
-                else:
-                    deform.assign(bone)
+        bone: bpy.types.PoseBone
+        for bone in rig.data.bones:
+            if "Twist" in bone.name:
+                twist.assign(bone)
+            elif "ShareBone" in bone.name:
+                share.assign(bone)
+            elif bone.name in none_deform_bones:
+                none.assign(bone)
+            elif "Root" in bone.name or "root" in bone.name:
+                root.assign(bone)
+            else:
+                deform.assign(bone)
+    else:
+        pose_bone: bpy.types.PoseBone
+        for pose_bone in rig.pose.bones:
+            if "Twist" in pose_bone.name:
+                pose_bone.bone_group = twist
+            elif "ShareBone" in pose_bone.name:
+                pose_bone.bone_group = share
+            elif pose_bone.name in none_deform_bones:
+                pose_bone.bone_group = none
+            elif "Root" in pose_bone.name or "root" in pose_bone.name:
+                pose_bone.bone_group = root
+            else:
+                pose_bone.bone_group = deform
 
 
 def get_distance_between(rig, bone_a_name, bone_b_name):

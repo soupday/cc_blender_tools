@@ -394,7 +394,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.bloom_threshold = 0.800000011920929
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
-                context.scene.eevee.bloom_intensity = 1.0
+                context.scene.eevee.bloom_intensity = 0.5
                 context.scene.eevee.use_ssr = True
                 context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
@@ -1283,7 +1283,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.bloom_threshold = 0.800000011920929
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
-                context.scene.eevee.bloom_intensity = 1.0
+                context.scene.eevee.bloom_intensity = 0.5
                 context.scene.eevee.use_ssr = True
                 context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
@@ -1524,7 +1524,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.bloom_threshold = 0.800000011920929
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
-                context.scene.eevee.bloom_intensity = 1.0
+                context.scene.eevee.bloom_intensity = 0.5
                 context.scene.eevee.use_ssr = True
                 context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
@@ -1634,7 +1634,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.bloom_threshold = 0.65
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 3.0
-                context.scene.eevee.bloom_intensity = 1.0
+                context.scene.eevee.bloom_intensity = 0.5
                 context.scene.eevee.use_ssr = True
                 context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
@@ -1743,7 +1743,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.bloom_threshold = 0.65
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 3.0
-                context.scene.eevee.bloom_intensity = 1.0
+                context.scene.eevee.bloom_intensity = 0.5
                 context.scene.eevee.use_ssr = True
                 context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
@@ -2466,7 +2466,7 @@ def eevee_setup(context):
             context.scene.eevee.bloom_threshold = 0.65
             context.scene.eevee.bloom_knee = 0.5
             context.scene.eevee.bloom_radius = 3.0
-            context.scene.eevee.bloom_intensity = 1.0
+            context.scene.eevee.bloom_intensity = 0.5
             context.scene.eevee.use_ssr = True
             context.scene.eevee.use_ssr_refraction = True
         context.scene.eevee.bokeh_max_size = 32.0

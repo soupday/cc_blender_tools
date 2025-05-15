@@ -964,7 +964,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                 actor.ik_store["ik_fk"] = rigutils.get_rigify_ik_fk_influence(rig)
                 rigutils.set_rigify_ik_fk_influence(rig, 1.0)
 
-                BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Root"] #not Tweak and Extra
+                BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Root", "Face"] #not Tweak and Extra
                 BAKE_BONE_COLLECTIONS = ["Face", #"Face (Primary)", "Face (Secondary)",
                                          "Face (Expressions)",
                                          "Torso", "Torso (Tweak)",
@@ -976,24 +976,27 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                                          "Root"]
                 SHOW_BONE_COLLECTIONS = [ "Face (UI)" ]
                 SHOW_BONE_COLLECTIONS.extend(BAKE_BONE_COLLECTIONS)
-                if rigutils.is_face_rig(rig):
-                    SHOW_BONE_COLLECTIONS.remove("Face")
                 # These bones may need to have their pose reset as they are damped tracked in the rig:
                 #    - adv pair rigs now resets all pose bones.
                 BAKE_BONE_EXCLUSIONS = [
                     "thigh_ik.L", "thigh_ik.R", "thigh_parent.L", "thigh_parent.R",
                     "upper_arm_ik.L", "upper_arm_ik.R", "upper_arm_parent.L", "upper_arm_parent.R"
                 ]
-                BAKE_BONE_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,28]
+                BAKE_BONE_LAYERS = [0,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,22,28]
+                SHOW_BONE_LAYERS = [ 23 ]
+                SHOW_BONE_LAYERS.extend(BAKE_BONE_LAYERS)
+                if rigutils.is_face_rig(rig):
+                    SHOW_BONE_COLLECTIONS.remove("Face")
+                    SHOW_BONE_LAYERS.remove(0)
                 if utils.object_mode_to(rig):
                     bone: bpy.types.Bone
                     pose_bone: bpy.types.PoseBone
-                    bones.make_bones_visible(rig, collections=SHOW_BONE_COLLECTIONS, layers=BAKE_BONE_LAYERS)
+                    bones.make_bones_visible(rig, collections=SHOW_BONE_COLLECTIONS, layers=SHOW_BONE_LAYERS)
                     for pose_bone in rig.pose.bones:
                         bone = pose_bone.bone
                         bone.select = False
                         if bones.is_bone_in_collections(rig, bone, BAKE_BONE_COLLECTIONS,
-                                                                BAKE_BONE_GROUPS):
+                                                                   BAKE_BONE_GROUPS):
                             if bone.name not in BAKE_BONE_EXCLUSIONS:
                                 bone.hide = False
                                 if bones.can_unlock(pose_bone):
@@ -3016,7 +3019,7 @@ class LinkService():
             bpy.context.scene.eevee.bloom_threshold = 0.8
             bpy.context.scene.eevee.bloom_knee = 0.5
             bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 1.0
+            bpy.context.scene.eevee.bloom_intensity = 0.5
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
