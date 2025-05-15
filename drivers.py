@@ -90,14 +90,23 @@ def add_custom_float_property(obj, prop_name, prop_value : float,
         if soft_min is None:
             soft_min = value_min
 
-        rna_idprop_ui_create(obj, prop_name,
-                             default=prop_value,
-                             overridable=overridable,
-                             min=value_min, max=value_max,
-                             soft_min=soft_min, soft_max=soft_max,
-                             subtype=subtype,
-                             precision=precision,
-                             description=description)
+        if utils.B360():
+            rna_idprop_ui_create(obj, prop_name,
+                                 default=prop_value,
+                                 overridable=overridable,
+                                 min=value_min, max=value_max,
+                                 soft_min=soft_min, soft_max=soft_max,
+                                 subtype=subtype,
+                                 precision=precision,
+                                 description=description)
+        else:
+            rna_idprop_ui_create(obj, prop_name,
+                                 default=prop_value,
+                                 overridable=overridable,
+                                 min=value_min, max=value_max,
+                                 soft_min=soft_min, soft_max=soft_max,
+                                 subtype=subtype,
+                                 description=description)
 
 
 def add_custom_int_property(obj, prop_name, prop_value: int,
@@ -133,16 +142,19 @@ def add_custom_string_property(obj, prop_name, prop_value: str,
 
     if prop_name not in obj:
 
-        rna_idprop_ui_create(obj, prop_name,
-                             default=prop_value,
-                             overridable=overridable,
-                             description=description)
+        if utils.B360():
+            rna_idprop_ui_create(obj, prop_name,
+                                 default=prop_value,
+                                 overridable=overridable,
+                                 description=description)
+        else:
+            obj[prop_name] = prop_value
 
-        try:
-            id_props = obj.id_properties_ui(prop_name)
-            id_props.update(default=prop_value, description=description)
-        except:
-            pass
+            try:
+                id_props = obj.id_properties_ui(prop_name)
+                id_props.update(default=prop_value, description=description)
+            except:
+                pass
 
 
 def add_custom_float_array_property(obj, prop_name, prop_value : list,

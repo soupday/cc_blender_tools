@@ -86,7 +86,7 @@ def reset_rigify():
     prefs.rigify_preview_retarget_fk_ik = "BOTH"
     prefs.rigify_bake_nla_fk_ik = "BOTH"
     prefs.rigify_align_bones = "CC"
-    prefs.rigify_face_control_color = (1.0, 0.95, 0.4, 1.0)
+    prefs.rigify_face_control_color = (1.0, 0.88, 0.11, 1.0)
 
 
 def reset_datalink():

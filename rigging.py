@@ -2651,7 +2651,7 @@ def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None
             key_action.use_fake_user = props.rigify_retarget_use_fake_user if use_ui_options else True
 
 
-FK_BONE_GROUPS = ["FK", "Special", "Tweak", "Extra", "Root"]
+FK_BONE_GROUPS = ["FK", "Special", "Tweak", "Extra", "Root", "Face"]
 FK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)", "Face (Expressions)",
                        "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
                        "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (FK)", "Leg.L (Tweak)",
@@ -2659,7 +2659,7 @@ FK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)", "Face (Expr
                        "Root",
                        "Spring (FK)", "Spring (Tweak)"]
 
-IK_BONE_GROUPS = ["IK", "Special", "Tweak", "Extra", "Root"]
+IK_BONE_GROUPS = ["IK", "Special", "Tweak", "Extra", "Root", "Face"]
 IK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)", "Face (Expressions)",
                        "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
                        "Arm.L (IK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (Tweak)",
@@ -2669,6 +2669,7 @@ IK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)", "Face (Expr
 
 EXTRA_FK_BAKE_COLLECTIONS = [ "Face (Expressions)" ]
 EXTRA_IK_BAKE_COLLECTIONS = [ "Face (Expressions)" ]
+EXTRA_GROUPS = [ "Face" ]
 
 
 def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
@@ -2692,17 +2693,17 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
         if prefs.rigify_preview_retarget_fk_ik == "FK":
             BONE_COLLECTIONS = FK_BONE_COLLECTIONS
             BONE_GROUPS = FK_BONE_GROUPS
-            EXTRA_BAKE = EXTRA_FK_BAKE_COLLECTIONS
+            EXTRA_COLLECTIONS = EXTRA_FK_BAKE_COLLECTIONS
             rigutils.set_rigify_ik_fk_influence(rigify_rig, 1.0)
         elif prefs.rigify_preview_retarget_fk_ik == "IK":
             BONE_COLLECTIONS = IK_BONE_COLLECTIONS
             BONE_GROUPS = IK_BONE_GROUPS
-            EXTRA_BAKE = EXTRA_IK_BAKE_COLLECTIONS
+            EXTRA_COLLECTIONS = EXTRA_IK_BAKE_COLLECTIONS
             rigutils.set_rigify_ik_fk_influence(rigify_rig, 0.0)
         else:
             BONE_COLLECTIONS = utils.merge(FK_BONE_COLLECTIONS, IK_BONE_COLLECTIONS)
             BONE_GROUPS = utils.merge(FK_BONE_GROUPS, IK_BONE_GROUPS)
-            EXTRA_BAKE = utils.merge(EXTRA_FK_BAKE_COLLECTIONS, EXTRA_IK_BAKE_COLLECTIONS)
+            EXTRA_COLLECTIONS = utils.merge(EXTRA_FK_BAKE_COLLECTIONS, EXTRA_IK_BAKE_COLLECTIONS)
 
         # select just the retargeted bones in the rigify rig, to bake:
         if rigutils.select_rig(rigify_rig):
@@ -2716,7 +2717,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
                                                     BONE_GROUPS):
                         bone.select = True
 
-                elif bones.is_bone_in_collections(rigify_rig, bone, EXTRA_BAKE):
+                elif bones.is_bone_in_collections(rigify_rig, bone, EXTRA_COLLECTIONS, EXTRA_GROUPS):
                     bone.select = True
 
 

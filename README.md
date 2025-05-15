@@ -61,6 +61,7 @@ Links
 - Fix to embedded alpha channel custom UV mappings.
 - Emission rework, as multiplier on base color, with expanded strength.
 - Reflection surface supported as clearcoat.
+- Fixes for Blender versions 3.4 - 4.4
 
 
 ### 2.2.5

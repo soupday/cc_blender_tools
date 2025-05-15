@@ -1600,7 +1600,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     baked_target_mode: bpy.props.EnumProperty(items=vars.BAKE_TARGETS, default="NONE")
 
     rigify_face_control_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                                                             default=(1.0, 0.95, 0.4, 1.0),
+                                                             default=(1.0, 0.88, 0.11, 1.0),
                                                              min = 0.0, max = 1.0,
                                                              name="Rig Color",
                                                              update=update_facerig_color)

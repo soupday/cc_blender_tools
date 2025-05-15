@@ -2832,8 +2832,14 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
         row.prop(prefs, "lighting_use_look", expand=True)
     view = context.scene.view_settings
     row.prop(view, "look", text="")
-    layout.prop(props, "lighting_brightness", slider=True)
-    layout.prop(props, "world_brightness", slider=True)
+    col = layout.column(align=True)
+    row = col.row(align=True)
+    row.prop(props, "lighting_brightness", slider=True)
+    if props.lighting_brightness_all:
+        row.prop(props, "lighting_brightness_all", toggle=True, text="", icon="OUTLINER_OB_LIGHT")
+    else:
+        row.prop(props, "lighting_brightness_all", toggle=True, text="", icon="OUTLINER_DATA_LIGHT")
+    col.prop(props, "world_brightness", slider=True)
 
     box = layout.box().label(text="Camera & World", icon="NODE_COMPOSITING")
 
@@ -3787,12 +3793,14 @@ class CCICDataLinkPanel(bpy.types.Panel):
         character_tools_ui(context, layout)
 
         layout.separator()
-        row = layout.row(align=True)
+        col = layout.column(align=True)
+        row = col.row(align=True)
         row.prop(props, "lighting_brightness", slider=True)
         if props.lighting_brightness_all:
             row.prop(props, "lighting_brightness_all", toggle=True, text="", icon="OUTLINER_OB_LIGHT")
         else:
             row.prop(props, "lighting_brightness_all", toggle=True, text="", icon="OUTLINER_DATA_LIGHT")
+        col.prop(props, "world_brightness", slider=True)
 
         #if chr_cache:
             #row = layout.row()

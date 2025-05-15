@@ -244,18 +244,24 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
 
     if rigutils.select_rig(rigify_rig):
 
-        bones.set_bone_collection(rigify_rig, "MCH-jaw_move", "MCH", None, None)
-        bones.set_bone_collection(rigify_rig, "MCH-facerig", "MCH", None, None)
-        bones.set_bone_collection(rigify_rig, "MCH-facerig_controls", "MCH", None, None)
-        bones.set_bone_collection(rigify_rig, "MCH-facerig_parent", "MCH", None, None)
+        bones.add_bone_collection(rigify_rig, "Face (Expressions)", "Face", color_set="CUSTOM", custom_color=chr_cache.rigify_face_control_color, lerp=0)
+        bones.add_bone_collection(rigify_rig, "Face (UI)", "UI", color_set="CUSTOM", custom_color=(1,1,1))
+        bones.set_bone_collection_visibility(rigify_rig, "Face (Expressions)", 22, True)
+        bones.set_bone_collection_visibility(rigify_rig, "Face (UI)", 23, True)
+
+        bones.set_bone_collection(rigify_rig, "MCH-jaw_move", "MCH", None, 30)
+        bones.set_bone_collection(rigify_rig, "MCH-facerig", "MCH", None, 30)
+        bones.set_bone_collection(rigify_rig, "MCH-facerig_controls", "MCH", None, 30)
+        bones.set_bone_collection(rigify_rig, "MCH-facerig_parent", "MCH", None, 30)
         bone_names = ["facerig", "facerig_groups", "facerig_labels", "facerig_name"]
         bone_colors = ["WHITE", "GROUP", "WHITE", "WHITE"]
+        bone_groups = ["UI", "UI", "UI", "UI"]
         bone_shapes = [ WGT_OUTLINE, WGT_GROUPS, WGT_LABELS, WGT_NAME ]
         bone_selectable = [ True, False, False, False ]
         for i, bone_name in enumerate(bone_names):
             pose_bone = bones.get_pose_bone(rigify_rig, bone_name)
             if pose_bone:
-                bones.set_bone_collection(rigify_rig, pose_bone, "Face (UI)", None, None)
+                bones.set_bone_collection(rigify_rig, pose_bone, "Face (UI)", bone_groups[i], 23)
                 bones.set_bone_color(rigify_rig, pose_bone, bone_colors[i])
                 pose_bone.custom_shape = bone_shapes[i]
                 pose_bone.custom_shape_scale_xyz = bone_scale
@@ -277,9 +283,9 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             nub_bone.lock_rotation = [True, True, True]
             nub_bone.lock_scale = [True, True, True]
             bones.keep_locks(nub_bone)
-            bones.set_bone_collection(rigify_rig, line_bone, "Face (UI)", None, None)
+            bones.set_bone_collection(rigify_rig, line_bone, "Face (UI)", "Face", 22)
             bones.set_bone_color(rigify_rig, line_bone, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
-            bones.set_bone_collection(rigify_rig, nub_bone, "Face (Expressions)", None, None)
+            bones.set_bone_collection(rigify_rig, nub_bone, "Face (Expressions)", "Face", 22)
             bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
             control_range = control_def["range"]
             min_y = (length * zero) * control_range[0]
@@ -303,9 +309,9 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             nub_bone.lock_rotation = [True, True, True]
             nub_bone.lock_scale = [True, True, True]
             bones.keep_locks(nub_bone)
-            bones.set_bone_collection(rigify_rig, box_bone, "Face (UI)", None, None)
+            bones.set_bone_collection(rigify_rig, box_bone, "Face (UI)", "Face", 22)
             bones.set_bone_color(rigify_rig, box_bone, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
-            bones.set_bone_collection(rigify_rig, nub_bone, "Face (Expressions)", None, None)
+            bones.set_bone_collection(rigify_rig, nub_bone, "Face (Expressions)", "Face", 22)
             bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
             control_range_x = control_def["x_range"]
             control_range_y = control_def["y_range"]
@@ -540,9 +546,9 @@ def build_facerig_drivers(chr_cache, rigify_rig):
 
     if rigutils.select_rig(rigify_rig):
 
-        bones.set_bone_collection_visibility(rigify_rig, "Face", None, False)
-        bones.set_bone_collection_visibility(rigify_rig, "Face (Primary)", None, False)
-        bones.set_bone_collection_visibility(rigify_rig, "Face (Secondary)", None, False)
+        bones.set_bone_collection_visibility(rigify_rig, "Face", 0, False)
+        bones.set_bone_collection_visibility(rigify_rig, "Face (Primary)", 1, False)
+        bones.set_bone_collection_visibility(rigify_rig, "Face (Secondary)", 2, False)
 
         facerig_bone = bones.get_pose_bone(rigify_rig, "facerig")
         if "head_follow" not in facerig_bone:
@@ -985,24 +991,29 @@ def control_bone_has_driver(rigify_rig, control_bone_name):
 
 
 def update_facerig_color(context, chr_cache=None):
-    props = vars.props()
     if not chr_cache:
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
     if chr_cache:
         FACERIG_CONFIG = get_facerig_config(chr_cache)
         rigify_rig = chr_cache.get_armature()
         if rigify_rig and "facerig" in rigify_rig.pose.bones:
-            for control_bone_name, control_def in FACERIG_CONFIG.items():
-                if control_bone_has_driver(rigify_rig, control_bone_name):
-                    color_code = "DRIVER"
-                else:
-                    color_code = "FACERIG"
-                bones.set_bone_color(rigify_rig, control_bone_name, color_code, color_code, color_code, chr_cache=chr_cache)
-                if control_def["widget_type"] == "rect":
-                    lines_bone_name = control_bone_name + "_box"
-                else:
-                    lines_bone_name = control_bone_name + "_line"
-                bones.set_bone_color(rigify_rig, lines_bone_name, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
+            if utils.B410():
+                for control_bone_name, control_def in FACERIG_CONFIG.items():
+                    if control_bone_has_driver(rigify_rig, control_bone_name):
+                        color_code = "DRIVER"
+                    else:
+                        color_code = "FACERIG"
+                    bones.set_bone_color(rigify_rig, control_bone_name, color_code, color_code, color_code, chr_cache=chr_cache)
+                    if control_def["widget_type"] == "rect":
+                        lines_bone_name = control_bone_name + "_box"
+                    else:
+                        lines_bone_name = control_bone_name + "_line"
+                    bones.set_bone_color(rigify_rig, lines_bone_name, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
+            else:
+                props_color = chr_cache.rigify_face_control_color
+                custom_color = (props_color[0], props_color[1], props_color[2])
+                bone_group = rigify_rig.pose.bone_groups["Face"]
+                bone_group.colors.normal = utils.linear_to_srgb(custom_color)
 
 
 def is_position_locked(rig):
@@ -1036,10 +1047,10 @@ def toggle_lock_position(chr_cache, rig):
 
 
 def build_arkit_bone_constraints(chr_cache, rigify_rig, proxy_rig):
-    con1 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "head", "head", space="LOCAL")
-    con2 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "head", "neck", 0.25, space="LOCAL")
-    con3 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "offset", "head", use_offset=True, space="LOCAL")
-    con4 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "offset", "neck", 0.25, use_offset=True, space="LOCAL")
+    con1 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "head", "head", space="LOCAL_WITH_PARENT")
+    con2 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "head", "neck", 0.25, space="LOCAL_WITH_PARENT")
+    con3 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "offset", "head", use_offset=True, space="LOCAL_WITH_PARENT")
+    con4 = bones.add_copy_rotation_constraint(proxy_rig, rigify_rig, "offset", "neck", 0.25, use_offset=True, space="LOCAL_WITH_PARENT")
     con1.name = con1.name + "_ARKit_Proxy"
     con2.name = con2.name + "_ARKit_Proxy"
     con3.name = con1.name + "_ARKit_Proxy"

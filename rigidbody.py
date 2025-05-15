@@ -742,13 +742,7 @@ def set_rigify_simulation_influence(arm, spring_rig_bone_name, sim_value, ik_fk_
 
 
 def add_simulation_bone_collection(arm):
-    if utils.B400():
-        if "Simulation" not in arm.data.collections:
-            arm.data.collections.new("Simulation")
-    else:
-        if "Simulation" not in arm.pose.bone_groups:
-            bone_group = arm.pose.bone_groups.new(name="Simulation")
-            bone_group.color_set = "THEME02"
+    bones.add_bone_collection(arm, "Simulation", "Simulation", "THEME02")
 
 
 def reset_cache(context):

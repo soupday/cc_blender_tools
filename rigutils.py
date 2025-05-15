@@ -1128,18 +1128,19 @@ FULL_RIG_COLLECTION = ["Face", "Face (Primary)", "Face (Secondary)",
                        "Root",
                        "Spring (IK)", "Spring (FK)", "Spring (Tweak)",
                        "Face (Expressions)", "Face (UI)"]
-FULL_RIG_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,28]
+FULL_RIG_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,28]
 FULL_DEF_COLLECTION = ["DEF", "Spring (Edit)", "Spring (Root)"]
 FULL_DEF_LAYERS = [24, 25, 29]
 
 SPRING_RIG_COLLECTION = ["Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
 SPRING_RIG_LAYERS = [19,20,21]
 SPRING_DEF_COLLECTION = ["Spring (Edit)", "Spring (Root)"]
-SPRING_DEF_LAYERS = [24, 25]
+SPRING_DEF_LAYERS = [24,25]
 
 FACE_RIG_COLLECTION = ["Face (Expressions)", "Face (UI)"]
-FACE_RIG_LAYERS = [0,1,2]
+FACE_RIG_LAYERS = [22,23]
 FACE_RIG_HIDE = ["Face", "Face (Primary)", "Face (Secondary)"]
+FACE_RIG_HIDE_LAYERS = [0,1,2]
 
 
 def show_hide_collections_layers(rig, collections, layers, show=True):
@@ -1165,6 +1166,8 @@ def is_full_rigify_rig_shown(rig):
                     return False
         else:
             for i in range(0, 32):
+                if face_rig and i in FACE_RIG_HIDE_LAYERS:
+                    continue
                 if i in FULL_RIG_LAYERS and rig.data.layers[i] == False:
                     return False
         return True
@@ -1198,7 +1201,10 @@ def toggle_show_full_rig(rig):
                 if show:
                     rig.data.layers[i] = i in FULL_RIG_LAYERS
                 else:
-                    rig.data.layers[i] = i in FULL_DEF_LAYERS
+                    rig.data.layers[i] = i in BASE_RIG_LAYERS
+            if face_rig:
+                for layer in FACE_RIG_HIDE_LAYERS:
+                    rig.data.layers[layer] = False
 
 
 def is_base_rig_shown(rig):
@@ -1212,6 +1218,8 @@ def is_base_rig_shown(rig):
                     return False
         else:
             for i in range(0, 32):
+                if face_rig and i in FACE_RIG_HIDE_LAYERS:
+                    continue
                 if i in BASE_RIG_LAYERS and rig.data.layers[i] == False:
                     return False
         return True
@@ -1247,6 +1255,9 @@ def toggle_show_base_rig(rig):
                     rig.data.layers[i] = i in BASE_RIG_LAYERS
                 else:
                     rig.data.layers[i] = i in BASE_DEF_LAYERS
+            if face_rig:
+                for layer in FACE_RIG_HIDE_LAYERS:
+                    rig.data.layers[layer] = False
 
 
 def is_spring_rig_shown(rig):
@@ -1306,6 +1317,17 @@ def is_only_face_rig_shown(rig):
                 if collection.name not in FACE_RIG_COLLECTION:
                     if collection.is_visible:
                         return shown, False
+        else:
+            for layer in range(0, 32):
+                if layer in FACE_RIG_COLLECTION:
+                    if rig.data.layers[layer]:
+                        only_shown = True
+                    else:
+                        shown = False
+            for layer in range(0, 32):
+                if layer not in FACE_RIG_COLLECTION:
+                    if rig.data.layers[layer]:
+                        return shown, False
     return shown, only_shown
 
 
@@ -1317,6 +1339,11 @@ def toggle_show_only_face_rig(rig):
             for collection in rig.data.collections:
                 if collection.name not in FACE_RIG_COLLECTION and collection.is_visible:
                     show_only = True
+        else:
+            for layer in range(0, 32):
+                if rig.data.layers[layer] and layer not in FACE_RIG_LAYERS:
+                    show_only = True
+
         if utils.B400():
             if show_only:
                 for collection in rig.data.collections:
@@ -1327,6 +1354,17 @@ def toggle_show_only_face_rig(rig):
                         collection.is_visible = False
                     else:
                         collection.is_visible = collection.name in BASE_RIG_COLLECTION
+        else:
+            if show_only:
+                rig.data.layers[22] = True
+                rig.data.layers[23] = True
+                for layer in range(0, 32):
+                    rig.data.layers[layer] = layer in FACE_RIG_LAYERS
+            else:
+                rig.data.layers[22] = False
+                rig.data.layers[23] = False
+                for layer in range(0, 32):
+                    rig.data.layers[layer] = layer in BASE_RIG_LAYERS and layer not in FACE_RIG_HIDE_LAYERS
 
 
 def reset_pose(rig, exceptions=None, use_selected=False):
