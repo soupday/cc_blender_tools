@@ -1031,15 +1031,20 @@ def set_bone_tail_length(bone: bpy.types.EditBone, tail):
         bone.length = length
 
 
-def set_bone_deform(bone: bpy.types.EditBone, use_deform):
+def set_bone_deform(bone: bpy.types.EditBone, use_deform, objects):
     try:
         if bone:
+            # don't set non deform on rig bones if there are objects weighted to it
+            for obj in objects:
+                if bone.name in obj.vertex_groups:
+                    return
             bone.use_deform = use_deform
     except: ...
 
 
 def fix_cc3_standard_rig(cc3_rig):
     if edit_rig(cc3_rig):
+        objects = utils.get_child_objects(cc3_rig, of_type="MESH")
         left_eye = bones.get_edit_bone(cc3_rig, "CC_Base_L_Eye")
         right_eye = bones.get_edit_bone(cc3_rig, "CC_Base_R_Eye")
         left_hand = bones.get_edit_bone(cc3_rig, ["CC_Base_L_Hand", "hand_l"])
@@ -1055,19 +1060,11 @@ def fix_cc3_standard_rig(cc3_rig):
         right_thigh = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Thigh", "thigh_r"])
         left_calf = bones.get_edit_bone(cc3_rig, ["CC_Base_L_Calf", "calf_l"])
         right_calf = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Calf", "calf_r"])
-        hip = bones.get_edit_bone(cc3_rig, ["CC_Base_Hip", "hip"])
-        root = bones.get_edit_bone(cc3_rig, ["CC_Base_BoneRoot", "RL_BoneRoot", "root"])
         # fix deform state
-        set_bone_deform(left_thigh, False)
-        set_bone_deform(right_thigh, False)
-        set_bone_deform(left_calf, False)
-        set_bone_deform(right_calf, False)
-        set_bone_deform(left_upper_arm, False)
-        set_bone_deform(right_upper_arm, False)
-        set_bone_deform(left_lower_arm, False)
-        set_bone_deform(right_lower_arm, False)
-        set_bone_deform(hip, False)
-        set_bone_deform(root, False)
+        for bone_name in bones.NONE_DEFORM_BONES:
+            edit_bone = bones.get_edit_bone(cc3_rig, bone_name)
+            if edit_bone:
+                set_bone_deform(edit_bone, False, objects)
         # eyes
         eye_z = None
         if left_eye and right_eye:

@@ -1155,7 +1155,7 @@ def add_child_objects(obj, objects, follow_armatures=False, of_type=None):
         if child not in objects:
             if child.type == "ARMATURE" and not follow_armatures:
                 continue
-            if not of_type or obj.type == of_type:
+            if not of_type or child.type == of_type:
                 objects.append(child)
             if child.children:
                 add_child_objects(child, objects, follow_armatures, of_type)

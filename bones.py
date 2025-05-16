@@ -22,6 +22,17 @@ from . import drivers, utils, vars
 from rna_prop_ui import rna_idprop_ui_create
 
 
+NONE_DEFORM_BONES = [
+        "CC_Base_R_Upperarm", "CC_Base_L_Upperarm",
+        "CC_Base_R_Forearm", "CC_Base_L_Forearm",
+        "CC_Base_R_Thigh", "CC_Base_L_Thigh",
+        "CC_Base_R_Calf", "CC_Base_L_Calf",
+        "CC_Base_FacialBone",
+        "CC_Base_Hip",
+        "CC_Base_BoneRoot", "RL_BoneRoot", "root",
+    ]
+
+
 def cmp_rl_bone_names(name, bone_name):
     """Reduce supplied bone names to their base form without prefixes and compare."""
     if bone_name.startswith("RL_"):
@@ -1081,18 +1092,6 @@ def assign_rl_base_collections(rig):
     share = add_bone_collection(rig, "Share")
     root = add_bone_collection(rig, "Root")
 
-    none_deform_bones = [
-        "CC_Base_R_Upperarm",
-        "CC_Base_L_Upperarm",
-        "CC_Base_R_Forearm",
-        "CC_Base_L_Forearm",
-        "CC_Base_R_Thigh",
-        "CC_Base_L_Thigh",
-        "CC_Base_R_Calf",
-        "CC_Base_L_Calf",
-        "CC_Base_FacialBone",
-    ]
-
     if utils.B400():
         bone: bpy.types.PoseBone
         for bone in rig.data.bones:
@@ -1100,10 +1099,10 @@ def assign_rl_base_collections(rig):
                 twist.assign(bone)
             elif "ShareBone" in bone.name:
                 share.assign(bone)
-            elif bone.name in none_deform_bones:
-                none.assign(bone)
             elif "Root" in bone.name or "root" in bone.name:
                 root.assign(bone)
+            elif bone.name in NONE_DEFORM_BONES:
+                none.assign(bone)
             else:
                 deform.assign(bone)
     else:
@@ -1113,10 +1112,10 @@ def assign_rl_base_collections(rig):
                 pose_bone.bone_group = twist
             elif "ShareBone" in pose_bone.name:
                 pose_bone.bone_group = share
-            elif pose_bone.name in none_deform_bones:
-                pose_bone.bone_group = none
             elif "Root" in pose_bone.name or "root" in pose_bone.name:
                 pose_bone.bone_group = root
+            elif pose_bone.name in NONE_DEFORM_BONES:
+                pose_bone.bone_group = none
             else:
                 pose_bone.bone_group = deform
 
