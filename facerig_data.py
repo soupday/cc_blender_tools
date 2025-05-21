@@ -2397,9 +2397,11 @@ FACERIG_STD_CONFIG = {
     "CTRL_R_mouth_corner_Std":
     {
         "widget_type": "rect",
-        "x_range": [-1.0, 1.0],
-        "y_range": [-1.0, 1.0],
-        "y_invert": False,
+        "x_range": [1.0, -1.0],
+        "y_range": [1.0, -1.0],
+        "y_invert": True,
+        "x_mirror": True,
+        "x_invert": True,
         "retarget": [],
         "negative": True,
         "indices": [102, 103, 104, 105],
@@ -2407,11 +2409,11 @@ FACERIG_STD_CONFIG = {
         {
             "x":
             {
-                "Mouth_Stretch_R": -1.0
+                "Mouth_Stretch_R": 1.0
             },
             "y":
             {
-                "Mouth_Frown_R": 1.0
+                "Mouth_Frown_R": -1.0
             }
         }
     },
@@ -3415,9 +3417,11 @@ FACERIG_TRA_CONFIG = {
     "CTRL_R_mouth_corner_Std":
     {
         "widget_type": "rect",
-        "x_range": [-1.0, 1.0],
-        "y_range": [-1.0, 1.0],
-        "y_invert": False,
+        "x_range": [1.0, -1.0],
+        "y_range": [1.0, -1.0],
+        "y_invert": True,
+        "x_mirror": True,
+        "x_invert": True,
         "retarget": [],
         "negative": True,
         "indices": [102, 103, 104, 105],
@@ -3425,11 +3429,11 @@ FACERIG_TRA_CONFIG = {
         {
             "x":
             {
-                "A51_Mouth_Stretch_Right": -1.0
+                "A51_Mouth_Stretch_Right": 1.0
             },
             "y":
             {
-                "A41_Mouth_Frown_Right": 1.0
+                "A41_Mouth_Frown_Right": -1.0
             }
         }
     },
