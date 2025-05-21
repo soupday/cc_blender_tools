@@ -209,7 +209,6 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
 
     # try to find as library image
     lib_name = get_image_type_lib_name(texture_type)
-    print("LIB_NAME", texture_type, lib_name)
     if lib_name:
         image = lib.get_image(lib_name)
         colorspace.set_image_color_space(image, color_space)
