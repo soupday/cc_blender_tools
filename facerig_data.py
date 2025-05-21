@@ -109,7 +109,7 @@ FACERIG_EXT_CONFIG = {
                     "bone": "CC_Base_L_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0],
                 }
             ],
             "vertical":
@@ -118,7 +118,7 @@ FACERIG_EXT_CONFIG = {
                     "bone": "CC_Base_L_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 }
             ]
         },
@@ -131,7 +131,7 @@ FACERIG_EXT_CONFIG = {
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -141,7 +141,7 @@ FACERIG_EXT_CONFIG = {
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 }
             ]
         }
@@ -178,7 +178,7 @@ FACERIG_EXT_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0],
                 }
             ],
             "vertical":
@@ -187,7 +187,7 @@ FACERIG_EXT_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 }
             ]
         },
@@ -200,7 +200,7 @@ FACERIG_EXT_CONFIG = {
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0],
                 }
             ],
             "vertical":
@@ -210,7 +210,7 @@ FACERIG_EXT_CONFIG = {
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 }
             ]
         }
@@ -250,13 +250,13 @@ FACERIG_EXT_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0]
                 },
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -265,13 +265,13 @@ FACERIG_EXT_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 },
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 }
             ]
         },
@@ -284,14 +284,14 @@ FACERIG_EXT_CONFIG = {
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0]
                 },
                 {
                     "bone": "MCH-eye.L",
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -301,14 +301,14 @@ FACERIG_EXT_CONFIG = {
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 },
                 {
                     "bone": "MCH-eye.L",
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 }
             ]
         }
@@ -361,7 +361,7 @@ FACERIG_EXT_CONFIG = {
                     "bone": "CC_Base_JawRoot",
                     "axis": "y",
                     "offset": 0,
-                    "translation": -0.67
+                    "translation": -0.658
                 }
             ],
             "vertical":
@@ -383,7 +383,7 @@ FACERIG_EXT_CONFIG = {
                     "axis": "x",
                     "cc_axis": "y",
                     "offset": 0,
-                    "translation": 0.67
+                    "translation": 0.658
                 }
             ],
             "vertical":
@@ -541,21 +541,23 @@ FACERIG_EXT_CONFIG = {
     "CTRL_R_nose":
     {
         "widget_type": "rect",
-        "x_range": [-1.0, 1.0],
-        "y_range": [-1.0, 1.0],
-        "y_invert": False,
+        "x_range": [1.0, -1.0],
+        "y_range": [1.0, -1.0],
+        "y_invert": True,
+        "x_mirror": True,
+        "x_invert": True,
         "indices": [180, 181, 182, 183],
         "blendshapes":
         {
             "x":
             {
-                "Nose_Nostril_Dilate_R": -1.0,
-                "Nose_Nostril_In_R": 1.0
+                "Nose_Nostril_Dilate_R": 1.0,
+                "Nose_Nostril_In_R": -1.0
             },
             "y":
             {
-                "Nose_Nostril_Raise_R": -1.0,
-                "Nose_Nostril_Down_R": 1.0
+                "Nose_Nostril_Raise_R": 1.0,
+                "Nose_Nostril_Down_R": -1.0
             }
         }
     },
@@ -564,7 +566,6 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "rect",
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
-        "y_invert": False,
         "indices": [181, 192, 193, 182],
         "blendshapes":
         {
@@ -926,7 +927,7 @@ FACERIG_EXT_CONFIG = {
                 "bone": "CC_Base_JawRoot",
                 "axis": "x",
                 "offset": 0, # 1.8288450241088867,
-                "translation": 1.0
+                "translation": [0.75, -0.5],
             }
         ],
         "rigify":
@@ -936,7 +937,7 @@ FACERIG_EXT_CONFIG = {
                 "axis": "y",
                 "cc_axis": "x",
                 "offset": 0,
-                "translation": -1.0
+                "translation": [-0.75, 0.5],
             }
         ]
     },
@@ -987,6 +988,7 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [152, 153],
+        "soft": True,
         "blendshapes":
         {
             "Mouth_Close": 0.2
@@ -1186,11 +1188,11 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "retarget": ["Mouth_Roll_Out_Lower_R"],
         "range": [-1.0, 1.0],
-        "indices": [38, 40],
+        "indices": [40, 38],
         "blendshapes":
         {
-            "Mouth_Roll_In_Lower_R": -1.0,
-            "Mouth_Roll_Out_Lower_R": 1.0
+            "Mouth_Roll_In_Lower_R": 1.0,
+            "Mouth_Roll_Out_Lower_R": -1.0
         }
     },
     "CTRL_L_mouth_lipsRollU":
@@ -1210,32 +1212,34 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "retarget": ["Mouth_Roll_Out_Lower_L"],
         "range": [-1.0, 1.0],
-        "indices": [39, 41],
+        "indices": [41, 39],
         "blendshapes":
         {
-            "Mouth_Roll_In_Lower_L": -1.0,
-            "Mouth_Roll_Out_Lower_L": 1.0
+            "Mouth_Roll_In_Lower_L": 1.0,
+            "Mouth_Roll_Out_Lower_L": -1.0
         }
     },
     "CTRL_R_mouth_corner":
     {
         "widget_type": "rect",
-        "x_range": [-1.0, 1.0],
-        "y_range": [-1.0, 1.0],
-        "y_invert": False,
+        "x_range": [1.0, -1.0],
+        "y_range": [1.0, -1.0],
+        "y_invert": True,
+        "x_mirror": True,
+        "x_invert": True,
         "retarget": [],
         "indices": [206, 207, 208, 209],
         "blendshapes":
         {
             "x":
             {
-                "Mouth_Tighten_R": 1.0,
-                "Mouth_Stretch_R": -1.0
+                "Mouth_Tighten_R": -1.0,
+                "Mouth_Stretch_R": 1.0
             },
             "y":
             {
-                "Mouth_Smile_Sharp_R": -1.0,
-                "Mouth_Frown_R": 1.0
+                "Mouth_Smile_Sharp_R": 1.0,
+                "Mouth_Frown_R": -1.0
             }
         }
     },
@@ -1244,7 +1248,6 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "rect",
         "x_range": [-1.0, 1.0],
         "y_range": [-1.0, 1.0],
-        "y_invert": False,
         "retarget": [],
         "indices": [210, 211, 212, 213],
         "blendshapes":
@@ -1313,11 +1316,11 @@ FACERIG_EXT_CONFIG = {
 
         "widget_type": "slider",
         "range": [-1.0, 1.0],
-        "indices": [47, 51],
+        "indices": [51, 47],
         "blendshapes":
         {
-            "Mouth_Push_Upper_L": 1.0,
-            "Mouth_Pull_Upper_L": -1.0
+            "Mouth_Push_Upper_L": -1.0,
+            "Mouth_Pull_Upper_L": 1.0
         }
     },
     "CTRL_L_mouth_pushPullD":
@@ -1325,11 +1328,11 @@ FACERIG_EXT_CONFIG = {
 
         "widget_type": "slider",
         "range": [-1.0, 1.0],
-        "indices": [49, 53],
+        "indices": [53, 49],
         "blendshapes":
         {
-            "Mouth_Push_Lower_L": 1.0,
-            "Mouth_Pull_Lower_L": -1.0
+            "Mouth_Push_Lower_L": -1.0,
+            "Mouth_Pull_Lower_L": 1.0
         }
     },
     "CTRL_C_teethD":
@@ -1509,12 +1512,12 @@ FACERIG_EXT_CONFIG = {
 
         "widget_type": "slider",
         "range": [-1.0, 1.0],
-        "indices": [140, 142],
+        "indices": [142, 140],
         "strength": False,
         "blendshapes":
         {
-            "Eyelash_Lower_Up_R": -1.0,
-            "Eyelash_Lower_Down_R": 1.0
+            "Eyelash_Lower_Up_R": 1.0,
+            "Eyelash_Lower_Down_R": -1.0
         }
     },
     "CTRL_L_eyelashU":
@@ -1533,12 +1536,12 @@ FACERIG_EXT_CONFIG = {
     {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
-        "indices": [141, 143],
+        "indices": [143, 141],
         "strength": False,
         "blendshapes":
         {
-            "Eyelash_Lower_Up_L": -1.0,
-            "Eyelash_Lower_Down_L": 1.0
+            "Eyelash_Lower_Up_L": 1.0,
+            "Eyelash_Lower_Down_L": -1.0
         }
     },
     "CTRL_C_mouth_thickness":
@@ -1656,7 +1659,7 @@ FACERIG_STD_CONFIG = {
                     "bone": "CC_Base_L_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -1665,7 +1668,7 @@ FACERIG_STD_CONFIG = {
                     "bone": "CC_Base_L_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 }
             ]
         },
@@ -1678,7 +1681,7 @@ FACERIG_STD_CONFIG = {
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -1688,7 +1691,7 @@ FACERIG_STD_CONFIG = {
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 }
             ]
         }
@@ -1725,7 +1728,7 @@ FACERIG_STD_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0]
                 }
             ],
             "vertical":
@@ -1734,7 +1737,7 @@ FACERIG_STD_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 }
             ]
         },
@@ -1747,7 +1750,7 @@ FACERIG_STD_CONFIG = {
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0]
                 }
             ],
             "vertical":
@@ -1757,7 +1760,7 @@ FACERIG_STD_CONFIG = {
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 }
             ]
         }
@@ -1797,13 +1800,13 @@ FACERIG_STD_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0]
                 },
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -1812,13 +1815,13 @@ FACERIG_STD_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 },
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 }
             ]
         },
@@ -1831,14 +1834,14 @@ FACERIG_STD_CONFIG = {
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0]
                 },
                 {
                     "bone": "MCH-eye.L",
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -1848,14 +1851,14 @@ FACERIG_STD_CONFIG = {
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 },
                 {
                     "bone": "MCH-eye.L",
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 }
             ]
         }
@@ -1898,7 +1901,7 @@ FACERIG_STD_CONFIG = {
                     "bone": "CC_Base_JawRoot",
                     "axis": "y",
                     "offset": 0,
-                    "translation": -0.67
+                    "translation": -0.658
                 }
             ],
             "vertical":
@@ -1920,7 +1923,7 @@ FACERIG_STD_CONFIG = {
                     "axis": "x",
                     "cc_axis": "y",
                     "offset": 0,
-                    "translation": 0.67
+                    "translation": 0.658
                 }
             ],
             "vertical":
@@ -2210,7 +2213,7 @@ FACERIG_STD_CONFIG = {
                 "bone": "CC_Base_JawRoot",
                 "axis": "x",
                 "offset": 0, # 1.8288450241088867,
-                "translation": 1.0
+                "translation": [0.75, -0.5],
             }
         ],
         "rigify":
@@ -2220,7 +2223,7 @@ FACERIG_STD_CONFIG = {
                 "axis": "y",
                 "cc_axis": "x",
                 "offset": 0,
-                "translation": -1.0
+                "translation": [-0.75, 0.5],
             }
         ]
     },
@@ -2249,6 +2252,7 @@ FACERIG_STD_CONFIG = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [72, 73],
+        "soft": True,
         "blendshapes":
         {
             "Mouth_Close": 0.2
@@ -2692,7 +2696,7 @@ FACERIG_TRA_CONFIG = {
                     "bone": "CC_Base_L_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -2701,7 +2705,7 @@ FACERIG_TRA_CONFIG = {
                     "bone": "CC_Base_L_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 }
             ]
         },
@@ -2714,7 +2718,7 @@ FACERIG_TRA_CONFIG = {
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -2724,7 +2728,7 @@ FACERIG_TRA_CONFIG = {
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 }
             ]
         }
@@ -2761,7 +2765,7 @@ FACERIG_TRA_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0]
                 }
             ],
             "vertical":
@@ -2770,7 +2774,7 @@ FACERIG_TRA_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 }
             ]
         },
@@ -2783,7 +2787,7 @@ FACERIG_TRA_CONFIG = {
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0]
                 }
             ],
             "vertical":
@@ -2793,7 +2797,7 @@ FACERIG_TRA_CONFIG = {
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 }
             ]
         }
@@ -2833,13 +2837,13 @@ FACERIG_TRA_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0]
                 },
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "z",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0]
                 }
             ],
             "vertical":
@@ -2848,13 +2852,13 @@ FACERIG_TRA_CONFIG = {
                     "bone": "CC_Base_R_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 },
                 {
                     "bone": "CC_Base_L_Eye",
                     "axis": "x",
                     "offset": 0, # -90.0,
-                    "rotation": 20.0
+                    "rotation": [22.0, -20.0],
                 }
             ]
         },
@@ -2867,14 +2871,14 @@ FACERIG_TRA_CONFIG = {
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [30.0, -40.0],
                 },
                 {
                     "bone": "MCH-eye.L",
                     "axis": "z",
                     "cc_axis": "z",
                     "offset": 0,
-                    "rotation": 20.0
+                    "rotation": [40.0, -30.0],
                 }
             ],
             "vertical":
@@ -2884,14 +2888,14 @@ FACERIG_TRA_CONFIG = {
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 },
                 {
                     "bone": "MCH-eye.L",
                     "axis": "x",
                     "cc_axis": "x",
                     "offset": 0,
-                    "rotation": -20.0
+                    "rotation": [-22.0, 20.0],
                 }
             ]
         }
@@ -2934,7 +2938,7 @@ FACERIG_TRA_CONFIG = {
                     "bone": "CC_Base_JawRoot",
                     "axis": "y",
                     "offset": 0,
-                    "translation": -0.67
+                    "translation": -0.658
                 }
             ],
             "vertical":
@@ -2943,7 +2947,7 @@ FACERIG_TRA_CONFIG = {
                     "bone": "CC_Base_JawRoot",
                     "axis": "z",
                     "offset": 0, # 90.0,
-                    "rotation": 30.0
+                    "rotation": 35.0
                 }
             ]
         },
@@ -2956,7 +2960,7 @@ FACERIG_TRA_CONFIG = {
                     "axis": "x",
                     "cc_axis": "y",
                     "offset": 0,
-                    "translation": 0.67
+                    "translation": 0.658
                 }
             ],
             "vertical":
@@ -3236,7 +3240,7 @@ FACERIG_TRA_CONFIG = {
                 "bone": "CC_Base_JawRoot",
                 "axis": "x",
                 "offset": 0, # 1.8288450241088867,
-                "translation": 1.0
+                "translation": [0.75, -0.5],
             }
         ],
         "rigify":
@@ -3246,7 +3250,7 @@ FACERIG_TRA_CONFIG = {
                 "axis": "y",
                 "cc_axis": "x",
                 "offset": 0,
-                "translation": -1.0
+                "translation": [-0.75, 0.5],
             }
         ]
     },
@@ -3266,6 +3270,7 @@ FACERIG_TRA_CONFIG = {
         "widget_type": "slider",
         "range": [0.0, 1.0],
         "indices": [72, 73],
+        "soft": True,
         "blendshapes":
         {
             "A37_Mouth_Close": 0.2

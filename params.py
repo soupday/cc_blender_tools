@@ -418,8 +418,8 @@ SHADER_MATRIX = [
             ["skin_secondary_specular_scale", 0.6, "DEF"],
             ["skin_secondary_roughness_power", 2.0, "DEF"],
             ["skin_specular_mix", 0.2, "DEF"],
-            ["skin_height_scale", 0.25, "DEF"],
-            ["skin_bump_scale", 0.25, "DEF"],
+            ["skin_height_scale", 0.0, "DEF"],
+            ["skin_bump_scale", 0.0, "DEF"],
         ],
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
@@ -659,8 +659,8 @@ SHADER_MATRIX = [
             ["skin_secondary_specular_scale", 0.6, "DEF"],
             ["skin_secondary_roughness_power", 2.0, "DEF"],
             ["skin_specular_mix", 0.2, "DEF"],
-            ["skin_height_scale", 0.25, "DEF"],
-            ["skin_bump_scale", 0.25, "DEF"],
+            ["skin_height_scale", 0.0, "DEF"],
+            ["skin_bump_scale", 0.0, "DEF"],
             ["skin_height_delta_scale", 0.0, "DEF"],
         ],
         # export variables to update json file on export that need special conversion
@@ -1364,7 +1364,7 @@ SHADER_MATRIX = [
             ["default_roughness_max", 1, "DEF"],
             ["default_emissive_color", (1,1,1,1), "DEF"],
             ["default_specular", [0.5, 1.0], "DEF"],
-            ["default_roughness", [0.0, 0.5], "DEF"],
+            ["default_roughness", [0.0, 0.25], "DEF"],
         ],
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
@@ -1531,7 +1531,7 @@ SHADER_MATRIX = [
             # non json properties (just defaults)
             ["default_ao_power", 1, "DEF"],
             ["default_specular", [0.5, 1.0], "DEF"],
-            ["default_roughness", [0.0, 0.5], "DEF"],
+            ["default_roughness", [0.0, 0.25], "DEF"],
             ["default_hue", 0.5, "", "/Diffuse Hue"],
             ["default_saturation", 1.0, "func_saturation_mod", "/Diffuse Saturation"],
             ["default_brightness", 1.0, "func_brightness_mod", "/Diffuse Brightness"],

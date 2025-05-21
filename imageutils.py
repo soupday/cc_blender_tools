@@ -179,6 +179,12 @@ def get_image_type_lib_name(texture_type):
     return None
 
 
+def is_library_tex(texture_type):
+    if get_image_type_lib_name(texture_type):
+        return True
+    return False
+
+
 def search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type):
     return find_image_file(chr_cache.get_import_dir(), [mat_cache.get_tex_dir(chr_cache), chr_cache.get_tex_dir()], mat, texture_type)
 

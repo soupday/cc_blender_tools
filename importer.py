@@ -1742,7 +1742,7 @@ class CC3Import(bpy.types.Operator):
             if chr_cache:
                 utils.object_mode()
                 prefs.render_target = "EEVEE"
-                prefs.refractive_eyes = "PARALLAX"
+                prefs.refractive_eyes = "SSR"
                 if chr_cache.render_target != "EEVEE":
                     utils.log_info("Character is currently build for Cycles Rendering.")
                     utils.log_info("Rebuilding Character for Eevee Rendering...")

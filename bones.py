@@ -622,7 +622,10 @@ def add_damped_track_constraint(rig, bone_name, target_name, influence):
         return None
 
 
-def add_limit_location_constraint(rig, bone_name, min_x=None, min_y=None, min_z=None, max_x=None, max_y=None, max_z=None, use_transform_limit=False, influence=1.0, space="WORLD"):
+def add_limit_location_constraint(rig, bone_name,
+                                  min_x=None, min_y=None, min_z=None,
+                                  max_x=None, max_y=None, max_z=None,
+                                  use_transform_limit=False, influence=1.0, space="WORLD"):
     try:
         if utils.object_mode():
             pose_bone : bpy.types.PoseBone = rig.pose.bones[bone_name]

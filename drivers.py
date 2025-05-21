@@ -180,6 +180,8 @@ def add_custom_float_array_property(obj, prop_name, prop_value : list,
 
 SHAPE_KEY_DRIVERS = {
 
+    # values taken from Neutral base character, zero values are *not* driven.
+
     "V_Open": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
@@ -209,7 +211,7 @@ SHAPE_KEY_DRIVERS = {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
         "translate": [0.0001,0.0001,0.0001], #using non zero values to lock translation in place
-        "rotate": [0,0,30.894],
+        "rotate": [0,0,30],
     },
 
     "Jaw_Open.001": {
@@ -243,28 +245,28 @@ SHAPE_KEY_DRIVERS = {
     "Jaw_L": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
-        "translate": [0,0,0.8],
+        "translate": [0,0,0.658],
         "rotate": [0,0,0],
     },
 
     "Jaw_R": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
-        "translate": [0,0,-0.8],
+        "translate": [0,0,-0.658],
         "rotate": [0,0,0],
     },
 
     "Jaw_Up": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
-        "translate": [0,-0.233,0],
+        "translate": [0,-0.25,0],
         "rotate": [0,0,0],
     },
 
     "Jaw_Down": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
-        "translate": [0,0.57,0],
+        "translate": [0,0.55,0],
         "rotate": [0,0,0],
     },
 
@@ -274,127 +276,126 @@ SHAPE_KEY_DRIVERS = {
         "bone": ["CC_Base_Head","head","spine.006"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-30.0000, -0.0000, -0.0000],
+        "rotate": [-31, 0, 0],
     },
 
     "Head_Turn_Down": {
         "bone": ["CC_Base_Head","head","spine.006"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [18.0000, 0.0000, -0.0000],
+        "rotate": [17, 0, 0],
     },
 
     "Head_Turn_L": {
         "bone": ["CC_Base_Head","head","spine.006"],
         "range": 100.0,
-        "translate": [3.02,0,0],
-        "rotate": [-0.5062, 50.9982, -0.6514],
+        "translate": [1.68, 0, 0],
+        "rotate": [0, 51, 0],
     },
 
     "Head_Turn_R": {
         "bone": ["CC_Base_Head","head","spine.006"],
         "range": 100.0,
-        "translate": [-3.02,0,0],
-        "rotate": [-0.5062, -50.9982, 0.6515],
+        "translate": [-1.68, 0, 0],
+        "rotate": [0, -51, 0],
     },
 
     "Head_Tilt_L": {
         "bone": ["CC_Base_Head","head","spine.006"],
         "range": 100.0,
-        "translate": [1.15,0,0],
-        "rotate": [0.0000, 0.0000, -23.4000],
+        "translate": [0.64, 0, 0],
+        "rotate": [0, 0, 23.33],
     },
 
     "Head_Tilt_R": {
         "bone": ["CC_Base_Head","head","spine.006"],
         "range": 100.0,
-        "translate": [-1.15,0,0],
-        "rotate": [0.0000, -0.0000, 23.4000],
+        "translate": [-0.64, 0, 0],
+        "rotate": [0, 0, 23.33],
     },
 
     "Head_L": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
-        "translate": [3.59,0,0],
+        "range": 100.0,
+        "translate": [2,0,0],
         "rotate": [0,0,0],
     },
 
     "Head_R": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
-        "translate": [-3.59,0,0],
+        "range": 100.0,
+        "translate": [-2,0,0],
         "rotate": [0,0,0],
     },
 
     "Head_Forward": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
-        "translate": [0,0.05,5.31],
+        "range": 100.0,
+        "translate": [0, 0, 2.95],
         "rotate": [0,0,0],
     },
 
     "Head_Backward": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
-        "translate": [0,-0.04,-4.67],
+        "range": 100.0,
+        "translate": [0, 0, -2.6],
         "rotate": [0,0,0],
     },
-
 
     "Eye_L_Look_L": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0.0047, -0.0012, 40.0083],
+        "rotate": [0, 0, 40],
     },
 
     "Eye_R_Look_L": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-0.0038, 0.0006, 29.9917],
+        "rotate": [0, 0, 30],
     },
 
     "Eye_L_Look_R": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-0.0038, -0.0006, -29.9917],
+        "rotate": [0, 0, -30],
     },
 
     "Eye_R_Look_R": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0.0047, 0.0012, -40.0083],
+        "rotate": [0, 0, -40],
     },
 
     "Eye_L_Look_Up": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-20.0002, -0.0006, 0.0003],
+        "rotate": [-20, 0, 0],
     },
 
     "Eye_R_Look_Up": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-20.0002, 0.0006, -0.0003],
+        "rotate": [-20, 0, 0],
     },
 
     "Eye_L_Look_Down": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [21.9998, 0.0034, -0.0027],
+        "rotate": [22, 0, 0],
     },
 
     "Eye_R_Look_Down": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [21.9998, -0.0034, 0.0017],
+        "rotate": [22, 0, 0],
     },
 
 
@@ -402,70 +403,70 @@ SHAPE_KEY_DRIVERS = {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0.0000, -0.0000, 17.0020],
+        "rotate": [0, 0, 17],
     },
 
     "A25_Jaw_Open": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0.0000, -0.0000, 34.9862],
+        "rotate": [0, 0, 35],
     },
 
     "A10_Eye_Look_Out_Left": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0.0000, -0.0000, 42.0082],
+        "rotate": [0, 0, 40],
     },
 
     "A12_Eye_Look_In_Right": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0.0000, -0.0000, 24.0085],
+        "rotate": [0, 0, 30],
     },
 
     "A11_Eye_Look_In_Left": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0.0000, 0.0000, -24.9917],
+        "rotate": [0, 0, -30],
     },
 
     "A13_Eye_Look_Out_Right": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0.0000, 0.0000, -34.0000],
+        "rotate": [0, 0, -40],
     },
 
     "A06_Eye_Look_Up_Left": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-20.0006, 0.0000, 0.0000],
+        "rotate": [-20, 0, 0],
     },
 
     "A07_Eye_Look_Up_Right": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-19.9999, 0.0000, 0.0000],
+        "rotate": [-20, 0, 0],
     },
 
     "A08_Eye_Look_Down_Left": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [19.9994, -0.0000, 0.0000],
+        "rotate": [22, 0, 0],
     },
 
     "A09_Eye_Look_Down_Right": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [20.0001, -0.0000, 0.0000],
+        "rotate": [22, 0, 0],
     },
 }
 
