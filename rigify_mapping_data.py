@@ -1166,7 +1166,7 @@ RETARGET_G3 = [
     #
     #   flags with parameters (are processed left to right and parameters are consecutive)
     #
-    #       "+", copy_bone - this org bone needs be added copied from copy_bone
+    #       "+", copy_bone - this org bone needs be added copied from param[0]]
     #       "I", influence - multiply the influence of the source -> org copy location/rotation
     #       "T", next_bone - parent correction & align with target: like "P" but maintain alignment
     #                        between the org bone and next_bone.

@@ -221,22 +221,22 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
                 height = (p_max.y - p_min.y)
                 pB0 = Vector((p_min.x + width / 2, p_min.y, 0.0))
                 pB1 = Vector((p_min.x + width / 2, p_min.y + height / 2, 0.0))
-                if control_def.get("y_invert") and control_def.get("x_invert"):
-                    pN0 = Vector((p_min.x + width * (1-zero_x), p_min.y + height * (1-zero_y), 0))
-                elif control_def.get("y_invert"):
-                    pN0 = Vector((p_min.x + width * zero_x, p_min.y + height * (1-zero_y), 0))
-                elif control_def.get("x_invert"):
-                    pN0 = Vector((p_min.x + width * (1-zero_x), p_min.y + height * zero_y, 0))
-                else:
-                    pN0 = Vector((p_min.x + width * zero_x, p_min.y + height * zero_y, 0))
+                zx = (1-zero_x) if control_def.get("x_invert") else zero_x
+                zy = (1-zero_y) if control_def.get("y_invert") else zero_y
+                pN0 = Vector((p_min.x + width * zx, p_min.y + height * zy, 0))
                 pN1 = Vector((pN0.x, pN0.y + height / 2, 0))
+                pN2 = Vector((pN0.x, pN0.y - height / 2, 0))
                 box_bone = bones.new_edit_bone(rigify_rig, control_name+"_box", "MCH-facerig_controls")
                 box_bone.head = (R @ pB0 * bone_scale * 1.0) + facerig_bone.head
                 box_bone.tail = (R @ pB1 * bone_scale * 1.0) + facerig_bone.head
                 box_bone.align_roll(Vector((0, -1, 0)))
                 nub_bone = bones.new_edit_bone(rigify_rig, control_name, box_bone.name)
-                nub_bone.head = (R @ pN0 * bone_scale * 1.0) + facerig_bone.head
-                nub_bone.tail = (R @ pN1 * bone_scale * 1.0) + facerig_bone.head
+                if control_def.get("x_mirror", False):
+                    nub_bone.head = (R @ pN0 * bone_scale * 1.0) + facerig_bone.head
+                    nub_bone.tail = (R @ pN2 * bone_scale * 1.0) + facerig_bone.head
+                else:
+                    nub_bone.head = (R @ pN0 * bone_scale * 1.0) + facerig_bone.head
+                    nub_bone.tail = (R @ pN1 * bone_scale * 1.0) + facerig_bone.head
                 nub_bone.align_roll(Vector((0, -1, 0)))
                 width *= bone_scale.x
                 height *= bone_scale.y
@@ -288,10 +288,15 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             bones.set_bone_collection(rigify_rig, nub_bone, "Face (Expressions)", "Face", 22)
             bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
             control_range = control_def["range"]
+            soft = control_def.get("soft", False)
             min_y = (length * zero) * control_range[0]
             max_y = length * (1 - zero) * control_range[1]
+            #if soft: max_y *= 2.0
             drivers.add_custom_float_property(line_bone, "slider_length", length)
-            bones.add_limit_location_constraint(rigify_rig, nub_bone_name, 0, min_y, 0, 0, max_y, 0, space="LOCAL")
+            bones.add_limit_location_constraint(rigify_rig, nub_bone_name,
+                                                0, min_y, 0,
+                                                0, max_y, 0,
+                                                space="LOCAL", use_transform_limit=True)
 
         for rect_name, rect_def in rect_controls.items():
             control_def, box_bone_name, nub_bone_name, width, height, zero_x, zero_y = rect_def
@@ -308,6 +313,8 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             nub_bone.lock_location = [False, False, True]
             nub_bone.lock_rotation = [True, True, True]
             nub_bone.lock_scale = [True, True, True]
+            nub_bone.lock_rotation_w = True
+            nub_bone.lock_rotations_4d = True
             bones.keep_locks(nub_bone)
             bones.set_bone_collection(rigify_rig, box_bone, "Face (UI)", "Face", 22)
             bones.set_bone_color(rigify_rig, box_bone, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
@@ -327,10 +334,18 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             else:
                 min_y = (height * zero_y) * control_range_y[0]
                 max_y = height * (1 - zero_y) * control_range_y[1]
+            if control_def.get("x_mirror"):
+                nub_bone.scale.y = -1
+                m = min_y
+                min_y = max_y
+                max_y = m
 
             drivers.add_custom_float_property(box_bone, "x_slider_length", width)
             drivers.add_custom_float_property(box_bone, "y_slider_length", height)
-            bones.add_limit_location_constraint(rigify_rig, nub_bone_name, min_x, min_y, 0, max_x, max_y, 0, True, space="LOCAL")
+            bones.add_limit_location_constraint(rigify_rig, nub_bone_name,
+                                                min_x, min_y, 0,
+                                                max_x, max_y, 0,
+                                                space="LOCAL", use_transform_limit=True)
 
 
 def get_generated_controls(chr_cache, rigify_rig):
@@ -406,12 +421,18 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                 if bone_name in rigify_rig.pose.bones:
                     if "translation" in bone_def:
                         prop, axis, index = facerig_data.LOC_AXES.get(bone_def["axis"], (None, None, None))
-                        offset = bone_def["offset"] / 100 # convert from
-                        scalar = bone_def["translation"] / 100 # cm to m
+                        offset = bone_def["offset"] / 100 # convert from cm to m
+                        if type(bone_def["translation"]) is list:
+                            scalar = [bone_def["translation"][0] / 100, bone_def["translation"][1] / 100]
+                        else:
+                            scalar = bone_def["translation"] / 100
                     else:
                         prop, axis, index = facerig_data.ROT_AXES.get(bone_def["axis"], (None, None, None))
-                        offset = bone_def["offset"] * math.pi/180 # convert angles
-                        scalar = bone_def["rotation"] * math.pi/180 # to radians
+                        offset = bone_def["offset"] * math.pi/180 # convert angles to radians
+                        if type(bone_def["rotation"]) is list:
+                            scalar = [bone_def["rotation"][0] * math.pi/180, bone_def["rotation"][1] * math.pi/180]
+                        else:
+                            scalar = bone_def["rotation"] * math.pi/180
                     if axis:
                         driver_id = (bone_name, prop, index)
                         var_axis = facerig_data.LOC_AXES.get("y")[1]
@@ -475,12 +496,18 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                     if bone_name in rigify_rig.pose.bones:
                         if "translation" in bone_def:
                             prop, axis, index = facerig_data.LOC_AXES.get(bone_def["axis"], (None, None, None))
-                            offset = bone_def["offset"] / 100 # convert from
-                            scalar = bone_def["translation"] / 100 # cm to m
+                            offset = bone_def["offset"] / 100 # convert from cm to m
+                            if type(bone_def["translation"]) is list:
+                                scalar = [bone_def["translation"][0] / 100, bone_def["translation"][1] / 100]
+                            else:
+                                scalar = bone_def["translation"] / 100
                         else:
                             prop, axis, index = facerig_data.ROT_AXES.get(bone_def["axis"], (None, None, None))
-                            offset = bone_def["offset"] * math.pi/180 # convert angles
-                            scalar = bone_def["rotation"] * math.pi/180 # to radians
+                            offset = bone_def["offset"] * math.pi/180 # convert angles to radians
+                            if type(bone_def["rotation"]) is list:
+                                scalar = [bone_def["rotation"][0] * math.pi/180, bone_def["rotation"][1] * math.pi/180]
+                            else:
+                                scalar = bone_def["rotation"] * math.pi/180
                         if axis:
                             driver_id = (bone_name, prop, index)
                             var_axis = facerig_data.LOC_AXES.get(ctrl_axis)[1]
@@ -590,48 +617,44 @@ def build_facerig_drivers(chr_cache, rigify_rig):
         # build shape key drivers from shape key driver defs
         for shape_key_name, shape_key_driver_def in shape_key_driver_defs.items():
             real_shape_key_name = get_objects_shape_key_name(objects, shape_key_name)
-            expression = ""
             var_defs = []
             vidx = 0
+            var_expression = ""
             num_key_controls = len(shape_key_driver_def)
             allow_negative = False
-
+            use_strength = False
+            value = 1.0
             for nub_bone_name, key_control_def in shape_key_driver_def.items():
                 if nub_bone_name in rigify_rig.pose.bones:
                     num_keys = key_control_def["num_keys"]
                     var_axis = key_control_def["var_axis"]
                     distance = key_control_def["distance"]
                     use_strength = key_control_def["use_strength"]
-                    if key_control_def["negative"]:
-                        allow_negative = True
+                    allow_negative = key_control_def.get("negative", False)
                     value = key_control_def["value"]
                     var_name = f"var{vidx}"
                     vidx += 1
-                    if expression:
-                        expression += "+"
-                    use_negative = num_keys == 1 or num_key_controls > 1
+                    if var_expression:
+                        var_expression += "+"
+                    use_negative = allow_negative and (num_keys == 1 or num_key_controls > 1)
                     if use_negative:
-                        var_expression = f"({fvar(value)}*{var_name}/{fvar(distance)})"
+                        var_expression += f"({var_name}/{fvar(distance)})"
                     else:
-                        var_expression = f"max({fvar(value)}*{var_name}/{fvar(distance)},0)"
-                    if use_strength:
-                        var_expression = f"KS*({var_expression})"
-                    expression += var_expression
-
-                    var_def = drivers.make_bone_transform_var_def(var_name, rigify_rig, nub_bone_name, var_axis, "LOCAL_SPACE")
+                        var_expression += f"max(0,{var_name}/{fvar(distance)})"
+                    var_def = drivers.make_bone_transform_var_def(var_name, rigify_rig, nub_bone_name, var_axis, "TRANSFORM_SPACE")
                     var_defs.append(var_def)
 
+            expression = f"{fvar(value)}*({var_expression})"
             if use_strength:
+                var_expression = f"KS*({var_expression})"
                 var_def = drivers.make_custom_prop_var_def("KS", facerig_bone, "key_strength")
                 var_defs.append(var_def)
 
             allow_negative = False
-            shape_key_range = 1.5
-            if "Eye" in shape_key_name and "_Look_" in shape_key_name:
-                shape_key_range = 2.0
+            shape_key_range = 1.0
             high = shape_key_range
             low = -shape_key_range if allow_negative else 0
-            expression = f"max({low},min({high},{expression}))"
+            expression = f"max({fvar(low)},min({fvar(high)},{expression}))"
             driver_def = ["SCRIPTED", expression]
 
             for obj in objects:
@@ -641,9 +664,10 @@ def build_facerig_drivers(chr_cache, rigify_rig):
         # build bone transform drivers from bone driver defs
         for driver_id, bone_driver_def in bone_driver_defs.items():
             bone_name, prop, index = driver_id
-            expression = ""
             var_defs = []
             vidx = 0
+            var_expression = ""
+            use_strength = False
             for nub_bone_name, bone_control_def in bone_driver_def.items():
                 offset = bone_control_def["offset"]
                 scalar = bone_control_def["scalar"]
@@ -652,24 +676,31 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                 use_strength = bone_control_def["use_strength"]
                 var_name = f"var{vidx}"
                 vidx += 1
-                if expression:
-                    expression += "+"
-                #expression += f"({offset}+{scalar}*(max({var_name}/{distance[1]},0)-max({var_name}/{distance[0]},0)))"
-                #if offset != 0.0:
-                #    expression += f"({fvar(offset)}+{fvar(scalar)}*({var_name}/{fvar(distance[1])}))"
-                #else:
-                var_expression = f"({fvar(scalar)}*({var_name}/{fvar(distance[1])}))"
-                if use_strength:
-                    var_expression = f"BS*({var_expression})"
-                expression += var_expression
-
-                var_def = drivers.make_bone_transform_var_def(var_name, rigify_rig, nub_bone_name, var_axis, "LOCAL_SPACE")
+                if var_expression:
+                    var_expression += "+"
+                var_expression += f"({var_name}/{fvar(distance[1])})"
+                var_def = drivers.make_bone_transform_var_def(var_name, rigify_rig, nub_bone_name, var_axis, "TRANSFORM_SPACE")
                 var_defs.append(var_def)
 
+            expression = ""
+            high = 0
+            low = 0
+            if type(scalar) is list:
+                # asymmetric bone movements (eyes) on CC3+ characters.
+                high = max(high, scalar[0], scalar[1])
+                low = min(low, scalar[0], scalar[1])
+                pos_var_expression = f"(max(0,{var_expression})*{fvar(scalar[0])})"
+                neg_var_expression = f"(min(0,{var_expression})*{fvar(scalar[1])})"
+                expression = f"{pos_var_expression}-{neg_var_expression}"
+            else:
+                high = max(high, abs(scalar))
+                low = min(low, -abs(scalar))
+                expression = f"{fvar(scalar)}*({var_expression})"
             if use_strength:
+                expression = f"BS*({expression})"
                 var_def = drivers.make_custom_prop_var_def("BS", facerig_bone, "bone_strength")
                 var_defs.append(var_def)
-
+            expression = f"max({fvar(low)},min({fvar(high)},{expression}))"
 
             driver_def = ["SCRIPTED", prop, index, expression]
 
@@ -678,7 +709,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
 
 def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects, shape_key_only=False, arkit=False):
 
-    bone_drivers = {}
+    ctrl_drivers = {}
 
     FACERIG_CONFIG = get_facerig_config(chr_cache)
 
@@ -719,7 +750,7 @@ def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_obj
 
                 if not shape_key_only and source_rig and rl_bones and len(rl_bones) > 0:
 
-                    bone_drivers[driver_id] = { "method": method,
+                    ctrl_drivers[driver_id] = { "method": method,
                                                 "parent": parent,
                                                 "length": slider_length,
                                                 "bones": [] }
@@ -729,19 +760,32 @@ def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_obj
                         if source_name in source_rig.pose.bones:
                             if "translation" in bone_def:
                                 prop, prop_axis, prop_index = facerig_data.LOC_AXES.get(bone_def["axis"], (None, None, None))
-                                offset = bone_def["offset"]
-                                scalar = bone_def["translation"]
+                                source_rig_axis_scale = source_rig.scale[prop_index]
+                                offset = bone_def["offset"] * source_rig_axis_scale
+                                if type(bone_def["translation"]) is list:
+                                    scalar = [bone_def["translation"][0],
+                                              bone_def["translation"][1]]
+                                    scale = [slider_length/(control_range[1] * scalar[0]),
+                                             slider_length/(control_range[1] * scalar[1])]
+                                else:
+                                    scalar = bone_def["translation"]
+                                    scale = slider_length/(control_range[1] * scalar)
                             else:
                                 prop, prop_axis, prop_index = facerig_data.ROT_AXES.get(bone_def["axis"], (None, None, None))
                                 offset = bone_def["offset"] * math.pi / 180
-                                scalar = bone_def["rotation"] * math.pi / 180
-                            bone_drivers[driver_id]["bones"].append({ "bone": source_name,
-                                                                      "scale": slider_length/(control_range[1] * scalar),
+                                if type(bone_def["rotation"]) is list:
+                                    scalar = [bone_def["rotation"][0] * math.pi / 180, bone_def["rotation"][1] * math.pi / 180]
+                                    scale = [slider_length/(control_range[1] * scalar[0]), slider_length/(control_range[1] * scalar[1])]
+                                else:
+                                    scalar = bone_def["rotation"] * math.pi / 180
+                                    scale = slider_length/(control_range[1] * scalar)
+                            ctrl_drivers[driver_id]["bones"].append({ "bone": source_name,
+                                                                      "scale": scale,
                                                                       "offset": offset,
                                                                       "axis": prop_axis })
                 elif blend_shapes:
 
-                    bone_drivers[driver_id] = { "method": method,
+                    ctrl_drivers[driver_id] = { "method": method,
                                                 "parent": parent,
                                                 "length": slider_length,
                                                 "shape_keys": [] }
@@ -767,31 +811,31 @@ def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_obj
 
                         if left_shape and right_shape:
                             if left_shape:
-                                bone_drivers[driver_id]["shape_keys"].append({ "shape_key": left_shape[0],
+                                ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": left_shape[0],
                                                                                 "value": left_shape[1],
                                                                                 "scale": left_shape[2] })
                             if right_shape:
-                                bone_drivers[driver_id]["shape_keys"].append({ "shape_key": right_shape[0],
+                                ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": right_shape[0],
                                                                                 "value": right_shape[1],
                                                                                 "scale": right_shape[2] })
                             left_shape = right_shape = None
 
                     if left_shape:
-                        bone_drivers[driver_id]["shape_keys"].append({ "shape_key": left_shape[0],
+                        ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": left_shape[0],
                                                                         "value": left_shape[1],
                                                                         "scale": left_shape[2] })
                     if right_shape:
-                        bone_drivers[driver_id]["shape_keys"].append({ "shape_key": right_shape[0],
+                        ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": right_shape[0],
                                                                         "value": right_shape[1],
                                                                         "scale": right_shape[2] })
 
-        for driver_id, driver_def in bone_drivers.items():
+        for driver_id, driver_def in ctrl_drivers.items():
             bone_name, prop, index = driver_id
             parent = driver_def["parent"]
 
             if parent != "NONE":
                 parent_id = (parent, prop, index)
-                parent_def = bone_drivers[parent_id]
+                parent_def = ctrl_drivers[parent_id]
                 expression, var_defs = build_retarget_driver(chr_cache, rigify_rig, parent_id, parent_def,
                                                              source_rig, source_objects,
                                                              no_driver=True, length_override=abs(driver_def["length"]),
@@ -860,7 +904,7 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
             expression = f"({expression})"
 
         if expression and method == "AVERAGE" and count > 1:
-            expression = f"min({high},max({low},{expression}/{count}))"
+            expression = f"min({fvar(high)},max({fvar(low)},{expression}/{count}))"
 
         if expression and parent != "NONE" and pre_expression and pre_var_defs:
             expression = f"{expression} - {pre_expression}"
@@ -898,6 +942,10 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
         bone_defs = driver_def["bones"]
         for bone_def in bone_defs:
             scale = bone_def["scale"]
+            if arkit and type(scale) is list:
+                # assume non asymmetric bone movements for arkit retargeting
+                # (for completeness as arkit is retargeted via the shape keys so shouldn't happen)
+                scale = utils.sign(scale[0]) * max(abs(scale[0]), abs(scale[1]))
             axis = bone_def["axis"]
             offset = bone_def["offset"]
             source_name = bone_def["bone"]
@@ -905,18 +953,23 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
                 var_name = f"var{vidx}"
                 if count > 0:
                     expression += "+"
-                #expression += f"(({var_name}+{fvar(offset)})*{fvar(scale)})"
-                expression += f"(({var_name})*{fvar(scale)})"
+                if type(scale) is list:
+                    # asymmetric bone movements (eyes) on CC3+ characters.
+                    pos_var_expression = f"(max(0,{var_name})*{fvar(scale[0])})"
+                    neg_var_expression = f"(min(0,{var_name})*{fvar(scale[1])})"
+                    expression += f"({pos_var_expression}-{neg_var_expression})"
+                else:
+                    expression += f"({var_name}*{fvar(scale)})"
                 var_defs.append((var_name, source_name, axis))
                 vidx += 1
                 count += 1
 
-        shape_key_range = length
-        low = -shape_key_range
-        high = shape_key_range
+        control_range = length
+        low = -control_range
+        high = control_range
 
         if expression:
-            expression = f"min({high},max({low},{expression}))"
+            expression = f"min({fvar(high)},max({fvar(low)},{expression}))"
 
         if expression and method == "AVERAGE" and count > 1:
             expression = f"({expression}/{count})"

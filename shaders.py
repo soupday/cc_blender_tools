@@ -879,6 +879,8 @@ def apply_texture_matrix(nodes, links, shader_node,
 
                     alpha_socket_name = texture_def[1]
                     tex_type = texture_def[2]
+                    is_lib = imageutils.is_library_tex(tex_type)
+
                     sample_map = len(texture_def) > 3 and texture_def[3] == "SAMPLE"
 
                     # check texture rules, if we should connect this texture at all
@@ -899,7 +901,7 @@ def apply_texture_matrix(nodes, links, shader_node,
                     # if using json, assume if no tex_json then there is no texture in this socket
                     # this should prevent rogue diffuse alpha channels getting set into alpha channels
                     # (The FBX import will do this)
-                    if mat_json and not tex_json:
+                    if not is_lib and mat_json and not tex_json:
                         continue
 
                     # for user added materials, don't mess with the users textures...

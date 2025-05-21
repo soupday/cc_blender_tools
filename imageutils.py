@@ -179,6 +179,12 @@ def get_image_type_lib_name(texture_type):
     return None
 
 
+def is_library_tex(texture_type):
+    if get_image_type_lib_name(texture_type):
+        return True
+    return False
+
+
 def search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type):
     return find_image_file(chr_cache.get_import_dir(), [mat_cache.get_tex_dir(chr_cache), chr_cache.get_tex_dir()], mat, texture_type)
 
@@ -203,6 +209,7 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
 
     # try to find as library image
     lib_name = get_image_type_lib_name(texture_type)
+    print("LIB_NAME", texture_type, lib_name)
     if lib_name:
         image = lib.get_image(lib_name)
         colorspace.set_image_color_space(image, color_space)

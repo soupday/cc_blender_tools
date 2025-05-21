@@ -2637,7 +2637,7 @@ def get_transform_rotation(obj: bpy.types.Object) -> Quaternion:
             angle = obj.rotation_axis_angle[3]
             return axis_angle_to_quaternion(axis, angle)
         else:
-            return Quaternion(obj.rotation_euler)
+            return obj.rotation_euler.to_quaternion()
     return None
 
 

@@ -63,7 +63,7 @@ def add_light_container():
     return container
 
 
-def add_sun_light(name, container, location, rotation, energy, angle):
+def add_sun_light(name, container, location, rotation, energy, angle, transmission=1.0):
     bpy.ops.object.light_add(type="SUN",
                     location = location, rotation = rotation)
     light = utils.get_active_object()
@@ -72,13 +72,16 @@ def add_sun_light(name, container, location, rotation, energy, angle):
     utils.set_ccic_id(light)
     light.data.energy = energy
     light.data.angle = angle
+    try:
+        light.data.transmission_factor = transmission
+    except: ...
     if container:
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
     return light
 
 
-def add_spot_light(name, container, location, rotation, energy, blend, size, distance, radius):
+def add_spot_light(name, container, location, rotation, energy, blend, size, distance, radius, transmission=1.0):
     bpy.ops.object.light_add(type="SPOT",
                     location = location, rotation = rotation)
     light = utils.get_active_object()
@@ -91,13 +94,16 @@ def add_spot_light(name, container, location, rotation, energy, blend, size, dis
     light.data.spot_size = size
     light.data.use_custom_distance = True
     light.data.cutoff_distance = distance
+    try:
+        light.data.transmission_factor = transmission
+    except: ...
     if container:
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
     return light
 
 
-def add_area_light(name, container, location, rotation, energy, size, distance):
+def add_area_light(name, container, location, rotation, energy, size, distance, transmission=1.0):
     bpy.ops.object.light_add(type="AREA",
                     location = location, rotation = rotation)
     light = utils.get_active_object()
@@ -109,13 +115,16 @@ def add_area_light(name, container, location, rotation, energy, size, distance):
     light.data.energy = energy
     light.data.use_custom_distance = True
     light.data.cutoff_distance = distance
+    try:
+        light.data.transmission_factor = transmission
+    except: ...
     if container:
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
     return light
 
 
-def add_point_light(name, container, location, rotation, energy, size):
+def add_point_light(name, container, location, rotation, energy, size, transmission=1.0):
     bpy.ops.object.light_add(type="POINT",
                     location = location, rotation = rotation)
     light = utils.get_active_object()
@@ -124,6 +133,9 @@ def add_point_light(name, container, location, rotation, energy, size):
     utils.set_ccic_id(light)
     light.data.shadow_soft_size = size
     light.data.energy = energy
+    try:
+        light.data.transmission_factor = transmission
+    except: ...
     if container:
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
@@ -264,11 +276,13 @@ def compositor_setup(context):
     rlayers_node = nodeutils.make_shader_node(nodes, "CompositorNodeRLayers")
     c_node = nodeutils.make_shader_node(nodes, "CompositorNodeComposite")
     glare_node = nodeutils.make_shader_node(nodes, "CompositorNodeGlare")
+    filter_node = nodeutils.make_shader_node(nodes, "CompositorNodeFilter")
     lens_node = nodeutils.make_shader_node(nodes, "CompositorNodeLensdist")
-    rlayers_node.location = (-780,260)
-    c_node.location = (150,140)
-    glare_node.location = (-430,230)
-    lens_node.location = (-100,150)
+    rlayers_node.location = (-760,40)
+    filter_node.location = (-410, 0)
+    glare_node.location = (-180,120)
+    lens_node.location = (50,50)
+    c_node.location = (300,0)
     try:
         glare_node.glare_type = 'BLOOM'
         glare_node.quality = 'HIGH'
@@ -276,12 +290,15 @@ def compositor_setup(context):
         glare_node.glare_type = 'FOG_GLOW'
         glare_node.quality = 'HIGH'
         glare_node.threshold = 0.85
-    nodeutils.set_node_input_value(glare_node, "Threshold", 1.5)
+    filter_node.filter_type = "SHARPEN_DIAMOND"
+    nodeutils.set_node_input_value(filter_node, "Fac", 0.350)
+    nodeutils.set_node_input_value(glare_node, "Threshold", 1.0)
     nodeutils.set_node_input_value(glare_node, "Strength", 0.5)
     nodeutils.set_node_input_value(glare_node, "Saturation", 1.0)
+    nodeutils.set_node_input_value(lens_node, "Dispersion", 0.0325)
     lens_node.use_fit = True
-    nodeutils.set_node_input_value(lens_node, "Dispersion", 0.025)
-    nodeutils.link_nodes(links, rlayers_node, "Image", glare_node, "Image")
+    nodeutils.link_nodes(links, rlayers_node, "Image", filter_node, "Image")
+    nodeutils.link_nodes(links, filter_node, "Image", glare_node, "Image")
     nodeutils.link_nodes(links, glare_node, "Image", lens_node, "Image")
     nodeutils.link_nodes(links, lens_node, "Image", c_node, "Image")
     shading = utils.get_view_3d_shading(context)
@@ -424,7 +441,7 @@ def setup_scene_default(context, scene_type):
                 (-0.02363934926688671, 0.8857088685035706, 1.4288825988769531),
                 96.0, 1.0,
                 2.6179935932159424, 9.149999618530273,
-                0.0)
+                0.0, transmission=0.0)
             set_contact_shadow(spot_light_001, 0.05000000074505806, 0.0024999999441206455)
             spot_light_001.data.color = (1.0, 1.0, 1.0)
 
@@ -512,7 +529,7 @@ def setup_scene_default(context, scene_type):
             area_light_001 = add_area_light("Right_cc3iid_2529", container,
                 (2.065807819366455, 0.8457366824150085, -0.3064761161804199),
                 (-0.02618018537759781, 1.4189527034759521, 0.3748694360256195),
-                50.0, 2.0, 9.0)
+                50.0, 2.0, 9.0, transmission=0.0)
             set_contact_shadow(area_light_001, 0.05000000074505806, 0.0024999999441206455)
             area_light_001.data.color = (1.0, 1.0, 1.0)
 
@@ -522,7 +539,7 @@ def setup_scene_default(context, scene_type):
                 (-0.03316128998994827, 1.3578661680221558, 1.1847020387649536),
                 100.0, 1.0,
                 1.0995999574661255, 9.100000381469727,
-                0.5)
+                0.5, transmission=0.0)
             set_contact_shadow(spot_light_002, 0.20000000298023224, 0.20000000298023224)
             spot_light_002.data.color = (1.0, 1.0, 1.0)
 
@@ -541,9 +558,6 @@ def setup_scene_default(context, scene_type):
                 space_data.clip_start = 0.009999999776482582
 
             align_to_head(context, container)
-
-
-
 
 
         # New presets
@@ -585,6 +599,7 @@ def setup_scene_default(context, scene_type):
 
             area_light_001 = add_area_light("Light.002", container, (-1.051, -0.809, -0.354), (0.000, -1.266, 0.802), 35.0, 1.0, 40.0)
             set_contact_shadow(area_light_001, 0.200, 0.200)
+
             area_light_001.data.color = (1.0000, 1.0000, 1.0000)
             target_001 = add_target("target_001", container, (0.000, 0.000, 0.000))
             track_to(area_light_001, target_001)
@@ -594,7 +609,7 @@ def setup_scene_default(context, scene_type):
             spot_light_002.data.color = (1.0000, 1.0000, 1.0000)
             track_to(spot_light_002, target_001)
 
-            area_light_003 = add_area_light("Light.001", container, (0.453, 0.974, 0.000), (0.004, -1.175, 2.927), 10.0, 1.0, 40.0)
+            area_light_003 = add_area_light("Light.001", container, (0.453, 0.974, 0.000), (0.004, -1.175, 2.927), 10.0, 1.0, 40.0, transmission=0.0)
             set_contact_shadow(area_light_003, 0.200, 0.200)
             area_light_003.data.color = (1.0000, 1.0000, 1.0000)
             track_to(area_light_003, target_001)
@@ -667,7 +682,7 @@ def setup_scene_default(context, scene_type):
             spot_light_002.data.color = (1.0000, 1.0000, 1.0000)
             track_to(spot_light_002, target_001)
 
-            area_light_003 = add_area_light("Light.001", container, (0.453, 0.974, 0.000), (0.004, -1.175, 2.927), 10.0, 1.0, 40.0)
+            area_light_003 = add_area_light("Light.001", container, (0.453, 0.974, 0.000), (0.004, -1.175, 2.927), 10.0, 1.0, 40.0, transmission=0.0)
             set_contact_shadow(area_light_003, 0.200, 0.200)
             area_light_003.data.color = (1.0000, 1.0000, 1.0000)
             track_to(area_light_003, target_001)
@@ -871,7 +886,7 @@ def setup_scene_default(context, scene_type):
             area_light_002.data.color = (0.4760, 0.7875, 1.0000)
             track_to(area_light_002, target_001)
 
-            area_light_003 = add_area_light("Light.002", container, (-0.395, 0.584, 0.064), (0.000, -1.266, 0.802), 35.0, 1.0, 40.0)
+            area_light_003 = add_area_light("Light.002", container, (-0.395, 0.584, 0.064), (0.000, -1.266, 0.802), 35.0, 1.0, 40.0, transmission=0.0)
             set_contact_shadow(area_light_003, 0.200, 0.200)
             area_light_003.data.color = (1.0000, 0.6038, 0.2462)
             track_to(area_light_003, target_001)
@@ -1024,7 +1039,7 @@ def setup_scene_default(context, scene_type):
             area_light_002 = add_area_light("Back_cc3iid_2526", container,
                 (0.36617201566696167, 0.5814126133918762, 0.9025918245315552),
                 (-0.7961875796318054, 0.4831638038158417, -0.12206275016069412),
-                20.0, 1.0, 9.0)
+                20.0, 1.0, 9.0, transmission=0.0)
             set_contact_shadow(area_light_002, 0.20000000298023224, 0.20000000298023224)
             area_light_002.data.color = (1.0, 1.0, 1.0)
 
@@ -1104,7 +1119,7 @@ def setup_scene_default(context, scene_type):
                 (-0.5413775444030762, 1.4816209077835083, 1.5110341310501099),
                 2000.0, 1.0,
                 0.6806783080101013, 2.4000000953674316,
-                2.392199993133545)
+                2.392199993133545, transmission=0.0)
             set_contact_shadow(spot_light_002, 0.05000000074505806, 0.0024999999441206455, no_jitter=True)
             spot_light_002.data.color = (0.7183890342712402, 0.8502671718597412, 1.2038928270339966)
 
@@ -1183,7 +1198,7 @@ def setup_scene_default(context, scene_type):
                 (-0.032768018543720245, 1.3572243452072144, 1.5501036643981934),
                 214.40000915527344, 1.0,
                 1.4486230611801147, 9.149999618530273,
-                1.0)
+                1.0, transmission=0.0)
             set_contact_shadow(spot_light_000, 0.05000000074505806, 0.0024999999441206455)
             spot_light_000.data.color = (0.8352941870689392, 0.5882353186607361, 0.4705882668495178)
 
@@ -1220,7 +1235,7 @@ def setup_scene_default(context, scene_type):
             spot_light_004 = add_spot_light("Back Light Head", container,
                 (-0.5010148882865906, -1.1003491878509521, 0.7674758434295654),
                 (1.3239206075668335, 0.023048613220453262, -0.5318448543548584),
-                0.0, 0.2524999976158142,
+                30.0, 0.2524999976158142,
                 1.2740901708602905, 2.5899999141693115,
                 0.5163000226020813)
             set_contact_shadow(spot_light_004, 0.05000000074505806, 0.0024999999441206455)
@@ -1242,7 +1257,7 @@ def setup_scene_default(context, scene_type):
                 (-0.3483297824859619, 1.1461026668548584, 0.833476185798645),
                 60.0, 0.75,
                 0.7504914402961731, 9.640000343322754,
-                0.6155999898910522)
+                0.6155999898910522, transmission=0.0)
             set_contact_shadow(spot_light_006, 0.05000000074505806, 0.0024999999441206455)
             spot_light_006.data.color = (0.8823530077934265, 0.9411765336990356, 1.0)
 
@@ -1303,7 +1318,7 @@ def setup_scene_default(context, scene_type):
                 (-0.03276771679520607, 1.3572238683700562, 1.5502748489379883),
                 214.40000915527344, 1.0,
                 1.4486230611801147, 9.149999618530273,
-                1.0)
+                1.0, transmission=0.0)
             set_contact_shadow(spot_light_000, 0.05000000074505806, 0.0024999999441206455)
             spot_light_000.data.color = (0.8352941870689392, 0.5882353186607361, 0.4705882668495178)
 
@@ -1323,7 +1338,7 @@ def setup_scene_default(context, scene_type):
                 (-1.58391535282135, -1.23851478099823, -0.9736499190330505),
                 20.0, 1.0,
                 2.460913896560669, 5.03000020980835,
-                0.2020999938249588)
+                0.2020999938249588, transmission=0.0)
             set_contact_shadow(spot_light_002, 0.05000000074505806, 0.0024999999441206455)
             spot_light_002.data.color = (0.5058823823928833, 0.5803921818733215, 0.6274510025978088)
 
@@ -1363,7 +1378,7 @@ def setup_scene_default(context, scene_type):
                 (-0.3483291268348694, 1.1461023092269897, 0.8336480855941772),
                 60.0, 0.75,
                 0.7504914402961731, 9.640000343322754,
-                0.6155999898910522)
+                0.6155999898910522, transmission=0.0)
             set_contact_shadow(spot_light_006, 0.05000000074505806, 0.0024999999441206455)
             spot_light_006.data.color = (0.8823530077934265, 0.9411765336990356, 1.0)
 
@@ -1439,7 +1454,7 @@ def setup_scene_default(context, scene_type):
             area_light_001 = add_area_light("Rim_red", container,
                 (0.09254506230354309, 0.8227812051773071, 0.0968252420425415),
                 (-0.01860235258936882, 1.3557215929031372, 1.3542215824127197),
-                1.392878770828247, 0.30000001192092896, 1.5299999713897705)
+                1.392878770828247, 0.30000001192092896, 1.5299999713897705, transmission=0.0)
             set_contact_shadow(area_light_001, 0.20000000298023224, 0.20000000298023224)
             area_light_001.data.color = (0.746380627155304, 0.2494838982820511, 0.1724458634853363)
 
@@ -1464,7 +1479,7 @@ def setup_scene_default(context, scene_type):
                 (-0.03220297023653984, -0.05281418189406395, -1.538125991821289),
                 (0.7853979468345642, 1.619704370625641e-08, 2.9214975833892822),
                 3.6000001430511475,
-                0.009180432185530663)
+                0.009180432185530663, transmission=0.0)
             set_contact_shadow(sun_light_004, 0.20000000298023224, 0.20000000298023224)
             sun_light_004.data.color = (0.7544040083885193, 0.5007292032241821, 0.4338947832584381)
 
@@ -1483,7 +1498,7 @@ def setup_scene_default(context, scene_type):
                 (-0.01860201172530651, 1.3557212352752686, 1.354223370552063),
                 13.374069213867188, 1.0,
                 2.6179935932159424, 1.5299999713897705,
-                0.0)
+                0.0, transmission=0.0)
             set_contact_shadow(spot_light_006, 0.20000000298023224, 0.20000000298023224)
             spot_light_006.data.color = (1.0332900285720825, 0.6694098114967346, 0.2778758704662323)
 
@@ -1544,7 +1559,7 @@ def setup_scene_default(context, scene_type):
                 (-0.032768093049526215, 1.3572243452072144, 1.3471097946166992),
                 214.40000915527344, 1.0,
                 1.4486230611801147, 9.149999618530273,
-                1.0)
+                1.0, transmission=0.0)
             set_contact_shadow(spot_light_000, 0.05000000074505806, 0.0024999999441206455)
             spot_light_000.data.color = (0.8352941870689392, 0.5882353186607361, 0.4705882668495178)
 
@@ -1583,7 +1598,7 @@ def setup_scene_default(context, scene_type):
                 (-2.300450086593628, 1.8846901655197144, -0.3277812898159027),
                 800.0, 0.75,
                 0.7504914402961731, 9.640000343322754,
-                0.5088000297546387)
+                0.5088000297546387, transmission=0.0)
             set_contact_shadow(spot_light_004, 0.05000000074505806, 0.0024999999441206455)
             spot_light_004.data.color = (0.760784387588501, 1.0, 0.9803922176361084)
 
@@ -1593,7 +1608,7 @@ def setup_scene_default(context, scene_type):
                 (-0.3483298718929291, 1.146102786064148, 0.6304814219474792),
                 73.5999984741211, 0.75,
                 0.7504914402961731, 9.640000343322754,
-                0.6155999898910522)
+                0.6155999898910522, transmission=0.0)
             set_contact_shadow(spot_light_005, 0.05000000074505806, 0.0024999999441206455)
             spot_light_005.data.color = (1.0, 1.0, 1.0)
 
@@ -1672,7 +1687,7 @@ def setup_scene_default(context, scene_type):
                 (-1.2665398120880127, 4.095466674125525e-11, 0.0013687603641301394),
                 201.60000610351562, 0.2524999976158142,
                 2.0943946838378906, 10.0,
-                0.05000000074505806)
+                0.05000000074505806, transmission=0.0)
             set_contact_shadow(spot_light_002, 0.05000000074505806, 0.0024999999441206455)
             spot_light_002.data.color = (0.7852135300636292, 0.5582867860794067, 0.5388527512550354)
 
@@ -1763,7 +1778,7 @@ def setup_scene_default(context, scene_type):
                 (-0.03276771679520607, 1.3572238683700562, 1.5502748489379883),
                 214.40000915527344, 1.0,
                 1.4486230611801147, 9.149999618530273,
-                1.0)
+                1.0, transmission=0.0)
             set_contact_shadow(spot_light_000, 0.05000000074505806, 0.0024999999441206455)
             spot_light_000.data.color = (0.0, 0.9276570081710815, 0.5703822374343872)
 
@@ -1802,7 +1817,7 @@ def setup_scene_default(context, scene_type):
                 (-1.583914875984192, -1.2385149002075195, -0.9736509919166565),
                 20.0, 1.0,
                 2.460913896560669, 5.03000020980835,
-                0.2020999938249588)
+                0.2020999938249588, transmission=0.0)
             set_contact_shadow(spot_light_004, 0.05000000074505806, 0.0024999999441206455)
             spot_light_004.data.color = (0.0, 0.0, 1.0)
 
@@ -2430,7 +2445,9 @@ def eevee_setup(context):
     chr_cache = props.get_context_character_cache(context)
     extracted = False
 
-    # rebuild for cycles if needed
+    MSS = utils.store_mode_selection_state()
+
+    # rebuild for eevee if needed
     if chr_cache.render_target != "EEVEE":
         bpy.ops.cc3.importer(param="REBUILD_EEVEE")
 
@@ -2441,6 +2458,27 @@ def eevee_setup(context):
             context.scene.render.engine = 'EEVEE'
         except:
             utils.log_error("Unable to set Eevee render engine!")
+
+    # add modifiers subdiv level 1
+    utils.set_mode("OBJECT")
+    objects = chr_cache.get_all_objects(of_type="MESH")
+    utils.try_select_objects(objects, True)
+    for obj in objects:
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled:
+            # clear custom normals for GPU subdivision
+            bpy.context.view_layer.objects.active = obj
+            if utils.edit_mode_to(obj):
+                bpy.ops.mesh.customdata_custom_splitnormals_clear()
+            if not modifiers.has_modifier(obj, "SUBSURF"):
+                mod = obj.modifiers.new(name = "Subdivision", type = "SUBSURF")
+            mod = modifiers.get_object_modifier(obj, "SUBSURF")
+            if mod:
+                mod.levels = 0
+                mod.render_levels = 1
+                if utils.B291():
+                    mod.boundary_smooth = 'PRESERVE_CORNERS'
+    utils.set_mode("OBJECT")
 
     try:
         # preview
@@ -2469,15 +2507,19 @@ def eevee_setup(context):
             context.scene.eevee.bloom_intensity = 0.5
             context.scene.eevee.use_ssr = True
             context.scene.eevee.use_ssr_refraction = True
-        context.scene.eevee.bokeh_max_size = 32.0
+        context.scene.eevee.bokeh_max_size = 64.0
 
     except:
         pass
+
+    utils.restore_mode_selection_state(MSS)
 
 
 def cycles_setup(context):
     props = vars.props()
     context = vars.get_context(context)
+
+    MSS = utils.store_mode_selection_state()
 
     hide_view_extras(context, False)
     chr_cache = props.get_context_character_cache(context)
@@ -2494,11 +2536,23 @@ def cycles_setup(context):
                     eyelashes.name = obj.name.replace("CC_Base_Body", "CC_Base_Eyelash")
 
     # add modifiers and terminator offsets
-    for obj in chr_cache.get_cache_objects():
+    utils.set_mode("OBJECT")
+    objects = chr_cache.get_all_objects(of_type="MESH")
+    utils.try_select_objects(objects, True)
+    for obj in objects:
+        # clear custom normals for GPU subdivision
         obj_cache = chr_cache.get_object_cache(obj)
-        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh():
+        if obj_cache and not obj_cache.disabled:
+            # clear custom normals for GPU subdivision
+            bpy.context.view_layer.objects.active = obj
+            if utils.edit_mode_to(obj):
+                bpy.ops.mesh.customdata_custom_splitnormals_clear()
             if not modifiers.has_modifier(obj, "SUBSURF"):
                 mod = obj.modifiers.new(name = "Subdivision", type = "SUBSURF")
+            mod = modifiers.get_object_modifier(obj, "SUBSURF")
+            if mod:
+                mod.levels = 1
+                mod.render_levels = 2
                 if utils.B291():
                     mod.boundary_smooth = 'PRESERVE_CORNERS'
             if utils.B290():
@@ -2542,6 +2596,8 @@ def cycles_setup(context):
         context.scene.cycles.denoiser = 'OPTIX'
     except:
         pass
+
+    utils.restore_mode_selection_state(MSS)
 
 
 class CC3Scene(bpy.types.Operator):
