@@ -3125,6 +3125,7 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
         for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
             rigify_bone_name = export_def[0]
             export_bone_name = export_def[2]
+            if rigify_bone_name == "root": continue
             if bone_naming == "METARIG":
                 export_bone_name = rigify_bone_name
                 if rigify_bone_name.startswith("DEF-"):
