@@ -1320,6 +1320,7 @@ def set_non_standard_generation(json_data, character_id, character_type, generat
     RL_HUMANOID_GENERATIONS = [
         "ActorCore", "ActorBuild", "ActorScan", "AccuRig", "GameBase"
     ]
+
     if character_type == "HUMANOID":
         if generation not in RL_HUMANOID_GENERATIONS:
             generation = "Humanoid"
@@ -1332,6 +1333,7 @@ def set_non_standard_generation(json_data, character_id, character_type, generat
 
     utils.log_info(f"Generation: {generation}")
     jsonutils.set_character_generation_json(json_data, character_id, generation)
+    jsonutils.set_json(json_data, f"{character_id}/Avatar_Type", character_type)
 
 
 def set_standard_generation(json_data, character_id, generation):

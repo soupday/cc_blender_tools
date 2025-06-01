@@ -3233,7 +3233,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
 
     rigify_rig = chr_cache.get_armature()
     rigify_rig.location = (0,0,0)
-    utils.set_transform_rotation(rigify_rig, Euler(0,0,0))
+    utils.set_transform_rotation(rigify_rig, Euler((0,0,0)))
 
     action_name = "Export_NLA"
     export_bake_action, export_bake_source_type = get_bake_action(chr_cache)
@@ -3253,7 +3253,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
                                                                        link_target=False,
                                                                        bone_naming=bone_naming)
     export_rig.location = (0,0,0)
-    utils.set_transform_rotation(export_rig, Euler(0,0,0))
+    utils.set_transform_rotation(export_rig, Euler((0,0,0)))
 
     if rigutils.select_rig(export_rig):
         export_rig.data.pose_position = "POSE"
