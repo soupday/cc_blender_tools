@@ -1044,7 +1044,7 @@ def get_unique_path(path):
 def try_unpack_image(image, folder, index_suffix = False):
     global UNPACK_INDEX
     try:
-        if image.packed_file:
+        if image and image.packed_file:
             if image.filepath:
                 temp_dir, name = os.path.split(bpy.path.abspath(image.filepath))
             else:
@@ -1068,8 +1068,8 @@ def try_unpack_image(image, folder, index_suffix = False):
             image.save()
             return True
     except:
-        utils.log_warn(f"Unable to unpack image: {name}")
-        return False
+        utils.log_warn(f"Unable to unpack image: {image}")
+    return False
 
 
 def unpack_embedded_textures(chr_cache, chr_json, objects, base_path):
