@@ -1468,6 +1468,8 @@ def transfer_skin_weights(chr_cache, objects, body_override=None):
 
     arm = chr_cache.get_armature()
     if not arm: return
+    pose = arm.data.pose_position
+    arm.data.pose_position = "REST"
 
     body = body_override if body_override else get_combined_body(chr_cache)
     if not body: return
@@ -1606,6 +1608,8 @@ def transfer_skin_weights(chr_cache, objects, body_override=None):
 
     if not body_override:
         finish_combined_body(body)
+
+    arm.data.pose_position = pose
 
 
 def normalize_skin_weights(chr_cache, objects):

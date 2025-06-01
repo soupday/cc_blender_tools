@@ -931,10 +931,13 @@ def strip_name(name: str):
 
 
 def deduplicate_name(name: str):
-    """Remove any _01 from the material name"""
+    """Remove any _01 or _1 from the material name"""
     if len(name) >= 3:
         if name[-3] == "_" and name[-2:].isdigit():
             name = name[:-3]
+    elif len(name) >= 2:
+        if name[-2] == "_" and name[-1:].isdigit():
+            name = name[:-2]
     return name
 
 

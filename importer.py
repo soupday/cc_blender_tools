@@ -1755,11 +1755,10 @@ class CC3Import(bpy.types.Operator):
                 utils.object_mode()
                 prefs.render_target = "EEVEE"
                 props.wrinkle_mode = False
-                if chr_cache.render_target != "EEVEE":
-                    utils.log_info("Character is currently build for Cycles Rendering.")
-                    utils.log_info("Rebuilding Character for Eevee Rendering...")
-                    self.build_materials(context)
-                    self.build_drivers(context)
+                utils.log_info("Character is currently build for Cycles Rendering.")
+                utils.log_info("Rebuilding Character for Eevee Rendering...")
+                self.build_materials(context)
+                self.build_drivers(context)
 
         elif self.param == "REBUILD_CYCLES":
             chr_cache = props.get_context_character_cache(context)

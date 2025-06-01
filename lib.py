@@ -77,6 +77,8 @@ def get_image(image_name, lib_tag="RL_Library_Image"):
         if (img.name.startswith(image_name) and
             utils.prop(img, lib_tag) and
             is_version(img)):
+            if not img.packed_file:
+                img.pack()
             return img
     path = os.path.dirname(os.path.realpath(__file__))
     filename = "_LIB341.blend"
@@ -99,6 +101,9 @@ def get_image(image_name, lib_tag="RL_Library_Image"):
 
     if not appended_image:
         raise ValueError(f"Unable to append Library Image: {image_name} from {path}")
+    else:
+        if not appended_image.packed_file:
+            appended_image.pack()
 
     return appended_image
 

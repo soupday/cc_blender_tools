@@ -67,6 +67,8 @@ Links
     - Reflection surface supported as clearcoat.
     - Default (no texture) roughness and specular value fixes for Pbr and Tra shaders.
 - General Fixes for Blender versions 3.4 - 4.4
+- Wrinkle masks (local library images) packed into blend file.
+- Export material fixes when image missing from texture image node.
 
 
 ### 2.2.5
