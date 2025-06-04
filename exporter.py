@@ -2243,11 +2243,13 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
     export_actions = False
     export_strips = True
     baked_actions = []
+
     export_rig, vertex_group_map, t_pose_action = rigging.prep_rigify_export(chr_cache,
                                                             export_anim, baked_actions,
                                                             include_t_pose=prefs.rigify_export_t_pose,
                                                             objects=objects,
                                                             bone_naming = prefs.rigify_export_naming)
+
     if export_rig:
         rigify_rig = chr_cache.get_armature()
         objects.remove(rigify_rig)
@@ -2687,7 +2689,7 @@ class CC3Export(bpy.types.Operator):
                     return {"FINISHED"}
 
         # determine default file name
-        if not self.filepath:
+        if not self.filepath or (export_suffix and export_suffix not in self.filepath):
             default_file_path = context.blend_data.filepath
             if default_file_path:
                 default_file_path = os.path.splitext(default_file_path)[0]

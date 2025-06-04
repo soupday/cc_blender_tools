@@ -2726,7 +2726,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
 
 
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action,
-                                                                    None, True, True, "Retarget")
+                                                                    None, False, True, "Retarget")
 
         # remove retargeting rig
         adv_retarget_remove_pair(op, chr_cache)
@@ -3229,7 +3229,10 @@ def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, li
     return export_rig, vertex_group_map, accessory_map
 
 
-def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False, objects=None, bone_naming="CC"):
+def prep_rigify_export(chr_cache, bake_animation, baked_actions,
+                       include_t_pose=False,
+                       objects=None,
+                       bone_naming="CC"):
     prefs = vars.prefs()
 
     rigify_rig = chr_cache.get_armature()
@@ -3425,7 +3428,7 @@ def bake_rig_animation(chr_cache, rig, source_action,
                          only_selected=True,
                          visual_keying=True,
                          use_current_action=False,
-                         #clear_constraints=clear_constraints,
+                         clear_constraints=clear_constraints,
                          clean_curves=False,
                          bake_types={'POSE'})
 
