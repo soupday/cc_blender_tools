@@ -3177,7 +3177,7 @@ def get_bake_action(chr_cache):
     return action, source_type
 
 
-def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
+def adv_bake_rigify_for_export(chr_cache, export_rig, objects, accessory_map):
     props = vars.props()
 
     armature_action = None
@@ -3202,9 +3202,12 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
             for bone in export_rig.data.bones:
                 bone.select = True
 
+            motion_objects = get_motion_export_objects(objects)
+
             # bake the action on the rigify rig into the export rig
-            armature_action, shape_key_actions = bake_rig_animation(chr_cache, export_rig, None,
-                                                                    None, True, True, "Export")
+            armature_action, shape_key_actions = bake_rig_animation(chr_cache, export_rig,
+                                                                    None, motion_objects,
+                                                                    True, True, "Export")
 
     # restore ik stretch settings
     rigutils.restore_ik_stretch(ik_store)
@@ -3286,7 +3289,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions,
             action = None
             if bake_animation:
                 utils.log_info(f"Baking NLA timeline to export rig...")
-                action, key_actions = adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map)
+                action, key_actions = adv_bake_rigify_for_export(chr_cache, export_rig, objects, accessory_map)
                 action.name = action_name
                 baked_actions.append(action)
                 export_rig = chr_cache.rig_export_rig
@@ -3319,25 +3322,34 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions,
     return export_rig, vertex_group_map, t_pose_action
 
 
+def get_motion_export_objects(objects):
+    motion_objects = []
+    if objects:
+        for obj in objects:
+            if utils.object_exists_is_armature(obj):
+                motion_objects.append(obj)
+            elif utils.object_exists_is_mesh(obj):
+                if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) > 0:
+                    action = utils.safe_get_action(obj)
+                    include = False
+                    if action:
+                        # if there is a shape key action on this mesh, include it
+                        include = True
+                    else:
+                        # if no action, but shape keys are set, include it
+                        for key in obj.data.shape_keys.key_blocks:
+                            if key.value != 0.0:
+                                include = True
+                                break
+                    if include:
+                        motion_objects.append(obj)
+    return motion_objects
+
+
 def select_motion_export_objects(objects):
-    for obj in objects:
-        if obj.type == "ARMATURE":
-            utils.try_select_object(obj)
-        elif obj.type == "MESH":
-            if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) > 0:
-                action = utils.safe_get_action(obj)
-                include = False
-                if action:
-                    # if there is a shape key action on this mesh, include it
-                    include = True
-                else:
-                    # if no action, but shape keys are set, include it
-                    for key in obj.data.shape_keys.key_blocks:
-                        if key.value != 0.0:
-                            include = True
-                            break
-                if include:
-                    utils.try_select_object(obj)
+    motion_objects = get_motion_export_objects(objects)
+    if motion_objects:
+        utils.try_select_object(motion_objects)
 
 
 def rename_to_unity_vertex_groups(obj, vertex_group_map):
@@ -3442,14 +3454,15 @@ def bake_rig_animation(chr_cache, rig, source_action,
         # shape key actions
         if shape_key_objects:
             for obj in shape_key_objects:
-                obj_id = rigutils.get_action_obj_id(obj)
-                baked_action = utils.safe_get_action(obj.data.shape_keys)
-                if baked_action:
-                    shape_key_action_name = rigutils.make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
-                    baked_action.name = shape_key_action_name
-                    baked_action.use_fake_user = True
-                    shape_key_actions[obj] = baked_action
-                    utils.log_info(f" - Baked shape-key action: {baked_action.name}")
+                if utils.object_exists_is_mesh(obj):
+                    obj_id = rigutils.get_action_obj_id(obj)
+                    baked_action = utils.safe_get_action(obj.data.shape_keys)
+                    if baked_action:
+                        shape_key_action_name = rigutils.make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
+                        baked_action.name = shape_key_action_name
+                        baked_action.use_fake_user = True
+                        shape_key_actions[obj] = baked_action
+                        utils.log_info(f" - Baked shape-key action: {baked_action.name}")
             utils.try_select_objects(shape_key_objects)
 
         utils.object_mode()

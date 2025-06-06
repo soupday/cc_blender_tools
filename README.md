@@ -71,7 +71,7 @@ Links
 - Export material fixes when image missing from texture image node.
 - Export rigified error fixes.
 - Convert to humanoid export json avatar type fix.
-
+- Fix to Rigify export blendshapes on Rigify face rig and No face rig.
 
 ### 2.2.5
 - Fix to Blender 4.1 material refraction setting.
