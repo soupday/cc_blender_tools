@@ -189,18 +189,76 @@ SHAPE_KEY_DRIVERS = {
         "rotate": [0,0,18.0],
     },
 
+    # no rotations on: "B_M_P", "Ch_J", "F_V", "S_Z", "W_OO",
+
     "Ah": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,18.0],
+        "rotate": [0,0,10.5],
     },
 
     "Oh": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,12.0],
+        "rotate": [0,0,9.6],
+    },
+
+    "EE": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,1.2],
+    },
+
+    "Er": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,5.7],
+    },
+
+    "IH": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,4.9],
+    },
+
+    "K_G_H_NG": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,3.0],
+    },
+
+    "AE": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,9.0],
+    },
+
+    "R": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,1.65],
+    },
+
+    "T_L_D_N": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,4.7],
+    },
+
+    "TH": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,4.0],
     },
 
     # - Jaw_Open / CC_Base_Tongue01 = (0.1863, 0.0206, -9.2686)

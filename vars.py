@@ -18,7 +18,7 @@
 
 import bpy
 
-VERSION_STRING = "v2.3.0"
+VERSION_STRING = "v2.3.1"
 DEV = False
 #DEV = True
 PLUGIN_COMPATIBLE = [

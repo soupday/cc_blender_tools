@@ -33,6 +33,9 @@ Links
 
 ## Changelog
 
+### 2.3.1
+- 1:1 Viseme driver fix.
+
 ### 2.3.0
 - Rigify:
     - Meta-human like facial expression rig for Extended, Standard and Traditional facial profiles.
