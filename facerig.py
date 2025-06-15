@@ -1024,9 +1024,7 @@ def clear_expression_pose(chr_cache, rigify_rig, selected=False):
                 control_bones.append(control_bone_name)
 
     state = bones.store_armature_settings(rigify_rig, include_selection=True)
-    vis = bones.store_bone_locks_visibility(rigify_rig)
     bones.clear_pose(rigify_rig, control_bones)
-    bones.restore_bone_locks_visibility(rigify_rig, vis)
     bones.restore_armature_settings(rigify_rig, state, include_selection=True)
 
 

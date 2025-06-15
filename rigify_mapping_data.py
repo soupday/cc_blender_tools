@@ -977,7 +977,7 @@ CONTROL_MODIFY = [
 ]
 
 
-RIGIFY_PARAMS = [
+META_RIGIFY_PARAMS = [
     ["upper_arm.R", "rotation_axis", "x"],
     ["upper_arm.L", "rotation_axis", "x"],
     ["thigh.R", "rotation_axis", "x"],
@@ -992,6 +992,26 @@ RIGIFY_PARAMS = [
     ["f_middle.01.R", "primary_rotation_axis", "X"],
     ["f_ring.01.R", "primary_rotation_axis", "X"],
     ["f_pinky.01.R", "primary_rotation_axis", "X"],
+]
+
+CC_RIGIFY_PARAMS = [
+    ["upper_arm.R", "rotation_axis", "x"],
+    ["upper_arm.L", "rotation_axis", "x"],
+    ["thigh.R", "rotation_axis", "x"],
+    ["thigh.L", "rotation_axis", "x"],
+
+    ["palm.01.L", "palm_rotation_axis", "-Z"],
+    ["palm.01.R", "palm_rotation_axis", "Z"],
+
+    ["f_index.01.L", "primary_rotation_axis", "-Z"],
+    ["f_middle.01.L", "primary_rotation_axis", "-Z"],
+    ["f_ring.01.L", "primary_rotation_axis", "-Z"],
+    ["f_pinky.01.L", "primary_rotation_axis", "-Z"],
+
+    ["f_index.01.R", "primary_rotation_axis", "Z"],
+    ["f_middle.01.R", "primary_rotation_axis", "Z"],
+    ["f_ring.01.R", "primary_rotation_axis", "Z"],
+    ["f_pinky.01.R", "primary_rotation_axis", "Z"],
 ]
 
 

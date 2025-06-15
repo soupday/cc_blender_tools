@@ -1700,6 +1700,9 @@ def clear_pose(arm, bones=None):
     arm.data.pose_position = "POSE"
     utils.pose_mode_to(arm)
     bone : bpy.types.Bone
+
+    BLV = store_bone_locks_visibility(arm)
+
     make_bones_visible(arm)
     for pose_bone in arm.pose.bones:
         bone = pose_bone.bone
@@ -1728,6 +1731,8 @@ def clear_pose(arm, bones=None):
         bone.select = False
         bone.select_head = False
         bone.select_tail = False
+
+    restore_bone_locks_visibility(arm, BLV)
 
     utils.object_mode_to(arm)
 

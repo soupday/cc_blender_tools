@@ -769,9 +769,13 @@ def restore_bone_roll(meta_rig, roll_store):
 def set_rigify_params(meta_rig):
     """Apply custom Rigify parameters to bones in the meta rig.
     """
+    prefs = vars.prefs()
 
     if rigutils.select_rig(meta_rig):
-        for params in rigify_mapping_data.RIGIFY_PARAMS:
+        PARAMS = rigify_mapping_data.META_RIGIFY_PARAMS
+        if prefs.rigify_align_bones == "CC":
+            PARAMS = rigify_mapping_data.CC_RIGIFY_PARAMS
+        for params in PARAMS:
             bone_name = params[0]
             bone_param = params[1]
             bone_value = params[2]
@@ -3349,7 +3353,7 @@ def get_motion_export_objects(objects):
 def select_motion_export_objects(objects):
     motion_objects = get_motion_export_objects(objects)
     if motion_objects:
-        utils.try_select_object(motion_objects)
+        utils.try_select_objects(motion_objects)
 
 
 def rename_to_unity_vertex_groups(obj, vertex_group_map):

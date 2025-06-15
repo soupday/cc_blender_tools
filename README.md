@@ -35,6 +35,9 @@ Links
 
 ### 2.3.1
 - 1:1 Viseme driver fix.
+- Fix to Rigify bone locks being cleared by pose reset.
+- Export Rigify motion only fix.
+- CC Aligned metarig finger rotation fix.
 
 ### 2.3.0
 - Rigify:
