@@ -694,6 +694,41 @@ def add_child_of_constraint(parent_rig, child_rig, parent_bone, child_bone, infl
         return None
 
 
+def add_transformation_constraint(parent_rig, child_rig, parent_bone, child_bone, axes=["Y", "Z", "X"], influence = 1.0, space="LOCAL"):
+    try:
+        if utils.object_mode():
+            to_pose_bone: bpy.types.PoseBone = child_rig.pose.bones[child_bone]
+            c : bpy.types.TransformConstraint = to_pose_bone.constraints.new(type="TRANSFORM")
+            c.target = parent_rig
+            c.subtarget = parent_bone
+            c.use_motion_extrapolate = True
+            c.target_space = space
+            c.owner_space = space
+            c.map_from = "ROTATION"
+            c.map_to = "ROTATION"
+            c.from_rotation_mode = "AUTO"
+            c.from_min_x_rot = 0
+            c.from_max_x_rot = 360 * pi / 180
+            c.from_min_y_rot = 0
+            c.from_max_y_rot = 360 * pi / 180
+            c.from_min_z_rot = 0
+            c.from_max_z_rot = 360 * pi / 180
+            c.to_min_x_rot = 0
+            c.to_max_x_rot = 360 * pi / 180
+            c.to_min_y_rot = 0
+            c.to_max_y_rot = 360 * pi / 180
+            c.to_min_z_rot = 0
+            c.to_max_z_rot = 360 * pi / 180
+            c.map_to_x_from = axes[0]
+            c.map_to_y_from = axes[1]
+            c.map_to_z_from = axes[2]
+            c.influence = influence
+            return c
+    except Exception as e:
+        utils.log_error(f"Unable to add child of constraint: {child_bone} {parent_bone}", e)
+        return None
+
+
 def add_inverse_kinematic_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD",
                                      use_tail = True, use_stretch = True, use_rotation = True, use_location = True,
                                      weight = 1.0, orient_weight = 0.0, chain_count = 1):

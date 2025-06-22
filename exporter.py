@@ -171,6 +171,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
                     bpy.data.objects.remove(obj)
 
     if not chr_cache or not json_data:
+        utils.try_select_objects(objects, True)
         return None
 
     objects_map = {}
@@ -2227,6 +2228,9 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
          include_textures = False
     else:
         json_data = chr_cache.get_json_data()
+        if not json_data:
+            json_data = jsonutils.generate_character_base_json_data(name)
+            set_character_generation(json_data, chr_cache, name)
 
     utils.log_info("Preparing character for export:")
     utils.log_indent()

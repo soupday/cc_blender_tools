@@ -845,7 +845,7 @@ NON_BASIC_FACE_BONES = [
 # [rigify bone name, rigify re-parent, export bone name, export bone z-axis, instruction]
 GENERIC_EXPORT_RIG = [
     # Spine, Neck & Head:
-    ["root", "", "Rigify_BoneRoot", "Z", "-"],
+    ["root", "", "CC_Base_BoneRoot", "Z", "-"],
     ["DEF-spine", "root", "CC_Base_Hip", "-Y", "PLR"],
     ["DEF-pelvis", "DEF-spine", "CC_Base_Pelvis", "-Y", "PLR"],
     ["DEF-spine.001", "DEF-spine", "CC_Base_Waist", "-Y", "PLR"],
@@ -947,9 +947,10 @@ GENERIC_EXPORT_RIG = [
     ["DEF-eye.R", "DEF-spine.006", "CC_Base_R_Eye", "Z", "PLR"],
     ["DEF-eye.L", "DEF-spine.006", "CC_Base_L_Eye", "Z", "PLR"],
     # Face:
-    ["DEF-face", "DEF-spine.006", "CC_Base_FacialBone", "X", "PLRT", "ORG-face"],
+    ["DEF-face", "DEF-spine.006", "CC_Base_FacialBone", "X", "PLRTcr", "ORG-face"],
     # Jaw:
-    ["DEF-jaw", "DEF-face", "CC_Base_JawRoot", "X", "PLRTC", "jaw_master"],
+    ["DEF-jaw", "DEF-face", "CC_Base_JawRoot", "X", "PLRCcr", "jaw_master"],
+    ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "X", "PLRTml", "jaw_master"],
 ]
 
 

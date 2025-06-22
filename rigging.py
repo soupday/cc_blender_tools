@@ -3011,6 +3011,13 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
             bone = None
             parent_bone = None
 
+            if "c" in flags or "r" in flags or "m" in flags:
+                if ((bone_naming == "CC" and "c" not in flags) or
+                    (bone_naming == "RIGIFY" and "r" not in flags) or
+                    (bone_naming == "METARIG" and "m" not in flags) or
+                    (bone_naming == "LINK" and "l" not in flags)):
+                    continue
+
             if bone_name not in edit_bones and ("C" in flags or "T" in flags) and len(export_def) > 5:
                 bone = edit_bones.new(bone_name)
 
@@ -3144,6 +3151,14 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
     # copy constraints for baking animations
     if rigutils.select_rig(export_rig):
         for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
+            flags = export_def[4]
+            if "c" in flags or "r" in flags or "m" in flags:
+                if ((bone_naming == "CC" and "c" not in flags) or
+                    (bone_naming == "RIGIFY" and "r" not in flags) or
+                    (bone_naming == "METARIG" and "m" not in flags) or
+                    (bone_naming == "LINK" and "l" not in flags)):
+                    continue
+
             rigify_bone_name = export_def[0]
             export_bone_name = export_def[2]
             if bone_naming == "METARIG":
@@ -3156,7 +3171,6 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
             else: # "LINK" / "CC"
                 ...
             axis = export_def[3]
-            flags = export_def[4]
             if export_bone_name == "":
                 export_bone_name = rigify_bone_name
             if link_target:
@@ -3166,9 +3180,9 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
             if ("T" in flags or "C" in flags) and len(export_def) > 5:
                 rigify_bone_name = export_def[5]
             if "C" in flags:
+                #bones.add_child_of_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
                 bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
-                coc = bones.add_child_of_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
-                coc.use_location_x = coc.use_location_y = coc.use_location_z = False
+                bones.add_transformation_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, ["Y", "Z", "X"], 1.0)
             else:
                 bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
                 bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
@@ -3256,7 +3270,6 @@ def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, li
                                                                       link_target=link_target,
                                                                       bone_naming=bone_naming)
     chr_cache.rig_export_rig = export_rig
-    utils.stop_now()
 
     return export_rig, vertex_group_map, accessory_map
 
