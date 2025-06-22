@@ -681,7 +681,7 @@ def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance
 def add_child_of_constraint(parent_rig, child_rig, parent_bone, child_bone, influence = 1.0, space="WORLD"):
     try:
         if utils.object_mode():
-            to_pose_bone : bpy.types.PoseBone = child_rig.pose.bones[child_bone]
+            to_pose_bone: bpy.types.PoseBone = child_rig.pose.bones[child_bone]
             c : bpy.types.ChildOfConstraint = to_pose_bone.constraints.new(type="CHILD_OF")
             c.target = parent_rig
             c.subtarget = parent_bone
@@ -743,7 +743,7 @@ def set_pose_bone_lock(pose_bone : bpy.types.PoseBone,
 
 
 def set_edit_bone_flags(edit_bone, flags, deform):
-    edit_bone.use_connect = True if "C" in flags else False
+    edit_bone.use_connect = True if "X" in flags else False
     edit_bone.use_local_location = True if "L" in flags else False
     edit_bone.use_inherit_rotation = True if "R" in flags else False
     edit_bone.use_deform = deform

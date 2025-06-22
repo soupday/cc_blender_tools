@@ -556,7 +556,7 @@ GAME_BASE_VERTEX_GROUP_RENAME = [
 
 # additional bones to copy from the cc3 or rigify rigs to generate rigify deformation, mech or control bones
 # [source_bone, new_rigify_bone, rigify_parent, flags, layer, collection, ["SCALE", scale, ref, arg]]
-# flags C=Connected, L=Local location, R=Inherit rotation
+# flags X=Connected, L=Local location, R=Inherit rotation
 # layers: 31 = ORG bones, 30 = MCH bones, 29 = DEF bones
 # ref: reference bone(s) for position generation or constraints
 # arg: constraint args (influence)
@@ -876,7 +876,7 @@ GENERIC_EXPORT_RIG = [
     ["DEF-toe_pinky.L", "DEF-toe.L", "CC_Base_L_PinkyToe1", "Z", "PLR"],
     # Left Arm:
     ["DEF-shoulder.L", "DEF-spine.003", "CC_Base_L_Clavicle", "-Y", "PLR"],
-    ["DEF-upper_arm.L", "DEF-shoulder.L", "CC_Base_L_Upperarm", "-Y", "PLRC"],
+    ["DEF-upper_arm.L", "DEF-shoulder.L", "CC_Base_L_Upperarm", "-Y", "PLRX"],
     ["DEF-upper_arm.L.001", "DEF-upper_arm.L", "CC_Base_L_UpperarmTwist", "-Y", "PLR"],
     ["DEF-elbow_share.L", "DEF-forearm.L", "CC_Base_L_ElbowShareBone", "-Y", "PLR"],
     ["DEF-forearm.L", "DEF-upper_arm.L.001", "CC_Base_L_Forearm", "-Y", "PLR"],
@@ -914,7 +914,7 @@ GENERIC_EXPORT_RIG = [
     ["DEF-toe_pinky.R", "DEF-toe.R", "CC_Base_R_PinkyToe1", "Z", "PLR"],
     # Right Arm:
     ["DEF-shoulder.R", "DEF-spine.003", "CC_Base_R_Clavicle", "-Y", "PLR"],
-    ["DEF-upper_arm.R", "DEF-shoulder.R", "CC_Base_R_Upperarm", "-Y", "PLRC"],
+    ["DEF-upper_arm.R", "DEF-shoulder.R", "CC_Base_R_Upperarm", "-Y", "PLRX"],
     ["DEF-upper_arm.R.001", "DEF-upper_arm.R", "CC_Base_R_UpperarmTwist", "-Y", "PLR"],
     ["DEF-elbow_share.R", "DEF-forearm.R", "CC_Base_R_ElbowShareBone", "-Y", "PLR"],
     ["DEF-forearm.R", "DEF-upper_arm.R.001", "CC_Base_R_Forearm", "-Y", "PLR"],
@@ -946,8 +946,10 @@ GENERIC_EXPORT_RIG = [
     # Eyes:
     ["DEF-eye.R", "DEF-spine.006", "CC_Base_R_Eye", "Z", "PLR"],
     ["DEF-eye.L", "DEF-spine.006", "CC_Base_L_Eye", "Z", "PLR"],
+    # Face:
+    ["DEF-face", "DEF-spine.006", "CC_Base_FacialBone", "X", "PLRT", "ORG-face"],
     # Jaw:
-    ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "X", "PLRT", "jaw_master"],
+    ["DEF-jaw", "DEF-face", "CC_Base_JawRoot", "X", "PLRTC", "jaw_master"],
 ]
 
 
