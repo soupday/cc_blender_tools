@@ -38,6 +38,11 @@ Links
 - Fix to Rigify bone locks being cleared by pose reset.
 - Export Rigify motion only fix.
 - CC Aligned metarig finger rotation fix.
+- Fix to FBX exports not adding correct scale units.
+    - This was causing Rigify export avatar bones to scale incorrectly in Unity.
+- Removed Rigify disable IK stretch option as Rigify IK doesn't work correctly without it.
+- Rigify export using CC Base naming aligns bones to original CC rig orientations.
+    - In particular the jaw bones and eye bones should have a more compatible alignment. i.e. Unity ConvAI.
 
 ### 2.3.0
 - Rigify:

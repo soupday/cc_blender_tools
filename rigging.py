@@ -2939,13 +2939,19 @@ def clear_drivers_and_constraints(rig):
 
 def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
                         link_target=False, bone_naming="CC"):
+
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
 
     vertex_group_map = {}
     accessory_map = {}
     if link_target:
-        bone_naming = "LINK"
+        bone_naming = "CC"
+
+    if bone_naming == "CC":
+        EXPORT_RIG = rigify_mapping_data.CC_EXPORT_RIG
+    else:
+        EXPORT_RIG = rigify_mapping_data.METARIG_EXPORT_RIG
 
     if export_rig:
         utils.force_object_name(export_rig, chr_cache.character_name + "_Export")
@@ -2957,7 +2963,7 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
     bones.make_bones_visible(export_rig, protected=True)
 
     # compile a list of all deformation bones
-    export_bones = [ export_def[0] for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG ]
+    export_bones = []
     accessory_bones, accessory_def_bones = get_extension_export_bones(export_rig)
     if accessory_bones:
         export_bones.extend(accessory_bones)
@@ -2993,94 +2999,87 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
         if world_x.dot(upper_arm_l.y_axis) < 0.9:
             bind_pose_is_a_pose = True
 
-        for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
+        for export_def in EXPORT_RIG:
             bone_name = export_def[0]
             parent_name = export_def[1]
             export_name = export_def[2]
+            flags = export_def[3]
+            source_name = export_def[4] if len(export_def) > 4 else bone_name
+            if "-" in flags: continue
             if bone_naming == "METARIG":
-                if bone_name == "root": continue
                 export_name = bone_name
                 if bone_name.startswith("DEF-"):
                     export_name = bone_name[4:]
             elif bone_naming == "RIGIFY":
                 export_name = export_name.replace("CC_Base_", "Rigify_")
-            else: # "LINK" / "CC"
-                ...
-            axis = export_def[3]
-            flags = export_def[4]
-            bone = None
-            parent_bone = None
 
-            if "c" in flags or "r" in flags or "m" in flags:
-                if ((bone_naming == "CC" and "c" not in flags) or
-                    (bone_naming == "RIGIFY" and "r" not in flags) or
-                    (bone_naming == "METARIG" and "m" not in flags) or
-                    (bone_naming == "LINK" and "l" not in flags)):
-                    continue
+            if bone_name not in edit_bones and "+" in flags and len(export_def) > 4:
+                utils.log_info(f"Adding export bone: {bone_name} from {source_name}")
+                bones.copy_edit_bone(export_rig, source_name, bone_name, "", 1.0)
+            elif bone_name not in edit_bones and "+" not in flags:
+                utils.log_info(f"Missing export bone: {bone_name}")
 
-            if bone_name not in edit_bones and ("C" in flags or "T" in flags) and len(export_def) > 5:
-                bone = edit_bones.new(bone_name)
+            export_bone: bpy.types.EditBone = edit_bones[bone_name] if bone_name in edit_bones else None
+            source_bone: bpy.types.EditBone = edit_bones[source_name] if source_name in edit_bones else None
+            parent_bone: bpy.types.EditBone = edit_bones[parent_name] if parent_name in edit_bones else None
 
-            if bone_name in edit_bones:
-                bone = edit_bones[bone_name]
-                source_bone = bone
-
-                # assign parent hierachy
-                if "P" in flags:
-                    parent_bone = edit_bones[parent_name]
-                if parent_bone:
-                    bone.parent = parent_bone
-                if "T" in flags and len(export_def) > 5:
-                    copy_name = export_def[5]
-                    if copy_name in edit_bones:
-                        copy_bone = edit_bones[copy_name]
-                        bone.head = copy_bone.head
-                        bone.tail = copy_bone.tail
-                        bone.roll = copy_bone.roll
-                        source_bone = copy_bone
-                if "C" in flags and len(export_def) > 5:
-                    child_of_name = export_def[5]
-                    if child_of_name in edit_bones:
-                        child_of_bone = edit_bones[child_of_name]
-                        bone.head = child_of_bone.head
-                        source_bone = child_of_bone
+            if export_bone:
+                # assign (P)arent hierachy
+                if "P" in flags and parent_bone:
+                    export_bone.parent = parent_bone
+                if "+" in flags and source_bone:
+                    export_bone.head = source_bone.head
+                    export_bone.tail = source_bone.tail
+                    export_bone.roll = source_bone.roll
 
                 # set flags
-                bones.set_edit_bone_flags(bone, flags, True)
+                bones.set_edit_bone_flags(export_bone, flags, True)
 
                 # set layer
-                bones.set_bone_collection(export_rig, bone, "Export", None, layer)
+                bones.set_bone_collection(export_rig, export_bone, "Export", None, layer)
 
-                # child source bone for link targetting
-                if link_target or "C" in flags:
-                    if "orig_name" in source_bone:
-                        source_name = source_bone["orig_name"]
-                        # should match export_name *unless rigify root bone
-                        if source_name != export_name and "Rigify_BoneRoot" not in export_name:
-                            utils.log_error(f"Export target names do not match: {source_name} !=  {export_name}")
-                        source_dir_array = source_bone["orig_dir"]
-                        source_axis_array = source_bone["orig_z_axis"]
-                        source_dir = Vector(source_dir_array)
-                        source_axis = Vector(source_axis_array)
-                        if link_target:
-                            export_bone: bpy.types.EditBone = edit_bones.new(export_name)
-                            export_bone.head = bone.head
-                            export_bone.tail = bone.head + source_dir
-                            export_bone.align_roll(source_axis)
-                            export_bone.parent = bone
-                            export_bones.append(export_name)
-                        elif "C" in flags:
-                            # if using child of contraints, align the bone to the original source
-                            bone.tail = bone.head + source_dir
-                            bone.align_roll(source_axis)
+                # (O)riginal orientation:
+                #   this creates an unconnected, non-deforming** parent and child pair to use as
+                #   constraint targets, to align the export bone to it's original CC3+ orientation
+                #   **unconnected non-deform bones are not exported in the fbx
+                if ("O" in flags or "A" in flags) and "orig_name" in source_bone:
+                    orig_name = source_bone["orig_name"]
+                    ndp_name = f"NDP-{export_name}"
+                    ndc_name = f"NDC-{export_name}"
+                    if orig_name != export_name:
+                        utils.log_error(f"Export target names do not match: {orig_name} !=  {export_name}")
+                    source_dir_array = source_bone["orig_dir"]
+                    source_axis_array = source_bone["orig_z_axis"]
+                    source_dir = Vector(source_dir_array).normalized()
+                    source_axis = Vector(source_axis_array)
+                    # duplicate the rigify bone as the non-deform parent
+                    # (target of copy constraints from rigify: rigify -> ndp_bone)
+                    ndp_bone = bones.copy_edit_bone(export_rig, bone_name, ndp_name, "", 1.0)
+                    ndp_bone.use_deform = False
+                    # align the export bone to the source direction and roll
+                    if "O" in flags:
+                        length = (export_bone.tail - export_bone.head).length
+                        export_bone.tail = export_bone.head + source_dir * length
+                    export_bone.align_roll(source_axis)
+                    # duplicate the now aligned export bone as non-deform child
+                    # (source of copy constraints to export bone: ndc_bone -> export_bone)
+                    ndc_bone = bones.copy_edit_bone(export_rig, bone_name, ndc_name, "", 1.0)
+                    ndc_bone.use_deform = False
+                    # parent the ndc bone to the ndp parent
+                    ndc_bone.parent = ndp_bone
+                    # keep these bones
+                    export_bones.append(ndp_name)
+                    export_bones.append(ndc_name)
+                else:
+                    ...
 
-        # remove all non-deformation bones
+                # keep this export bone
+                export_bones.append(bone_name)
+
+        # remove all non-export bones
         for edit_bone in edit_bones:
             if edit_bone.name not in export_bones:
                 edit_bones.remove(edit_bone)
-        if bone_naming == "METARIG":
-            if "root" in edit_bones:
-                edit_bones.remove(edit_bones["root"])
 
         # remove the DEF- tag from the accessory bone names (if needed)
         for bone_name in accessory_def_bones:
@@ -3091,24 +3090,25 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
                 edit_bones[bone_name].name = bone_name[4:]
 
         # rename bones for export
-        if not link_target:
-            for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
-                bone_name = export_def[0]
-                export_name = export_def[2]
-                if bone_naming == "METARIG":
-                    export_name = bone_name
-                    if bone_name.startswith("DEF-"):
-                        export_name = bone_name[4:]
-                elif bone_naming == "RIGIFY":
-                    export_name = export_name.replace("CC_Base_", "Rigify_")
-                if export_name != "" and bone_name in edit_bones:
-                    vertex_group_map[bone_name] = export_name
-                    edit_bones[bone_name].name = export_name
+        for export_def in EXPORT_RIG:
+            bone_name = export_def[0]
+            export_name = export_def[2]
+            flags = export_def[3]
+            if "-" in flags: continue
+            if bone_naming == "METARIG":
+                export_name = bone_name
+                if bone_name.startswith("DEF-"):
+                    export_name = bone_name[4:]
+            elif bone_naming == "RIGIFY":
+                export_name = export_name.replace("CC_Base_", "Rigify_")
+            if export_name != "" and bone_name in edit_bones:
+                vertex_group_map[bone_name] = export_name
+                edit_bones[bone_name].name = export_name
 
     # set bone layers
     if rigutils.select_rig(export_rig):
-        for bone in export_rig.data.bones:
-            bones.set_bone_collection(export_rig, bone, "Export", None, layer)
+        for export_bone in export_rig.data.bones:
+            bones.set_bone_collection(export_rig, export_bone, "Export", None, layer)
 
     # reset the pose
     bones.clear_pose(export_rig)
@@ -3150,51 +3150,36 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
 
     # copy constraints for baking animations
     if rigutils.select_rig(export_rig):
-        for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
-            flags = export_def[4]
-            if "c" in flags or "r" in flags or "m" in flags:
-                if ((bone_naming == "CC" and "c" not in flags) or
-                    (bone_naming == "RIGIFY" and "r" not in flags) or
-                    (bone_naming == "METARIG" and "m" not in flags) or
-                    (bone_naming == "LINK" and "l" not in flags)):
-                    continue
-
+        pose_bones = export_rig.pose.bones
+        for export_def in EXPORT_RIG:
             rigify_bone_name = export_def[0]
             export_bone_name = export_def[2]
+            flags = export_def[3]
+            if "-" in flags: continue
             if bone_naming == "METARIG":
-                if rigify_bone_name == "root": continue
                 export_bone_name = rigify_bone_name
                 if rigify_bone_name.startswith("DEF-"):
                     export_bone_name = rigify_bone_name[4:]
             elif bone_naming == "RIGIFY":
                 export_bone_name = export_bone_name.replace("CC_Base_", "Rigify_")
-            else: # "LINK" / "CC"
-                ...
-            axis = export_def[3]
-            if export_bone_name == "":
-                export_bone_name = rigify_bone_name
-            if link_target:
-                to_bone_name = rigify_bone_name
+            if len(export_def) > 4:
+                rigify_bone_name = export_def[4]
+            ndp_name = f"NDP-{export_bone_name}"
+            ndc_name = f"NDC-{export_bone_name}"
+            if ("O" in flags or "A" in flags) and ndp_name in pose_bones and ndc_name in pose_bones:
+                bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, ndp_name, 1.0)
+                bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, ndp_name, 1.0)
+                bones.add_copy_rotation_constraint(export_rig, export_rig, ndc_name, export_bone_name, 1.0)
+                bones.add_copy_location_constraint(export_rig, export_rig, ndc_name, export_bone_name, 1.0)
             else:
-                to_bone_name = export_bone_name
-            if ("T" in flags or "C" in flags) and len(export_def) > 5:
-                rigify_bone_name = export_def[5]
-            if "C" in flags:
-                #bones.add_child_of_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
-                bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
-                bones.add_transformation_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, ["Y", "Z", "X"], 1.0)
-            else:
-                bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
-                bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
+                bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, export_bone_name, 1.0)
+                bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, export_bone_name, 1.0)
 
         # constraints for accessory/spring bones
         for rigify_bone_name in accessory_map:
-            if link_target:
-                to_bone_name = rigify_bone_name
-            else:
-                to_bone_name = accessory_map[rigify_bone_name]
-            bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
-            bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
+            export_bone_name = accessory_map[rigify_bone_name]
+            bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, export_bone_name, 1.0)
+            bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, export_bone_name, 1.0)
 
     return export_rig, vertex_group_map, accessory_map
 
@@ -3400,21 +3385,26 @@ def rename_to_unity_vertex_groups(obj, vertex_group_map):
             vg.name = vertex_group_map[vg.name]
 
 
-def restore_from_unity_vertex_groups(obj, vertex_group_map):
+def restore_from_unity_vertex_groups(obj, vertex_group_map, bone_naming="CC"):
     for vg in obj.vertex_groups:
         for rigify_name in vertex_group_map:
             if vertex_group_map[rigify_name] == vg.name:
                 vg.name = rigify_name
                 break
 
-    for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
+    if bone_naming == "CC":
+        EXPORT_RIG = rigify_mapping_data.CC_EXPORT_RIG
+    else:
+        EXPORT_RIG = rigify_mapping_data.METARIG_EXPORT_RIG
+
+    for export_def in EXPORT_RIG:
         rigify_bone_name = export_def[0]
         unity_bone_name = export_def[2]
         if unity_bone_name in obj.vertex_groups:
             obj.vertex_groups[unity_bone_name].name = rigify_bone_name
 
 
-def finish_rigify_export(chr_cache, export_rig, export_actions, vertex_group_map, objects = None):
+def finish_rigify_export(chr_cache, export_rig, export_actions, vertex_group_map, objects=None, bone_naming="CC"):
     rigify_rig = chr_cache.get_armature()
 
     # un-reparent the child objects
@@ -3427,7 +3417,7 @@ def finish_rigify_export(chr_cache, export_rig, export_actions, vertex_group_map
         if mod:
             mod.object = rigify_rig
 
-        restore_from_unity_vertex_groups(child, vertex_group_map)
+        restore_from_unity_vertex_groups(child, vertex_group_map, bone_naming=bone_naming)
 
     # remove the baked actions
     if export_actions:

@@ -1819,6 +1819,8 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
         # proceed with normal export
         if not custom_export:
             bpy.ops.export_scene.fbx(filepath=file_path,
+                    global_scale=1.0,
+                    apply_scale_options="FBX_SCALE_UNITS",
                     use_selection = True,
                     bake_anim = export_anim,
                     bake_anim_simplify_factor=self.animation_simplify,
@@ -1942,11 +1944,13 @@ def export_non_standard(self, context, file_path, include_selected):
     # proceed with normal export
     if not arp_export:
         bpy.ops.export_scene.fbx(filepath=file_path,
+                global_scale=1.0,
+                apply_scale_options="FBX_SCALE_UNITS",
                 use_selection = True,
                 bake_anim = export_anim,
                 bake_anim_simplify_factor=self.animation_simplify,
                 add_leaf_bones = False,
-                use_mesh_modifiers = True,
+                use_mesh_modifiers = False,
                 mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
                 use_armature_deform_only = True)
 
@@ -2062,6 +2066,8 @@ def export_to_unity(self, context, chr_cache, export_anim, file_path, include_se
     if utils.is_file_ext(ext, "FBX"):
         # export as fbx
         bpy.ops.export_scene.fbx(filepath=file_path,
+                global_scale=1.0,
+                apply_scale_options="FBX_SCALE_UNITS",
                 use_selection = True,
                 bake_anim = export_anim,
                 bake_anim_use_all_actions=export_actions,
@@ -2070,7 +2076,7 @@ def export_to_unity(self, context, chr_cache, export_anim, file_path, include_se
                 use_armature_deform_only=True,
                 add_leaf_bones = False,
                 mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
-                use_mesh_modifiers = True,
+                use_mesh_modifiers = False,
                 #apply_scale_options="FBX_SCALE_UNITS",
                 object_types={'EMPTY', 'MESH', 'ARMATURE'},
                 use_space_transform=True,
@@ -2278,6 +2284,8 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
 
     # export as fbx
     bpy.ops.export_scene.fbx(filepath=file_path,
+            global_scale=1.0,
+            apply_scale_options="FBX_SCALE_UNITS",
             use_selection = True,
             bake_anim = use_anim,
             bake_anim_use_all_actions=export_actions,
@@ -2288,7 +2296,7 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
             #axis_forward = "-Y",
             #axis_up = "Z",
             mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
-            use_mesh_modifiers = True)
+            use_mesh_modifiers = False)
 
     if prefs.rigify_export_t_pose:
         bones.clear_pose(export_rig)
@@ -2320,7 +2328,7 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
 
     # clean up rigify export
     rigging.finish_rigify_export(chr_cache, export_rig, baked_actions, vertex_group_map,
-                                 objects=objects)
+                                 objects=objects, bone_naming=prefs.rigify_export_naming)
 
     utils.log_recess()
     utils.log_info("")
@@ -2353,6 +2361,8 @@ def export_as_accessory(file_path, filename_ext):
 
     if utils.is_file_ext(ext, "FBX"):
         bpy.ops.export_scene.fbx(filepath=file_path,
+                global_scale=1.0,
+                apply_scale_options="FBX_SCALE_UNITS",
                 use_selection = True,
                 bake_anim = False,
                 add_leaf_bones=False,

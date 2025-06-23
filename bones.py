@@ -493,6 +493,7 @@ def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influen
     try:
         if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            from_pose_bone: bpy.types.PoseBone = from_rig.pose.bones[from_bone]
             c : bpy.types.CopyTransformsConstraint = to_pose_bone.constraints.new(type="COPY_TRANSFORMS")
             c.target = from_rig
             c.subtarget = from_bone
@@ -512,7 +513,8 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
                                  use_offset=False):
     try:
         if utils.object_mode():
-            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            to_pose_bone: bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            from_pose_bone: bpy.types.PoseBone = from_rig.pose.bones[from_bone]
             c : bpy.types.CopyRotationConstraint = to_pose_bone.constraints.new(type="COPY_ROTATION")
             c.target = from_rig
             c.subtarget = from_bone
@@ -539,6 +541,7 @@ def add_copy_scale_constraint(from_rig, to_rig, from_bone, to_bone, influence = 
     try:
         if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            from_pose_bone: bpy.types.PoseBone = from_rig.pose.bones[from_bone]
             c : bpy.types.CopyScaleConstraint = to_pose_bone.constraints.new(type="COPY_SCALE")
             c.target = from_rig
             c.subtarget = from_bone
@@ -560,6 +563,7 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
     try:
         if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            from_pose_bone: bpy.types.PoseBone = from_rig.pose.bones[from_bone]
             c : bpy.types.CopyLocationConstraint = to_pose_bone.constraints.new(type="COPY_LOCATION")
             c.target = from_rig
             c.subtarget = from_bone
@@ -591,6 +595,7 @@ def add_stretch_to_constraint(from_rig, to_rig, from_bone, to_bone, influence = 
     try:
         if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            from_pose_bone: bpy.types.PoseBone = from_rig.pose.bones[from_bone]
             c : bpy.types.StretchToConstraint = to_pose_bone.constraints.new(type="STRETCH_TO")
             c.target = from_rig
             c.subtarget = from_bone

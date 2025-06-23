@@ -335,6 +335,8 @@ class LinkActor():
             for id, id_def in self.id_map.items():
                 if id_def["name"] == bone_name:
                     return id
+                if "_BoneRoot" in bone_name and "_BoneRoot" in id_def["name"]:
+                    return id
         return -1
 
     def remap_visemes(self, visemes):
@@ -2391,11 +2393,18 @@ class LinkService():
                     # get all the exportable deformation bones
                     if rigutils.select_rig(export_rig):
                         for pose_bone in export_rig.pose.bones:
-                            if pose_bone.name != "root" and not pose_bone.name.startswith("DEF-"):
+                            print(pose_bone)
+                            if (pose_bone.name != "root" and
+                                not pose_bone.name.startswith("DEF-") and
+                                not pose_bone.name.startswith("NDP-") and
+                                not pose_bone.name.startswith("NDC-")):
                                 bones.append(pose_bone.name)
                                 bone_id = actor.get_bone_id(pose_bone.name)
                                 bone_ids.append(bone_id)
                     driver_mode = "BONE"
+                    for i, id in enumerate(bone_ids):
+                        if id == -1:
+                            utils.log_info(f"Unidentified bone: {bones[i]}")
                 else:
                     # get all the bones
                     rig: bpy.types.Object = chr_cache.get_armature()

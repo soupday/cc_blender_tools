@@ -2244,11 +2244,12 @@ class CC3RigifyPanel(bpy.types.Panel):
                                         props.section_rigify_controls,
                                         icon="TOOL_SETTINGS", icon_closed="TOOL_SETTINGS"):
 
-                        row = layout.row()
-                        if rigutils.is_stretch_enabled(rig):
-                            row.operator("ccic.rigutils", icon="X", text="Disable All IK Stretch").param = "DISABLE_CONSTRAINT_STRETCH"
-                        else:
-                            row.operator("ccic.rigutils", icon="CON_STRETCHTO", text="Re-enable IK Stretch").param = "ENABLE_CONSTRAINT_STRETCH"
+                        if False: # disabling IK stretch is a bad idea...
+                            row = layout.row()
+                            if rigutils.is_stretch_enabled(rig):
+                                row.operator("ccic.rigutils", icon="X", text="Disable All IK Stretch").param = "DISABLE_CONSTRAINT_STRETCH"
+                            else:
+                                row.operator("ccic.rigutils", icon="CON_STRETCHTO", text="Re-enable IK Stretch").param = "ENABLE_CONSTRAINT_STRETCH"
 
                         num_splits = 0
                         for control_name, control_def in rigify_mapping_data.IKFK_RIG_CONTROLS.items():
