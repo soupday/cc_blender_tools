@@ -458,12 +458,14 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                     ], default="MOTION")
     rigify_export_naming: bpy.props.EnumProperty(items=[
                         ("METARIG","Metarig","Use metarig bone names without a Root bone.\n" \
-                                             "For exporting animations to CC4/iClone or other applications.\n\n" \
+                                             "For exporting animations to CC4/iClone, Unity or other applications.\n" \
                                              "Note: CC4 will auto detect a blender meta-rig, but you must use the generated hik (.3dxProfile) profile to import animations back into CC4"),
-                        ("CC","CC Base","Use original CC_Base_ bone names with a Root bone. \n" \
-                                        "For exporting animations and characters to Unity and be compatible with the Unity auto-setup.\n\n" \
+                        ("RIGIFY","Rigify","Use custom Rigify_Base_ bone names with a Rigify_Base_Root bone. \n" \
+                                           "For exporting animations and characters to Unity and be compatible with the Unity auto-setup.\n" \
+                                           "*Warning*: Does not import correctly back into CC4!"),
+                        ("CC","CC Base","Use original CC_Base_ bone names with a CC_Base_Root bone. \n" \
+                                        "Note: The bone names are the same but their orientations are different from the original CC bones. \n"
                                         "*Warning*: Does not import correctly back into CC4!"),
-                        #("RIGIFY","Rigify","Use custom Rigify_ bone names"),
                     ], default="METARIG", name = "Bone names to use when exporting Rigify characters and motions.")
     rigify_expression_rig: bpy.props.EnumProperty(items=[
                         ("NONE","None","No expression rig, just eye and jaw controls"),

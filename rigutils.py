@@ -1651,7 +1651,8 @@ def disable_ik_stretch(rigify_rig, bone_names=None):
         for con in pose_bone.constraints:
             if con and con.type == "IK":
                 con_store[con] = con.use_stretch
-                con.use_stretch = False
+                # disabling this for now, as it can cause really bad IK solving...
+                #con.use_stretch = False
     return ik_store
 
 
