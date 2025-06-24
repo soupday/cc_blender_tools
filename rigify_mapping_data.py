@@ -1052,11 +1052,11 @@ CC_EXPORT_RIG = [
     # Teeth:
     ["DEF-teeth.T", "DEF-spine.006", "CC_Base_Teeth01", "PLRO"],
     ["DEF-teeth.B", "DEF-jaw", "CC_Base_Teeth02", "PLRO"],
-    # Eyes:
-    ["DEF-eye.R", "DEF-spine.006", "CC_Base_R_Eye", "PLRO"],
-    ["DEF-eye.L", "DEF-spine.006", "CC_Base_L_Eye", "PLRO"],
     # Face:
     ["DEF-face", "DEF-spine.006", "CC_Base_FacialBone", "+PLRO", "ORG-face"],
+    # Eyes:
+    ["DEF-eye.R", "DEF-face", "CC_Base_R_Eye", "PLRO"],
+    ["DEF-eye.L", "DEF-face", "CC_Base_L_Eye", "PLRO"],
     # Jaw:
     ["DEF-jaw", "DEF-face", "CC_Base_JawRoot", "+PLRO", "jaw_master"],
 ]
