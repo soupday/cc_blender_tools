@@ -24,7 +24,7 @@ from . import addon_updater_ops, colorspace, vars
 
 def reset_cycles():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.cycles_ssr_iris_brightness_b410 = 1.5
+    prefs.cycles_iris_brightness_b443 = 0.75
     prefs.cycles_sss_skin_b410 = 1.0 # 1.4285
     prefs.cycles_sss_hair_b410 = 0.25
     prefs.cycles_sss_teeth_b410 = 1.0
@@ -34,9 +34,8 @@ def reset_cycles():
     prefs.cycles_normal_b410 = 1.0
     prefs.cycles_normal_skin_b410 = 1.125
     prefs.cycles_micro_normal_b410 = 1.25
-    prefs.cycles_roughness_power_b410 = 1.0
+    prefs.cycles_roughness_power_b443 = 1.0
     #
-    prefs.cycles_ssr_iris_brightness_b341 = 2.5
     prefs.cycles_sss_skin_b341 = 0.264
     prefs.cycles_sss_hair_b341 = 0.05
     prefs.cycles_sss_teeth_b341 = 0.5
@@ -51,7 +50,7 @@ def reset_cycles():
 
 def reset_eevee():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.eevee_ssr_iris_brightness_b420 = 2.5
+    prefs.eevee_iris_brightness_b443 = 1.0
     prefs.eevee_sss_skin_b420 = 1.0
     prefs.eevee_sss_hair_b420 = 1.0
     prefs.eevee_sss_teeth_b420 = 1.5
@@ -61,9 +60,8 @@ def reset_eevee():
     prefs.eevee_normal_b420 = 1.0
     prefs.eevee_normal_skin_b420 = 1.0
     prefs.eevee_micro_normal_b420 = 1.0
-    prefs.eevee_roughness_power_b420 = 0.85
+    prefs.eevee_roughness_power_b443 = 0.75
     #
-    prefs.eevee_ssr_iris_brightness_b341 = 1.0
     prefs.eevee_sss_skin_b341 = 1.0
     prefs.eevee_sss_hair_b341 = 1.0
     prefs.eevee_sss_teeth_b341 = 1.0
@@ -73,7 +71,7 @@ def reset_eevee():
     prefs.eevee_normal_b341 = 1.0
     prefs.eevee_normal_skin_b341 = 1.0
     prefs.eevee_micro_normal_b341 = 2.0
-    prefs.eevee_roughness_power_b341 = 0.85
+    prefs.eevee_roughness_power_b341 = 0.75
 
 
 def reset_rigify():
@@ -377,7 +375,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
 
     # Eevee Modifiers
-    eevee_ssr_iris_brightness_b420: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
+    eevee_iris_brightness_b443: bpy.props.FloatProperty(default=1.0, min=0, max=2)
     eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.0)
     eevee_sss_hair_b420: bpy.props.FloatProperty(default=1.0)
     eevee_sss_teeth_b420: bpy.props.FloatProperty(default=1.5)
@@ -387,9 +385,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     eevee_micro_normal_b420: bpy.props.FloatProperty(default=1.0)
     eevee_normal_b420: bpy.props.FloatProperty(default=1.0)
     eevee_normal_skin_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_roughness_power_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_roughness_power_b443: bpy.props.FloatProperty(default=0.75)
     #
-    eevee_ssr_iris_brightness_b341: bpy.props.FloatProperty(default=1.0, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
     eevee_sss_skin_b341: bpy.props.FloatProperty(default=1.25)
     eevee_sss_hair_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_teeth_b341: bpy.props.FloatProperty(default=1.5)
@@ -400,8 +397,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     eevee_normal_b341: bpy.props.FloatProperty(default=1.0)
     eevee_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
     eevee_roughness_power_b341: bpy.props.FloatProperty(default=0.75)
+    #
     # Cycles Modifiers
-    cycles_ssr_iris_brightness_b410: bpy.props.FloatProperty(default=1.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
+    cycles_iris_brightness_b443: bpy.props.FloatProperty(default=0.75, min=0, max=2)
     cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_hair_b410: bpy.props.FloatProperty(default=0.25)
     cycles_sss_teeth_b410: bpy.props.FloatProperty(default=1.0)
@@ -411,10 +409,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_micro_normal_b410: bpy.props.FloatProperty(default=2)
     cycles_normal_b410: bpy.props.FloatProperty(default=1.5)
     cycles_normal_skin_b410: bpy.props.FloatProperty(default=1.5)
-    cycles_roughness_power_b410: bpy.props.FloatProperty(default=1.125)
+    cycles_roughness_power_b443: bpy.props.FloatProperty(default=1.0)
     #
-    cycles_ssr_iris_brightness_b341: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
-    cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
     cycles_sss_skin_b341: bpy.props.FloatProperty(default=0.264)
     cycles_sss_hair_b341: bpy.props.FloatProperty(default=0.05)
     cycles_sss_teeth_b341: bpy.props.FloatProperty(default=0.5)
@@ -439,6 +435,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("ALL","All","Bake all character objects"),
                         ("SELECTED","Selected","Bake only selected characeter objects"),
                     ], default="ALL", name = "Character object bake mode")
+    pack_max_tex_size: bpy.props.EnumProperty(items=[
+                        ("1024","1024 x 1024","1024 x 1024 texture size"),
+                        ("2048","2048 x 2048","2048 x 2048 texture size"),
+                        ("4096","4096 x 4096","4096 x 4096 texture size"),
+                        ("8192","8192 x 8192","8192 x 8192 texture size"),
+                    ], default="8192", name="Texture Pack Max Size")
 
     physics_cloth_hair: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the hair objects.", name="Hair Cloth Physics")
     physics_cloth_clothing: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the clothing and accessory objects.", name="Clothing Cloth Physics")

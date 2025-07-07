@@ -16,6 +16,7 @@
 
 import bpy
 import mathutils
+from mathutils import Color
 from math import pi, atan
 
 from . import drivers, utils, vars
@@ -1011,21 +1012,35 @@ CUSTOM_COLORS = {
 }
 
 
-def get_custom_color(code, chr_cache=None):
+def to_color(rgba: list, hue_shift=0.0) -> Color:
+    if len(rgba) > 3:
+        color = Color(rgba[:3])
+    else:
+        color = Color(rgba)
+    h,s,v = color.hsv
+    if hue_shift != 0.0:
+        h = (h + hue_shift) % 1.0
+        color.hsv = (h,s,v)
+    return color
+
+
+def get_custom_color(code, chr_cache=None, hue_shift=0.0):
     prefs = vars.prefs()
     if code == "FACERIG":
         rgba = chr_cache.rigify_face_control_color if chr_cache else prefs.rigify_face_control_color
-        return utils.linear_to_srgb((rgba[0], rgba[1], rgba[2]))
+        color = to_color(utils.linear_to_srgb(rgba), hue_shift)
+        return color
     elif code == "FACERIG_DARK":
         rgba = chr_cache.rigify_face_control_color if chr_cache else prefs.rigify_face_control_color
-        return utils.linear_to_srgb((rgba[0] * 0.4, rgba[1] * 0.4, rgba[2] * 0.4))
+        color = to_color(utils.linear_to_srgb((rgba[0] * 0.4, rgba[1] * 0.4, rgba[2] * 0.4)), hue_shift)
+        return color
     elif code in CUSTOM_COLORS:
         return CUSTOM_COLORS[code]
     else:
         return (1,1,1)
 
 
-def set_bone_color(rig, pose_bone: bpy.types.PoseBone, color_code, active_code=None, selected_code=None, chr_cache=None):
+def set_bone_color(rig, pose_bone: bpy.types.PoseBone, color_code, active_code=None, selected_code=None, chr_cache=None, hue_shift=0.0):
     pose_bone = get_pose_bone(rig, pose_bone)
     if pose_bone:
         if not active_code:
@@ -1033,9 +1048,9 @@ def set_bone_color(rig, pose_bone: bpy.types.PoseBone, color_code, active_code=N
         if not selected_code:
             selected_code = "Select"
         if utils.B400():
-            normal_color = get_custom_color(color_code, chr_cache=chr_cache)
-            active_color = get_custom_color(active_code, chr_cache=chr_cache)
-            select_color = get_custom_color(selected_code, chr_cache=chr_cache)
+            normal_color = get_custom_color(color_code, chr_cache=chr_cache, hue_shift=hue_shift)
+            active_color = get_custom_color(active_code, chr_cache=chr_cache, hue_shift=hue_shift)
+            select_color = get_custom_color(selected_code, chr_cache=chr_cache, hue_shift=hue_shift)
             pose_bone.color.palette = "CUSTOM"
             pose_bone.color.custom.normal = normal_color
             pose_bone.color.custom.active = active_color

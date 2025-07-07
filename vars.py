@@ -18,11 +18,11 @@
 
 import bpy
 
-VERSION_STRING = "v2.3.1"
+VERSION_STRING = "v2.3.2"
 DEV = False
 #DEV = True
 PLUGIN_COMPATIBLE = [
-    "2.3.0", "2.3.1",
+    "2.3.0", "2.3.1", "2.3.2",
 ]
 
 def set_version_string(bl_info):
@@ -67,14 +67,16 @@ IMAGE_TYPES = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", "
 
 # base names of all node groups in the library blend file
 NODE_GROUPS = ["tiling_pivot_mapping", "tiling_mapping",
-               "rl_tearline_shader", "rl_eye_occlusion_shader",
+               "rl_tearline_shader", "rl_tearline_plus_shader",
+               "rl_eye_occlusion_shader", "rl_eye_occlusion_plus_shader",
                "rl_skin_shader", "rl_head_shader",
                "rl_tongue_shader", "rl_teeth_shader",
                "rl_cornea_refractive_shader", "rl_eye_refractive_shader",
                "rl_cornea_parallax_shader", "tiling_cornea_parallax_mapping",
                "rl_pbr_shader", "rl_sss_shader",
                "rl_hair_shader", "rl_hair_cycles_shader",
-               "rl_eye_occlusion_cycles_mix_shader", "rl_tearline_cycles_shader", "rl_tearline_cycles_mix_shader",
+               "rl_eye_occlusion_cycles_mix_shader", "rl_tearline_cycles_shader",
+               "rl_tearline_cycles_mix_shader", "rl_tearline_plus_shader",
                "rl_rgb_mixer", "rl_id_mixer",
                "rl_tex_mod_normal_ao_blend",
                "rl_wrinkle_shader",
@@ -102,8 +104,12 @@ ENUM_MATERIAL_TYPES = [
                         ("EYE_LEFT", "Left Eye", "Basic PBR left eye material."),
                         ("OCCLUSION_RIGHT", "Right Eye Occlusion", "Right eye occlusion material"),
                         ("OCCLUSION_LEFT", "Left Eye Occlusion", "Left eye occlusion material"),
+                        ("OCCLUSION_PLUS_RIGHT", "Right Eye Occlusion Plus", "Right eye occlusion material"),
+                        ("OCCLUSION_PLUS_LEFT", "Left Eye Occlusion Plus", "Left eye occlusion material"),
                         ("TEARLINE_RIGHT", "Right Tearline", "Right tear line material"),
                         ("TEARLINE_LEFT", "Left Tearline", "Left tear line material"),
+                        ("TEARLINE_PLUS_RIGHT", "Right Tearline Plus", "Right tear line material"),
+                        ("TEARLINE_PLUS_LEFT", "Left Tearline Plus", "Left tear line material"),
                     ]
 
 ENUM_OBJECT_TYPES = [
@@ -114,7 +120,9 @@ ENUM_OBJECT_TYPES = [
                         ("HAIR", "Hair", "Hair object or object with hair"),
                         ("EYE", "Eye", "Eye object"),
                         ("OCCLUSION", "Eye Occlusion", "Eye occlusion object"),
+                        ("OCCLUSION_PLUS", "Eye Occlusion Plus", "Eye occlusion plus object"),
                         ("TEARLINE", "Tearline", "Tear line object"),
+                        ("TEARLINE_PLUS", "Tearline Plus", "Tear line plus object"),
                     ]
 
 CHARACTER_GENERATION = {
@@ -533,6 +541,14 @@ TEX_SIZE_OVERRIDE = {
     },
 
     "OCCLUSION_RIGHT": {
+        "ALPHA": 256,
+    },
+
+    "OCCLUSION_PLUS_LEFT": {
+        "ALPHA": 256,
+    },
+
+    "OCCLUSION_PLUS_RIGHT": {
         "ALPHA": 256,
     },
 

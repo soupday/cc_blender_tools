@@ -296,6 +296,7 @@ BLENDER_4_SOCKET_REDIRECT = {
         "Transmission": "Transmission Weight",
         "Clearcoat": "Coat Weight",
         "Clearcoat Roughness": "Coat Roughness",
+        "Clearcoat Normal": "Coat Normal",
     }
 }
 
@@ -703,6 +704,8 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
                 to_socket = input_socket(bsdf_node, socket.name)
                 link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
     link_nodes(links, group_node, "Transmission Alpha", bsdf_node, "Alpha")
+    if bsdf_node and has_connected_input(bsdf_node, "Clearcoat"):
+        link_nodes(links, group_node, "Normal", bsdf_node, "Clearcoat Normal")
 
     if utils.B400():
         set_node_input_value(bsdf_node, "Subsurface Scale", 1.0)

@@ -2470,7 +2470,7 @@ def restore_object_state(obj_state):
                 force_material_name(mat, state["name"])
 
 
-def reset_shape_keys(objects):
+def reset_shape_keys(objects, exclude=None):
     """Unlock and reset object shape keys to zero."""
     for obj in objects:
         if obj.type == "MESH":
@@ -2479,6 +2479,7 @@ def reset_shape_keys(objects):
             # reset all shape keys to zero
             if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
                 for key in obj.data.shape_keys.key_blocks:
+                    if exclude and key.name in exclude: continue
                     key.value = 0.0
 
 

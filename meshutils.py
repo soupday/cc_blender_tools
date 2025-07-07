@@ -129,30 +129,31 @@ def generate_eye_occlusion_vertex_groups(obj, mat_left, mat_right):
                 vertex_group_all_r.add([vertex.index], 1.0, 'REPLACE')
 
 
-def generate_tearline_vertex_groups(obj, mat_left, mat_right):
+def generate_tearline_vertex_groups(obj, mat, is_left=True, is_plus=False):
 
-    vertex_group_inner_l = add_vertex_group(obj, vars.TEARLINE_GROUP_INNER + "_L")
-    vertex_group_all_l = add_vertex_group(obj, vars.TEARLINE_GROUP_ALL + "_L")
-    vertex_group_inner_r = add_vertex_group(obj, vars.TEARLINE_GROUP_INNER + "_R")
-    vertex_group_all_r = add_vertex_group(obj, vars.TEARLINE_GROUP_ALL + "_R")
+    suffix = "_L" if is_left else "_R"
+    vertex_group_inner = add_vertex_group(obj, vars.TEARLINE_GROUP_INNER + suffix)
+    vertex_group_all = add_vertex_group(obj, vars.TEARLINE_GROUP_ALL + suffix)
 
     mesh = obj.data
     ul = mesh.uv_layers[0]
     for poly in mesh.polygons:
-        for loop_index in poly.loop_indices:
-            loop_entry = mesh.loops[loop_index]
-            vertex = mesh.vertices[loop_entry.vertex_index]
-            uv = ul.data[loop_entry.index].uv
-            weight = 1.0 - utils.smoothstep(0, 0.1, abs(uv.x - 0.5))
+        slot = obj.material_slots[poly.material_index]
+        if slot.material == mat:
+            for loop_index in poly.loop_indices:
+                loop_entry = mesh.loops[loop_index]
+                vertex = mesh.vertices[loop_entry.vertex_index]
+                uv = ul.data[loop_entry.index].uv
+                if is_plus:
+                    if is_left:
+                        weight = utils.smoothstep(0.3, 0.0, uv.x) * (1.0 if uv.y < 0.5 else 0.0)
+                    else:
+                        weight = utils.smoothstep(0.7, 1.0, uv.x) * (1.0 if uv.y > 0.5 else 0.0)
+                else:
+                    weight = 1.0 - utils.smoothstep(0, 0.1, abs(uv.x - 0.5))
 
-            slot = obj.material_slots[poly.material_index]
-            if slot.material == mat_left:
-                vertex_group_inner_l.add([vertex.index], weight, 'REPLACE')
-                vertex_group_all_l.add([vertex.index], 1.0, 'REPLACE')
-
-            elif slot.material == mat_right:
-                vertex_group_inner_r.add([vertex.index], weight, 'REPLACE')
-                vertex_group_all_r.add([vertex.index], 1.0, 'REPLACE')
+                vertex_group_inner.add([vertex.index], weight, 'REPLACE')
+                vertex_group_all.add([vertex.index], 1.0, 'REPLACE')
 
 
 def rebuild_eye_vertex_groups(chr_cache):
@@ -314,6 +315,14 @@ def get_facial_profile(objects):
     for obj in objects:
 
         if obj.type != "MESH": continue
+
+        if (find_shape_key(obj, "Mouth_Funnel_UL") or
+            find_shape_key(obj, "Mouth_Funnel_UR") or
+            find_shape_key(obj, "Eye_Look_Up_L") or
+            find_shape_key(obj, "Eye_Look_Up_R") or
+            find_shape_key(obj, "Jaw_Clench_L") or
+            find_shape_key(obj, "Jaw_Clench_R")):
+            expressionProfile = "MH"
 
         if (find_shape_key(obj, "Move_Jaw_Down") or
             find_shape_key(obj, "Turn_Jaw_Down") or

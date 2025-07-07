@@ -282,11 +282,14 @@ def add_tearline_modifiers(obj):
     cache_left = props.get_material_cache(mat_left)
     cache_right = props.get_material_cache(mat_right)
 
-    # generate the vertex groups for tearline displacement
-    meshutils.generate_tearline_vertex_groups(obj, mat_left, mat_right)
     remove_eye_modifiers(obj)
 
-    if cache_left and cache_left.material_type == "TEARLINE_LEFT":
+    if cache_left and cache_left.is_tearline():
+        is_plus = cache_left.material_type == "TEARLINE_PLUS_LEFT"
+
+        # generate the vertex groups for tearline displacement
+        meshutils.generate_tearline_vertex_groups(obj, mat_left, True, is_plus)
+
         # re-create create the displacement modifiers
         displace_mod_inner_l = obj.modifiers.new(utils.unique_name("Tearline_Displace_Inner_L"), "DISPLACE")
         displace_mod_all_l = obj.modifiers.new(utils.unique_name("Tearline_Displace_All_L"), "DISPLACE")
@@ -297,7 +300,12 @@ def add_tearline_modifiers(obj):
         move_mod_first(obj, displace_mod_inner_l)
         move_mod_first(obj, displace_mod_all_l)
 
-    if cache_right and cache_right.material_type == "TEARLINE_RIGHT":
+    if cache_right and cache_right.is_tearline():
+        is_plus = cache_right.material_type == "TEARLINE_PLUS_RIGHT"
+
+        # generate the vertex groups for tearline displacement
+        meshutils.generate_tearline_vertex_groups(obj, mat_right, False, is_plus)
+
         # re-create create the displacement modifiers
         displace_mod_inner_r = obj.modifiers.new(utils.unique_name("Tearline_Displace_Inner_R"), "DISPLACE")
         displace_mod_all_r = obj.modifiers.new(utils.unique_name("Tearline_Displace_All_R"), "DISPLACE")
@@ -321,15 +329,16 @@ def add_decimate_modifier(obj, ratio, name):
     return mod
 
 
-def add_subdivision(obj: bpy.types.Object, level, name, max_level=3, view_level=1):
+def add_subdivision(obj: bpy.types.Object, level, name, max_render=3, max_view=1):
+    print("###################### ADD SUB DIV", level, max_render, max_view)
     mod: bpy.types.SubsurfModifier
     mod = get_object_modifier(obj, "SUBSURF", name)
     if not mod:
         mod = obj.modifiers.new(utils.unique_name(name), "SUBSURF")
-    level = min(max_level, level)
-    view_level = min(view_level, level)
-    mod.render_levels = level
-    mod.levels = view_level
+    level = min(max_render, level)
+    max_view = min(max_view, level)
+    mod.render_levels = max(mod.render_levels, level)
+    mod.levels = max(mod.levels, max_view)
     mod.subdivision_type = "CATMULL_CLARK"
     mod.show_only_control_edges = True
     mod.uv_smooth = 'PRESERVE_BOUNDARIES'

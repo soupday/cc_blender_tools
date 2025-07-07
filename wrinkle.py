@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy
+import bpy, re
 
 from . import drivers, meshutils, nodeutils, lib, utils, params, vars
 
@@ -101,9 +101,9 @@ def add_wrinkle_shader(chr_cache, links, mat, mat_json, main_shader_name, wrinkl
     nodeutils.link_nodes(links, wrinkle_shader_node, "Diffuse Map", main_shader_node, "Diffuse Map")
     nodeutils.link_nodes(links, wrinkle_shader_node, "Roughness Map", main_shader_node, "Roughness Map")
     nodeutils.link_nodes(links, wrinkle_shader_node, "Normal Map", main_shader_node, "Normal Map")
-    #if not nodeutils.has_connected_input(main_shader_node, "Height Map"):
-    #    nodeutils.link_nodes(links, wrinkle_shader_node, "Height Map", main_shader_node, "Height Map")
-    #    nodeutils.link_nodes(links, wrinkle_shader_node, "Height Delta", main_shader_node, "Height Delta")
+    if nodeutils.has_connected_input(main_shader_node, "Height Map"):
+        nodeutils.link_nodes(links, wrinkle_shader_node, "Height Map", main_shader_node, "Height Map")
+        nodeutils.link_nodes(links, wrinkle_shader_node, "Height Delta", main_shader_node, "Height Delta")
     return wrinkle_shader_node
 
 
@@ -215,6 +215,14 @@ def get_wrinkle_params(mat_json):
     return wrinkle_params, overall_weight, region_weights
 
 
+def get_wrinkle_mappings(body_obj):
+    blocks = body_obj.data.shape_keys.key_blocks
+    if "Brow_Down_L" in blocks or "Brow_Down_R" in blocks:
+        return params.WRINKLE_MAPPINGS_MH
+    else:
+        return params.WRINKLE_MAPPINGS_STD
+
+
 def add_wrinkle_mappings(mat, node, body_obj, mat_json):
 
     utils.log_info(f"Building Wrinkle map system drivers: {mat.name} / {node.name}")
@@ -247,16 +255,17 @@ def add_wrinkle_mappings(mat, node, body_obj, mat_json):
         wrinkle_def = { "weight": weight, "func": func, "keys": [], "region": region }
         wrinkle_defs[wrinkle_name] = wrinkle_def
 
-    for shape_key, wrinkle_name, range_min, range_max in params.WRINKLE_MAPPINGS:
-        if shape_key in body_obj.data.shape_keys.key_blocks:
-            if wrinkle_name in params.WRINKLE_RULES.keys():
-                weight, func, region = params.WRINKLE_RULES[wrinkle_name]
-                key_def = [shape_key, range_min * weight, range_max * weight, region]
-                wrinkle_defs[wrinkle_name]["keys"].append(key_def)
-            else:
-                utils.log_error(f"Wrinkle Morph Name: {wrinkle_name} not found in Wrinkle Rules!")
-        else:
-            utils.log_info(f"Skipping shape key: {shape_key}, not found in body mesh.")
+    WRINKLE_MAPPINGS = get_wrinkle_mappings(body_obj)
+    for regex, wrinkle_name, range_min, range_max in WRINKLE_MAPPINGS:
+        for key in body_obj.data.shape_keys.key_blocks:
+            if re.match(regex, key.name):
+                if wrinkle_name in params.WRINKLE_RULES.keys():
+                    weight, func, region = params.WRINKLE_RULES[wrinkle_name]
+                    key_def = [key.name, range_min * weight, range_max * weight, region]
+                    wrinkle_defs[wrinkle_name]["keys"].append(key_def)
+                else:
+                    utils.log_error(f"Wrinkle Morph Name: {wrinkle_name} not found in Wrinkle Rules!")
+            utils.log_detail(f"Skipping shape key: {regex}, not found in body mesh.")
 
     for socket_name in params.WRINKLE_DRIVERS:
         expr_macro = params.WRINKLE_DRIVERS[socket_name]
@@ -335,6 +344,9 @@ def get_driver_expression(obj, mat, rule_name, wrinkle_defs : dict, var_defs : l
             region_var_def["curve_data_path"] = f"[\"{WRINKLE_CURVES_PROP}\"][{int(region)-1}]"
             var_defs.append(region_var_def)
 
+        region_var_name = None
+        curve_var_name = None
+
         for i, key_def in enumerate(key_defs):
             shape_key_name = key_def[0]
             range_min = key_def[1]
@@ -381,7 +393,8 @@ def get_driver_expression(obj, mat, rule_name, wrinkle_defs : dict, var_defs : l
         elif func == "ADD":
             expr = f"({var_code})"
 
-        return f"max(0, pow({expr}*{region_var_name}, {curve_var_name}))"
+        if region_var_name and curve_var_name:
+            return f"max(0, pow({expr}*{region_var_name}, {curve_var_name}))"
 
     return "0"
 

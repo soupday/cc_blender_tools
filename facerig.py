@@ -66,7 +66,7 @@ def is_valid_control_def(control_def, rigify_rig, objects):
     bone_collection = rigify_rig.data.edit_bones if utils.get_mode() == "EDIT" else rigify_rig.pose.bones
     count = 0
     total = 0
-    if control_def["widget_type"] == "slider":
+    if control_def["widget_type"] == "slider" or control_def["widget_type"] == "curve_slider":
         if "blendshapes" in control_def:
             blendshapes = control_def["blendshapes"]
             for shape_key_name in blendshapes:
@@ -136,6 +136,8 @@ def get_facerig_config(chr_cache):
         return facerig_data.FACERIG_STD_CONFIG
     elif facial_profile == "TRA":
         return facerig_data.FACERIG_TRA_CONFIG
+    elif facial_profile == "MH":
+        return facerig_data.FACERIG_MH_CONFIG
     return None
 
 
@@ -143,16 +145,18 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
     prefs = vars.prefs()
 
     chr_cache.rigify_face_control_color = prefs.rigify_face_control_color
+    facial_profile, viseme_profile = chr_cache.get_facial_profile()
     objects = chr_cache.get_cache_objects()
     wgt_collection = f"WGTS_{cc3_rig.name}_rig"
     WGT_OUTLINE, WGT_GROUPS, WGT_LABELS, WGT_LINES, WGT_SLIDER, WGT_RECT, WGT_NUB, WGT_NAME = \
                                                 rigutils.get_expression_widgets(chr_cache, wgt_collection)
+    WGT_OUTLINE2, WGT_GROUPS2, WGT_LABELS2, WGT_LINES2 = \
+                                                rigutils.get_expression_widgets_2(chr_cache, wgt_collection)
     bone_scale = Vector((0.125, 0.125, 0.125))
     R = Matrix.Rotation(90*math.pi/180, 3, 'X')
     slider_controls = {}
     rect_controls = {}
 
-    facial_profile, viseme_profile = chr_cache.get_facial_profile()
     utils.log_info(f"Building Expression Rig for facial profile: {facial_profile}")
 
     if rigutils.edit_rig(rigify_rig):
@@ -173,6 +177,13 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
         bones.copy_edit_bone(rigify_rig, "facerig", "facerig_groups", "facerig", 0.6)
         bones.copy_edit_bone(rigify_rig, "facerig", "facerig_labels", "facerig", 0.4)
         bones.copy_edit_bone(rigify_rig, "facerig", "MCH-facerig_controls", "facerig", 0.2)
+        if facial_profile == "MH":
+            facerig2_bone = bones.copy_edit_bone(rigify_rig, "MCH-facerig", "facerig2", "facerig", 1.0)
+            facerig2_bone.head += Vector((0.2, -0.2, 0))
+            facerig2_bone.tail += Vector((0.2, -0.2, 0))
+            bones.copy_edit_bone(rigify_rig, "facerig2", "facerig2_groups", "facerig2", 0.6)
+            bones.copy_edit_bone(rigify_rig, "facerig2", "facerig2_labels", "facerig2", 0.4)
+            bones.copy_edit_bone(rigify_rig, "facerig2", "MCH-facerig2_controls", "facerig2", 0.2)
         # add MCH bone for aligned axis based jaw move
         jaw_move = bones.copy_edit_bone(rigify_rig, "jaw_master", "MCH-jaw_move", "ORG-face", 0.5)
         jaw_move.tail = jaw_move.head + Vector((0, jaw_move.length, 0))
@@ -192,14 +203,25 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             elif count != total:
                 utils.log_warn(f"Missing shape keys or bones for control: {control_name}")
 
-            if control_def["widget_type"] == "slider":
+            if control_def["widget_type"] == "slider" or control_def["widget_type"] == "curve_slider":
+
+                outline = control_def.get("outline", 1)
+                if facial_profile == "MH" and outline == 2:
+                    LINES = WGT_LINES2
+                    mch_facerig_name = "MCH-facerig2_controls"
+                    facerig_parent = facerig2_bone
+                else:
+                    LINES = WGT_LINES
+                    mch_facerig_name = "MCH-facerig_controls"
+                    facerig_parent = facerig_bone
+
                 zero = utils.inverse_lerp(control_def["range"][0], control_def["range"][1], 0.0)
                 indices = control_def["indices"]
-                coords = [ WGT_LINES.data.vertices[i].co.copy() for i in indices ]
+                coords = [ LINES.data.vertices[i].co.copy() for i in indices ]
                 #shrink_slider_coords(coords, 0.01)
-                line_bone = bones.new_edit_bone(rigify_rig, control_name+"_line", "MCH-facerig_controls")
-                line_bone.head = (R @ coords[0] * bone_scale * 1.0) + facerig_bone.head
-                line_bone.tail = (R @ utils.lerp(coords[0], coords[1], 0.5) * bone_scale * 1.0) + facerig_bone.head
+                line_bone = bones.new_edit_bone(rigify_rig, control_name+"_line", mch_facerig_name)
+                line_bone.head = (R @ coords[0] * bone_scale * 1.0) + facerig_parent.head
+                line_bone.tail = (R @ utils.lerp(coords[0], coords[1], 0.5) * bone_scale * 1.0) + facerig_parent.head
                 line_bone.align_roll(Vector((0, -1, 0)))
                 length = 2 * (line_bone.head - line_bone.tail).length
                 nub_bone = bones.new_edit_bone(rigify_rig, control_name, line_bone.name)
@@ -209,10 +231,21 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
                 slider_controls[control_name] = (control_def, line_bone.name, nub_bone.name, length, zero)
 
             elif control_def["widget_type"] == "rect":
+
+                outline = control_def.get("outline", 1)
+                if facial_profile == "MH" and outline == 2:
+                    LINES = WGT_LINES2
+                    mch_facerig_name = "MCH-facerig2_controls"
+                    facerig_parent = facerig2_bone
+                else:
+                    LINES = WGT_LINES
+                    mch_facerig_name = "MCH-facerig_controls"
+                    facerig_parent = facerig_bone
+
                 zero_x = utils.inverse_lerp(control_def["x_range"][0], control_def["x_range"][1], 0.0)
                 zero_y = utils.inverse_lerp(control_def["y_range"][0], control_def["y_range"][1], 0.0)
                 indices = control_def["indices"]
-                coords = [ WGT_LINES.data.vertices[i].co.copy() for i in indices ]
+                coords = [ LINES.data.vertices[i].co.copy() for i in indices ]
                 p_min = Vector((min(coords[0].x, coords[1].x, coords[2].x, coords[3].x),
                                 min(coords[0].y, coords[1].y, coords[2].y, coords[3].y), 0))
                 p_max = Vector((max(coords[0].x, coords[1].x, coords[2].x, coords[3].x),
@@ -226,17 +259,17 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
                 pN0 = Vector((p_min.x + width * zx, p_min.y + height * zy, 0))
                 pN1 = Vector((pN0.x, pN0.y + height / 2, 0))
                 pN2 = Vector((pN0.x, pN0.y - height / 2, 0))
-                box_bone = bones.new_edit_bone(rigify_rig, control_name+"_box", "MCH-facerig_controls")
-                box_bone.head = (R @ pB0 * bone_scale * 1.0) + facerig_bone.head
-                box_bone.tail = (R @ pB1 * bone_scale * 1.0) + facerig_bone.head
+                box_bone = bones.new_edit_bone(rigify_rig, control_name+"_box", mch_facerig_name)
+                box_bone.head = (R @ pB0 * bone_scale * 1.0) + facerig_parent.head
+                box_bone.tail = (R @ pB1 * bone_scale * 1.0) + facerig_parent.head
                 box_bone.align_roll(Vector((0, -1, 0)))
                 nub_bone = bones.new_edit_bone(rigify_rig, control_name, box_bone.name)
                 if control_def.get("x_mirror", False):
-                    nub_bone.head = (R @ pN0 * bone_scale * 1.0) + facerig_bone.head
-                    nub_bone.tail = (R @ pN2 * bone_scale * 1.0) + facerig_bone.head
+                    nub_bone.head = (R @ pN0 * bone_scale * 1.0) + facerig_parent.head
+                    nub_bone.tail = (R @ pN2 * bone_scale * 1.0) + facerig_parent.head
                 else:
-                    nub_bone.head = (R @ pN0 * bone_scale * 1.0) + facerig_bone.head
-                    nub_bone.tail = (R @ pN1 * bone_scale * 1.0) + facerig_bone.head
+                    nub_bone.head = (R @ pN0 * bone_scale * 1.0) + facerig_parent.head
+                    nub_bone.tail = (R @ pN1 * bone_scale * 1.0) + facerig_parent.head
                 nub_bone.align_roll(Vector((0, -1, 0)))
                 width *= bone_scale.x
                 height *= bone_scale.y
@@ -253,11 +286,19 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
         bones.set_bone_collection(rigify_rig, "MCH-facerig", "MCH", None, 30)
         bones.set_bone_collection(rigify_rig, "MCH-facerig_controls", "MCH", None, 30)
         bones.set_bone_collection(rigify_rig, "MCH-facerig_parent", "MCH", None, 30)
-        bone_names = ["facerig", "facerig_groups", "facerig_labels", "facerig_name"]
-        bone_colors = ["WHITE", "GROUP", "WHITE", "WHITE"]
-        bone_groups = ["UI", "UI", "UI", "UI"]
-        bone_shapes = [ WGT_OUTLINE, WGT_GROUPS, WGT_LABELS, WGT_NAME ]
-        bone_selectable = [ True, False, False, False ]
+        if facial_profile == "MH":
+            bones.set_bone_collection(rigify_rig, "MCH-facerig2", "MCH", None, 30)
+            bones.set_bone_collection(rigify_rig, "MCH-facerig2_controls", "MCH", None, 30)
+        bone_names = [ "facerig", "facerig_groups", "facerig_labels", "facerig_name",
+                       "facerig2", "facerig2_groups", "facerig2_labels" ]
+        bone_colors = [ "WHITE", "GROUP", "WHITE", "WHITE",
+                        "WHITE", "GROUP", "WHITE" ]
+        bone_groups = [ "UI", "UI", "UI", "UI",
+                        "UI", "UI", "UI" ]
+        bone_shapes = [ WGT_OUTLINE, WGT_GROUPS, WGT_LABELS, WGT_NAME,
+                        WGT_OUTLINE2, WGT_GROUPS2, WGT_LABELS2 ]
+        bone_selectable = [ True, False, False, False,
+                            True, False, False ]
         for i, bone_name in enumerate(bone_names):
             pose_bone = bones.get_pose_bone(rigify_rig, bone_name)
             if pose_bone:
@@ -282,11 +323,12 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             nub_bone.lock_location = [True, False, True]
             nub_bone.lock_rotation = [True, True, True]
             nub_bone.lock_scale = [True, True, True]
+            hue_shift = control_def.get("color_shift", 0.0)
             bones.keep_locks(nub_bone)
             bones.set_bone_collection(rigify_rig, line_bone, "Face (UI)", "Face", 22)
-            bones.set_bone_color(rigify_rig, line_bone, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
+            bones.set_bone_color(rigify_rig, line_bone, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache, hue_shift=hue_shift)
             bones.set_bone_collection(rigify_rig, nub_bone, "Face (Expressions)", "Face", 22)
-            bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
+            bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache, hue_shift=hue_shift)
             control_range = control_def["range"]
             soft = control_def.get("soft", False)
             min_y = (length * zero) * control_range[0]
@@ -315,11 +357,12 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
             nub_bone.lock_scale = [True, True, True]
             nub_bone.lock_rotation_w = True
             nub_bone.lock_rotations_4d = True
+            hue_shift = control_def.get("color_shift", 0.0)
             bones.keep_locks(nub_bone)
             bones.set_bone_collection(rigify_rig, box_bone, "Face (UI)", "Face", 22)
-            bones.set_bone_color(rigify_rig, box_bone, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
+            bones.set_bone_color(rigify_rig, box_bone, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache, hue_shift=hue_shift)
             bones.set_bone_collection(rigify_rig, nub_bone, "Face (Expressions)", "Face", 22)
-            bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache)
+            bones.set_bone_color(rigify_rig, nub_bone, "FACERIG", "FACERIG", "FACERIG", chr_cache=chr_cache, hue_shift=hue_shift)
             control_range_x = control_def["x_range"]
             control_range_y = control_def["y_range"]
             if control_def.get("x_invert"):
@@ -1050,16 +1093,17 @@ def update_facerig_color(context, chr_cache=None):
         if rigify_rig and "facerig" in rigify_rig.pose.bones:
             if utils.B410():
                 for control_bone_name, control_def in FACERIG_CONFIG.items():
+                    color_shift = control_def.get("color_shift", 0.0)
                     if control_bone_has_driver(rigify_rig, control_bone_name):
                         color_code = "DRIVER"
                     else:
                         color_code = "FACERIG"
-                    bones.set_bone_color(rigify_rig, control_bone_name, color_code, color_code, color_code, chr_cache=chr_cache)
+                    bones.set_bone_color(rigify_rig, control_bone_name, color_code, color_code, color_code, chr_cache=chr_cache, hue_shift=color_shift)
                     if control_def["widget_type"] == "rect":
                         lines_bone_name = control_bone_name + "_box"
                     else:
                         lines_bone_name = control_bone_name + "_line"
-                    bones.set_bone_color(rigify_rig, lines_bone_name, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache)
+                    bones.set_bone_color(rigify_rig, lines_bone_name, "FACERIG_DARK", "FACERIG_DARK", "FACERIG_DARK", chr_cache=chr_cache, hue_shift=color_shift)
             else:
                 props_color = chr_cache.rigify_face_control_color
                 custom_color = (props_color[0], props_color[1], props_color[2])
@@ -1074,8 +1118,10 @@ def is_position_locked(rig):
 
 def toggle_lock_position(chr_cache, rig):
     FACERIG_CONFIG = get_facerig_config(chr_cache)
-    bone_names = ["facerig", "facerig_groups", "facerig_labels", "facerig_name"]
-    bone_selectable = [ True, False, False, False ]
+    bone_names = [ "facerig", "facerig_groups", "facerig_labels", "facerig_name",
+                   "facerig2", "facerig2_groups", "facerig2_labels", ]
+    bone_selectable = [ True, False, False, False,
+                        True, False, False ]
     is_locked = is_position_locked(rig)
     for i, bone_name in enumerate(bone_names):
         if bone_name in rig.pose.bones:

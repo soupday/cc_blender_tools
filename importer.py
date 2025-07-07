@@ -1286,6 +1286,8 @@ class CC3Import(bpy.types.Operator):
             for mat in processed_materials:
                 mat.update_tag()
 
+            chr_cache.update_all_properties(context)
+
         bpy.context.view_layer.update()
 
         # enable SSR

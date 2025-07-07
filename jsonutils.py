@@ -360,8 +360,11 @@ def get_wrinkle_texture_info(mat_json, texture_id):
         return None
     try:
         return mat_json["Wrinkle"]["Textures"][texture_id]
-    except:
-        return None
+    except: ...
+    try:
+        return mat_json["Resource Textures"][texture_id]
+    except: ...
+    return None
 
 def get_material_json_var(mat_json, var_path: str):
     paths = var_path.split('/')
@@ -658,7 +661,7 @@ def get_meshes_images(meshes_json, filter=None):
 
 def get_displacement_data(mat_json):
     texture_path = get_json(mat_json, "Textures/Displacement/Texture Path", "")
-    strength = get_json(mat_json, "Textures/Displacement/Strength", 0.0)
+    strength = get_json(mat_json, "Textures/Displacement/Strength", 0.0) / 100.0
     level = int(get_json(mat_json, "Textures/Displacement/Tessellation Level", 0))
     multiplier = get_json(mat_json, "Textures/Displacement/Multiplier", 1.0)
     base = get_json(mat_json, "Textures/Displacement/Gray-scale Base Value", 0.0)

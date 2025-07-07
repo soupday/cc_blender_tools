@@ -1148,6 +1148,8 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
     if prefs.build_limit_textures:
         unlink_texture_nodes(mat, "BLEND2", "NORMALBLEND", "CFULCMASK", "ENNASK")
 
+    pack_max_tex_size = int(prefs.pack_max_tex_size)
+
     if wrinkle_node:
 
         if prefs.build_pack_wrinkle_diffuse_roughness:
@@ -1156,22 +1158,26 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
             pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESS_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESS_ID,
                     "DIFFUSE", "ROUGHNESS",
                     "Diffuse Map", "Roughness Map", 1.0, 0.5, srgb = True,
-                    reuse_existing = reuse)
+                    reuse_existing = reuse,
+                    max_size=pack_max_tex_size)
 
             pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESSBLEND1_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESSBLEND1_ID,
                     "WRINKLEDIFFUSE1", "WRINKLEROUGHNESS1",
                     "Diffuse Blend Map 1", "Roughness Blend Map 1", 1.0, 0.5, srgb = True,
-                    reuse_existing = reuse)
+                    reuse_existing = reuse,
+                    max_size=pack_max_tex_size)
 
             pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESSBLEND2_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESSBLEND2_ID,
                     "WRINKLEDIFFUSE2", "WRINKLEROUGHNESS2",
                     "Diffuse Blend Map 2", "Roughness Blend Map 2", 1.0, 0.5, srgb = True,
-                    reuse_existing = reuse)
+                    reuse_existing = reuse,
+                    max_size=pack_max_tex_size)
 
             pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESSBLEND3_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESSBLEND3_ID,
                     "WRINKLEDIFFUSE3", "WRINKLEROUGHNESS3",
                     "Diffuse Blend Map 3", "Roughness Blend Map 3", 1.0, 0.5, srgb = True,
-                    reuse_existing = reuse)
+                    reuse_existing = reuse,
+                    max_size=pack_max_tex_size)
         else:
 
             # otherwise pack the 4 roughness channels into a single RGBA texture
@@ -1179,33 +1185,38 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
                         "WRINKLEROUGHNESS1", "WRINKLEROUGHNESS2", "WRINKLEROUGHNESS3", "ROUGHNESS",
                         "Roughness Blend Map 1", "Roughness Blend Map 2", "Roughness Blend Map 3", "Roughness Map",
                         0.5, 0.5, 0.5, 0.5,
-                        reuse_existing = reuse)
+                        reuse_existing = reuse,
+                        max_size=pack_max_tex_size)
 
     pack_r_g_b_a(mat, bake_dir, vars.PACK_WRINKLEFLOW_NAME, wrinkle_node, vars.PACK_WRINKLEFLOW_ID,
                         "WRINKLEFLOW1", "WRINKLEFLOW2", "WRINKLEFLOW3", "",
                         "Flow Map 1", "Flow Map 2", "Flow Map 3", "",
                         1.0, 1.0, 1.0, 1.0,
-                        reuse_existing = reuse)
+                        reuse_existing = reuse,
+                        max_size=pack_max_tex_size)
 
     # pack SSS and Transmission
     pack_rgb_a(mat, bake_dir, vars.PACK_SSTM_NAME, shader_node, vars.PACK_SSTM_ID,
                "SSS", "TRANSMISSION",
-               "Subsurface Map", "Transmission Map", 1.0, 0.0, max_size = 1024,
-                reuse_existing = reuse)
+               "Subsurface Map", "Transmission Map", 1.0, 0.0,
+               max_size = 1024,
+               reuse_existing = reuse)
 
     # pack Metallic, Specular Mask, Micro Normal Mask and AO
     pack_r_g_b_a(mat, bake_dir, vars.PACK_MSMNAO_NAME, shader_node, vars.PACK_MSMNAO_ID,
                  "METALLIC", "SPECMASK", "MICRONMASK", "AO",
                  "Metallic Map", "Specular Mask", "Micro Normal Mask", "AO Map",
                  0.0, 1.0, 1.0, 1.0,
-                reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
     if prefs.build_skin_shader_dual_spec:
         # pack SSS and Transmission
         pack_rgb_a(mat, bake_dir, vars.PACK_MICRODETAIL_NAME, shader_node, vars.PACK_MICRODETAIL_ID,
                    "MICRONORMAL", "SKINSPECDETAIL",
                    "Micro Normal Map", "Specular Detail Mask", 1.0, 1.0,
-                   reuse_existing = reuse)
+                   reuse_existing = reuse,
+                   max_size=pack_max_tex_size)
 
 
 def pack_default_shader(chr_cache, mat_cache, shader_node):
@@ -1215,19 +1226,23 @@ def pack_default_shader(chr_cache, mat_cache, shader_node):
     bake_dir = mat_cache.get_tex_dir(chr_cache)
     reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
+    pack_max_tex_size = int(prefs.pack_max_tex_size)
+
     # pack diffuse + alpha
     pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
                "DIFFUSE", "ALPHA",
                "Diffuse Map", "Alpha Map",
                1.0, 1.0, srgb = True,
-               reuse_existing = reuse)
+               reuse_existing = reuse,
+               max_size=pack_max_tex_size)
 
     # pack Metallic, Specular Mask, Micro Normal Mask and AO
     pack_r_g_b_a(mat, bake_dir, vars.PACK_MRSO_NAME, shader_node, vars.PACK_MRSO_ID,
                  "METALLIC", "ROUGHNESS", "SPECULAR", "AO",
                  "Metallic Map", "Roughness Map", "Specular Map", "AO Map",
                  0.0, 0.5, 1.0, 1.0,
-                 reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
 
 def pack_sss_shader(chr_cache, mat_cache, shader_node):
@@ -1237,26 +1252,31 @@ def pack_sss_shader(chr_cache, mat_cache, shader_node):
     bake_dir = mat_cache.get_tex_dir(chr_cache)
     reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
+    pack_max_tex_size = int(prefs.pack_max_tex_size)
+
     # pack diffuse + alpha
     pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
                "DIFFUSE", "ALPHA",
                "Diffuse Map", "Alpha Map",
                1.0, 1.0, srgb = True,
-               reuse_existing = reuse)
+               reuse_existing = reuse,
+               max_size=pack_max_tex_size)
 
     # pack Metallic, Specular Mask, Micro Normal Mask and AO
     pack_r_g_b_a(mat, bake_dir, vars.PACK_MRSO_NAME, shader_node, vars.PACK_MRSO_ID,
                  "METALLIC", "ROUGHNESS", "SPECULAR", "AO",
                  "Metallic Map", "Roughness Map", "Specular Map", "AO Map",
                  0.0, 0.5, 1.0, 1.0,
-                 reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
     # pack SSS, Transmission, Micro Normal Mask
     pack_r_g_b_a(mat, bake_dir, vars.PACK_SSTMMNM_NAME, shader_node, vars.PACK_SSTMMNM_ID,
                  "SSS", "TRANSMISSION", "MICRONMASK", "",
                  "Subsurface Map", "Transmission Map", "Micro Normal Mask", "",
                  0.0, 1.0, 1.0, 1.0,
-                 reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
 
 def pack_hair_shader(chr_cache, mat_cache, shader_node):
@@ -1266,26 +1286,31 @@ def pack_hair_shader(chr_cache, mat_cache, shader_node):
     bake_dir = mat_cache.get_tex_dir(chr_cache)
     reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
+    pack_max_tex_size = int(prefs.pack_max_tex_size)
+
     # pack diffuse + alpha
     pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
                "DIFFUSE", "ALPHA",
                "Diffuse Map", "Alpha Map",
                1.0, 1.0, srgb = True,
-               reuse_existing = reuse)
+               reuse_existing = reuse,
+               max_size=pack_max_tex_size)
 
     # pack Metallic, Roughness, Specular and AO
     pack_r_g_b_a(mat, bake_dir, vars.PACK_MRSO_NAME, shader_node, vars.PACK_MRSO_ID,
                  "METALLIC", "ROUGHNESS", "SPECULAR", "AO",
                  "Metallic Map", "Roughness Map", "Specular Map", "AO Map",
                  0.0, 0.5, 1.0, 1.0,
-                 reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
     # pack Root map, ID map
     pack_rgb_a(mat, bake_dir, vars.PACK_ROOTID_NAME, shader_node, vars.PACK_ROOTID_ID,
                "HAIRROOT", "HAIRID",
                "Root Map", "ID Map",
                0.5, 0.5,
-               reuse_existing = reuse)
+               reuse_existing = reuse,
+               max_size=pack_max_tex_size)
 
 
 def pack_shader_channels(chr_cache, mat_cache):

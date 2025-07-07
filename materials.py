@@ -430,12 +430,26 @@ def detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json):
         else:
             material_type = "OCCLUSION_RIGHT"
 
+    elif shader == "RLEyeOcclusion_Plus":
+        object_type = "OCCLUSION_PLUS"
+        if detect_material_side(mat, "LEFT"):
+            material_type = "OCCLUSION_PLUS_LEFT"
+        else:
+            material_type = "OCCLUSION_PLUS_RIGHT"
+
     elif shader == "RLEyeTearline":
         object_type = "TEARLINE"
         if detect_material_side(mat, "LEFT"):
             material_type = "TEARLINE_LEFT"
         else:
             material_type = "TEARLINE_RIGHT"
+
+    elif shader == "RLEyeTearline_Plus":
+        object_type = "TEARLINE_PLUS"
+        if detect_material_side(mat, "LEFT"):
+            material_type = "TEARLINE_PLUS_LEFT"
+        else:
+            material_type = "TEARLINE_PLUS_RIGHT"
 
     elif shader == "RLHair":
         object_type = "HAIR"
@@ -709,13 +723,9 @@ def determine_material_alpha(obj_cache, mat_cache, mat_json):
 
 def set_material_alpha(mat, method, shadows=True, refraction=False, depth=0.0):
 
-    if utils.B420():
-        mat.use_raytrace_refraction = refraction
-    else:
-        mat.use_screen_refraction = refraction
-        mat.refraction_depth = depth
 
-    if method == "HASHED" or method == "DITHERED":
+
+    if method == "HASHED" or method == "DITHERED" or refraction:
 
         if utils.B420():
             mat.surface_render_method = "DITHERED"
@@ -724,6 +734,12 @@ def set_material_alpha(mat, method, shadows=True, refraction=False, depth=0.0):
             mat.shadow_method = "HASHED" if shadows else "NONE"
 
         set_backface_culling(mat, False)
+
+        if utils.B420():
+            mat.use_raytrace_refraction = refraction
+        else:
+            mat.use_screen_refraction = refraction
+            mat.refraction_depth = depth
 
     elif method == "BLEND":
 

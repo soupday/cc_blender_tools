@@ -1318,6 +1318,8 @@ def modify_rigify_controls(cc3_rig, rigify_rig, rigify_data):
        Note: scale, location, rotation modifiers for custom control shapes is Blender 3.0.0+ only
     """
 
+    prefs = vars.prefs()
+
     # turn off deformation for palm bones
     if rigutils.edit_rig(rigify_rig):
         for edit_bone in rigify_rig.data.edit_bones:
@@ -1333,8 +1335,9 @@ def modify_rigify_controls(cc3_rig, rigify_rig, rigify_data):
                 scale = mod[1]
                 translation = mod[2]
                 rotation = mod[3]
+                align = mod[4] if len(mod) > 4 else "ANY"
                 bone = bones.get_pose_bone(rigify_rig, bone_name)
-                if bone:
+                if bone and (align == prefs.rigify_align_bones or align == "ANY"):
                     utils.log_info(f"Altering: {bone.name}")
                     rigutils.set_bone_shape_scale(bone, scale)
                     bone.custom_shape_translation = translation
@@ -2468,6 +2471,22 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
     return retarget_rig
 
 
+EXCLUDE_KEY_RESET = [
+    "EO Bulge L",
+    "EO Bulge R",
+    "EO Depth L",
+    "EO Depth R",
+    "EO Upper Depth L",
+    "EO Upper Depth R",
+    "EO Lower Depth L",
+    "EO Lower Depth R",
+    "EO Inner Depth L",
+    "EO Inner Depth R",
+    "EO Outer Depth L",
+    "EO Outer Depth R",
+]
+
+
 def adv_retarget_remove_pair(op, chr_cache, no_drivers=False):
     props = vars.props()
     rigify_rig = chr_cache.get_armature()
@@ -2491,12 +2510,12 @@ def adv_retarget_remove_pair(op, chr_cache, no_drivers=False):
     utils.object_mode()
 
     # clear any animated shape keys
-    reset_shape_keys(chr_cache)
+    reset_shape_keys(chr_cache, exclude=EXCLUDE_KEY_RESET)
 
     # clean up face rig key proxies and drivers
     if rigutils.is_face_rig(rigify_rig):
         facerig.remove_facerig_retarget_drivers(chr_cache, rigify_rig)
-        rigutils.clean_up_shape_key_action_objects()
+        rigutils.clean_up_shape_key_proxy_objects()
 
         # restore arkit proxy drivers
         if not no_drivers:
@@ -2730,7 +2749,8 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
 
 
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action,
-                                                                    None, False, True, "Retarget")
+                                                                    None, False, True, "Retarget",
+                                                                    use_fast_proxies=True)
 
         # remove retargeting rig
         adv_retarget_remove_pair(op, chr_cache)
@@ -2821,11 +2841,11 @@ def adv_bake_NLA_to_rigify(op, chr_cache, motion_id=None, motion_prefix=None):
 #
 
 
-def reset_shape_keys(chr_cache):
+def reset_shape_keys(chr_cache, exclude=None):
     objects = chr_cache.get_all_objects(include_armature=False,
                                         include_children=True,
                                         of_type="MESH")
-    utils.reset_shape_keys(objects)
+    utils.reset_shape_keys(objects, exclude=exclude)
 
 
 def get_shape_key_name_from_data_path(data_path):
@@ -2896,7 +2916,7 @@ def adv_retarget_shape_keys(op, chr_cache,
                                                         motion_id="TEMP", motion_prefix="")
         if op: op.report({'INFO'}, f"Shape-key actions retargeted to character!")
 
-    reset_shape_keys(chr_cache)
+    reset_shape_keys(chr_cache, exclude=EXCLUDE_KEY_RESET)
     return key_actions
 
 
@@ -3234,7 +3254,8 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, objects, accessory_map):
             # bake the action on the rigify rig into the export rig
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, export_rig,
                                                                     None, motion_objects,
-                                                                    True, True, "Export")
+                                                                    True, True, "Export",
+                                                                    use_fast_proxies=True)
 
     # restore ik stretch settings
     rigutils.restore_ik_stretch(ik_store)
@@ -3357,7 +3378,7 @@ def get_motion_export_objects(objects):
                 motion_objects.append(obj)
             elif utils.object_exists_is_mesh(obj):
                 if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) > 0:
-                    action = utils.safe_get_action(obj)
+                    action = utils.safe_get_action(obj.data.shape_keys)
                     include = False
                     if action:
                         # if there is a shape key action on this mesh, include it
@@ -3437,7 +3458,8 @@ def bake_rig_animation(chr_cache, rig, source_action,
                        shape_key_objects,
                        clear_constraints, limit_view_layer,
                        motion_id="Bake", motion_prefix="",
-                       use_random_id=True):
+                       use_random_id=True,
+                       use_fast_proxies=False):
     """Bakes the current animation timeline on the supplied rig.
     """
 
@@ -3451,7 +3473,10 @@ def bake_rig_animation(chr_cache, rig, source_action,
         armature_action_name = rigutils.make_armature_action_name(rig_id, motion_id, motion_prefix)
         utils.log_info(f"Baking to: {armature_action_name}")
         # frame range
-        if source_action:
+        if bpy.context.scene.use_preview_range:
+            start_frame = int(bpy.context.scene.frame_preview_start)
+            end_frame = int(bpy.context.scene.frame_preview_end)
+        elif source_action:
             start_frame = int(source_action.frame_range[0])
             end_frame = int(source_action.frame_range[1])
         else:
@@ -3459,6 +3484,10 @@ def bake_rig_animation(chr_cache, rig, source_action,
             end_frame = int(bpy.context.scene.frame_end)
         # turn off character physics
         physics_objects = physics.disable_physics(chr_cache)
+        # use fast proxies
+        store = None
+        if use_fast_proxies:
+            store = rigutils.apply_fast_key_proxies()
         # limit view layer (bakes faster)
         if limit_view_layer:
             tmp_collection, layer_collections, to_hide = utils.limit_view_layer_to_collection("TMP_BAKE", rig, shape_key_objects)
@@ -3475,6 +3504,9 @@ def bake_rig_animation(chr_cache, rig, source_action,
                          clear_constraints=clear_constraints,
                          clean_curves=False,
                          bake_types={'POSE'})
+
+        if use_fast_proxies and store:
+            rigutils.restore_fast_key_proxies(store)
 
         # armature action
         baked_action = utils.safe_get_action(rig)

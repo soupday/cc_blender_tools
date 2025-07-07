@@ -2393,7 +2393,6 @@ class LinkService():
                     # get all the exportable deformation bones
                     if rigutils.select_rig(export_rig):
                         for pose_bone in export_rig.pose.bones:
-                            print(pose_bone)
                             if (pose_bone.name != "root" and
                                 not pose_bone.name.startswith("DEF-") and
                                 not pose_bone.name.startswith("NDP-") and
