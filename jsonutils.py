@@ -404,10 +404,14 @@ def get_pbr_var(mat_json, var_name, paths):
     if not mat_json:
         return None
     try:
-        if len(paths) == 3:
-            return mat_json["Textures"][var_name][paths[2]]
+        tex_json = mat_json["Textures"][var_name]
+        if len(paths) == 2 and var_name == "Displacement":
+            return (tex_json.get("Multiplier", 1.0) *
+                    tex_json.get("Strength", 100.0) / 100.0)
+        elif len(paths) == 3:
+            return tex_json.get(paths[2], 1.0)
         else:
-            return mat_json["Textures"][var_name]["Strength"] / 100.0
+            return tex_json.get("Strength", 100.0) / 100.0
     except:
         return None
 
