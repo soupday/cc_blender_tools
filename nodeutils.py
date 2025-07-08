@@ -296,6 +296,7 @@ BLENDER_4_SOCKET_REDIRECT = {
         "Transmission": "Transmission Weight",
         "Clearcoat": "Coat Weight",
         "Clearcoat Roughness": "Coat Roughness",
+        "Clearcoat IOR": "Coat IOR",
         "Clearcoat Normal": "Coat Normal",
     }
 }

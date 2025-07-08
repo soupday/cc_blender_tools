@@ -416,7 +416,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "Medium High Contrast",
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
                                          1.0, 0.5)
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100
@@ -506,7 +506,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "High Contrast",
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                          0.5, 1.0)
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100
@@ -1544,7 +1544,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "High Contrast",
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                          0.0, 0.75)
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100

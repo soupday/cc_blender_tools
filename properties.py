@@ -667,7 +667,7 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_cavity_strength: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_cavity_strength"))
     skin_original_roughness: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_original_roughness"))
     # dual specular
-    skin_secondary_specular_scale: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_specular_scale"))
+    skin_secondary_specular_ratio: bpy.props.FloatProperty(default=0.2, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_specular_ratio"))
     skin_secondary_roughness_scale: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_roughness_scale"))
 
     skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
@@ -706,6 +706,12 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_height_scale: bpy.props.FloatProperty(default=0.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
     skin_bump_scale: bpy.props.FloatProperty(default=0.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_bump_scale"))
     skin_height_delta_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=5.0, update=lambda s,c: update_property(s,c,"skin_height_delta_scale"))
+    skin_caruncle_blend: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_caruncle_blend"))
+    skin_caruncle_roughness: bpy.props.FloatProperty(default=0.1, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_caruncle_roughness"))
+    skin_caruncle_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                                default=(1, 0.5, 0.5, 1), min = 0.0, max = 1.0,
+                                update=lambda s,c: update_property(s,c,"skin_caruncle_color"))
+
 
 class CC3SkinParameters(bpy.types.PropertyGroup):
     # shader (rl_skin_shader)
@@ -730,7 +736,7 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_cavity_strength: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_cavity_strength"))
     skin_original_roughness: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_original_roughness"))
     # dual specular
-    skin_secondary_specular_scale: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_specular_scale"))
+    skin_secondary_specular_ratio: bpy.props.FloatProperty(default=0.2, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_specular_ratio"))
     skin_secondary_roughness_scale: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_roughness_scale"))
 
     skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
