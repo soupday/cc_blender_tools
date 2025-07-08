@@ -34,7 +34,7 @@ def reset_cycles():
     prefs.cycles_normal_b410 = 1.0
     prefs.cycles_normal_skin_b410 = 1.125
     prefs.cycles_micro_normal_b410 = 1.25
-    prefs.cycles_roughness_power_b443 = 1.0
+    prefs.cycles_roughness_power_b443 = 0.75
     #
     prefs.cycles_sss_skin_b341 = 0.264
     prefs.cycles_sss_hair_b341 = 0.05
@@ -60,7 +60,7 @@ def reset_eevee():
     prefs.eevee_normal_b420 = 1.0
     prefs.eevee_normal_skin_b420 = 1.0
     prefs.eevee_micro_normal_b420 = 1.0
-    prefs.eevee_roughness_power_b443 = 0.75
+    prefs.eevee_roughness_power_b443 = 0.5
     #
     prefs.eevee_sss_skin_b341 = 1.0
     prefs.eevee_sss_hair_b341 = 1.0
@@ -385,7 +385,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     eevee_micro_normal_b420: bpy.props.FloatProperty(default=1.0)
     eevee_normal_b420: bpy.props.FloatProperty(default=1.0)
     eevee_normal_skin_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_roughness_power_b443: bpy.props.FloatProperty(default=0.75)
+    eevee_roughness_power_b443: bpy.props.FloatProperty(default=0.5)
     #
     eevee_sss_skin_b341: bpy.props.FloatProperty(default=1.25)
     eevee_sss_hair_b341: bpy.props.FloatProperty(default=1.0)
@@ -409,7 +409,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_micro_normal_b410: bpy.props.FloatProperty(default=2)
     cycles_normal_b410: bpy.props.FloatProperty(default=1.5)
     cycles_normal_skin_b410: bpy.props.FloatProperty(default=1.5)
-    cycles_roughness_power_b443: bpy.props.FloatProperty(default=1.0)
+    cycles_roughness_power_b443: bpy.props.FloatProperty(default=0.75)
     #
     cycles_sss_skin_b341: bpy.props.FloatProperty(default=0.264)
     cycles_sss_hair_b341: bpy.props.FloatProperty(default=0.05)

@@ -808,6 +808,8 @@ def apply_fast_key_proxies(objects=None):
             # don't replace rigid body world meshes
             if RBWC and obj.name in RBWC.objects: continue
 
+            key_action = utils.safe_get_action(obj.data.shape_keys)
+
             if utils.object_has_shape_keys(obj):
                 keys = [ key.name for key in obj.data.shape_keys.key_blocks ]
             else:
@@ -818,6 +820,8 @@ def apply_fast_key_proxies(objects=None):
             bpy.data.objects.remove(proxy)
             store[obj.name] = obj.data
             obj.data = proxy_mesh
+
+            utils.safe_set_action(proxy_mesh.shape_keys, key_action)
     return store
 
 
