@@ -338,6 +338,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = False
@@ -398,6 +399,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -488,6 +490,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -569,6 +572,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -643,6 +647,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -716,6 +721,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -779,6 +785,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -847,6 +854,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -920,6 +928,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -992,6 +1001,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -1067,6 +1077,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -1167,6 +1178,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -1285,6 +1297,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -1416,6 +1429,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -1526,6 +1540,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -1636,6 +1651,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -1745,6 +1761,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -1866,6 +1883,7 @@ def setup_scene_default(context, scene_type):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -2165,6 +2183,7 @@ def dump_scene_pycode(context):
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
                 context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.resolution_scale = "1"
                 context.scene.eevee.ray_tracing_options.use_denoise = True
                 context.scene.eevee.use_shadow_jitter_viewport = True
                 context.scene.eevee.use_bokeh_jittered = True
@@ -2489,6 +2508,7 @@ def eevee_setup(context):
             context.scene.eevee.use_shadows = True
             context.scene.eevee.use_volumetric_shadows = True
             context.scene.eevee.use_raytracing = True
+            context.scene.eevee.ray_tracing_options.resolution_scale = "1"
             context.scene.eevee.ray_tracing_options.use_denoise = True
             context.scene.eevee.use_shadow_jitter_viewport = True
             context.scene.eevee.use_bokeh_jittered = True

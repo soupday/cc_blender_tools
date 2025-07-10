@@ -22,19 +22,45 @@ from mathutils import Vector
 from . import addon_updater_ops, colorspace, vars
 
 
+def reset_eevee():
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
+    prefs.eevee_iris_brightness_b443b = 0.75
+    prefs.eevee_sss_skin_b443b = 1.43
+    prefs.eevee_sss_hair_b443b = 1.0
+    prefs.eevee_sss_teeth_b443b = 1.5
+    prefs.eevee_sss_tongue_b443b = 1.0
+    prefs.eevee_sss_eyes_b443b = 1.0
+    prefs.eevee_sss_default_b443b = 1.0
+    prefs.eevee_normal_b443b = 1.0
+    prefs.eevee_normal_skin_b443b = 1.0
+    prefs.eevee_micro_normal_b443b = 1.0
+    prefs.eevee_roughness_power_b443b = 0.5625
+    #
+    prefs.eevee_sss_skin_b341 = 1.0
+    prefs.eevee_sss_hair_b341 = 1.0
+    prefs.eevee_sss_teeth_b341 = 1.0
+    prefs.eevee_sss_tongue_b341 = 1.0
+    prefs.eevee_sss_eyes_b341 = 1.0
+    prefs.eevee_sss_default_b341 = 1.0
+    prefs.eevee_normal_b341 = 1.0
+    prefs.eevee_normal_skin_b341 = 1.0
+    prefs.eevee_micro_normal_b341 = 1.0
+    prefs.eevee_roughness_power_b341 = 0.75
+
+
 def reset_cycles():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.cycles_iris_brightness_b443 = 0.75
-    prefs.cycles_sss_skin_b410 = 1.0 # 1.4285
-    prefs.cycles_sss_hair_b410 = 0.25
-    prefs.cycles_sss_teeth_b410 = 1.0
-    prefs.cycles_sss_tongue_b410 = 1.0
-    prefs.cycles_sss_eyes_b410 = 1.0
-    prefs.cycles_sss_default_b410 = 1.0
-    prefs.cycles_normal_b410 = 1.0
-    prefs.cycles_normal_skin_b410 = 1.125
-    prefs.cycles_micro_normal_b410 = 1.25
-    prefs.cycles_roughness_power_b443 = 1.0
+    prefs.cycles_iris_brightness_b443b = 0.75
+    prefs.cycles_sss_skin_b443b = 1.0
+    prefs.cycles_sss_hair_b443b = 0.5
+    prefs.cycles_sss_teeth_b443b = 1.0
+    prefs.cycles_sss_tongue_b443b = 1.0
+    prefs.cycles_sss_eyes_b443b = 1.0
+    prefs.cycles_sss_default_b443b = 1.0
+    prefs.cycles_normal_b443b = 1.0
+    prefs.cycles_normal_skin_b443b = 1.25
+    prefs.cycles_micro_normal_b443b = 1.25
+    prefs.cycles_roughness_power_b443b = 0.75
     #
     prefs.cycles_sss_skin_b341 = 0.264
     prefs.cycles_sss_hair_b341 = 0.05
@@ -46,32 +72,6 @@ def reset_cycles():
     prefs.cycles_normal_skin_b341 = 1.125
     prefs.cycles_micro_normal_b341 = 1.25
     prefs.cycles_roughness_power_b341 = 1.0
-
-
-def reset_eevee():
-    prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.eevee_iris_brightness_b443 = 1.0
-    prefs.eevee_sss_skin_b420 = 1.0
-    prefs.eevee_sss_hair_b420 = 1.0
-    prefs.eevee_sss_teeth_b420 = 1.5
-    prefs.eevee_sss_tongue_b420 = 1.0
-    prefs.eevee_sss_eyes_b420 = 1.0
-    prefs.eevee_sss_default_b420 = 1.0
-    prefs.eevee_normal_b420 = 1.0
-    prefs.eevee_normal_skin_b420 = 1.0
-    prefs.eevee_micro_normal_b420 = 1.0
-    prefs.eevee_roughness_power_b443 = 0.75
-    #
-    prefs.eevee_sss_skin_b341 = 1.0
-    prefs.eevee_sss_hair_b341 = 1.0
-    prefs.eevee_sss_teeth_b341 = 1.0
-    prefs.eevee_sss_tongue_b341 = 1.0
-    prefs.eevee_sss_eyes_b341 = 1.0
-    prefs.eevee_sss_default_b341 = 1.0
-    prefs.eevee_normal_b341 = 1.0
-    prefs.eevee_normal_skin_b341 = 1.0
-    prefs.eevee_micro_normal_b341 = 2.0
-    prefs.eevee_roughness_power_b341 = 0.75
 
 
 def reset_rigify():
@@ -375,41 +375,41 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
 
     # Eevee Modifiers
-    eevee_iris_brightness_b443: bpy.props.FloatProperty(default=1.0, min=0, max=2)
-    eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_hair_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_teeth_b420: bpy.props.FloatProperty(default=1.5)
-    eevee_sss_tongue_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_eyes_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_default_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_micro_normal_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_normal_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_normal_skin_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_roughness_power_b443: bpy.props.FloatProperty(default=0.75)
+    eevee_iris_brightness_b443b: bpy.props.FloatProperty(default=0.75, min=0, max=2)
+    eevee_sss_skin_b443b: bpy.props.FloatProperty(default=1.43)
+    eevee_sss_hair_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_teeth_b443b: bpy.props.FloatProperty(default=1.5)
+    eevee_sss_tongue_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_eyes_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_default_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_normal_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_normal_skin_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_micro_normal_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_roughness_power_b443b: bpy.props.FloatProperty(default=0.5625)
     #
-    eevee_sss_skin_b341: bpy.props.FloatProperty(default=1.25)
+    eevee_sss_skin_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_hair_b341: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_teeth_b341: bpy.props.FloatProperty(default=1.5)
+    eevee_sss_teeth_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_tongue_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_eyes_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_default_b341: bpy.props.FloatProperty(default=1.0)
-    eevee_micro_normal_b341: bpy.props.FloatProperty(default=2.0)
     eevee_normal_b341: bpy.props.FloatProperty(default=1.0)
     eevee_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
+    eevee_micro_normal_b341: bpy.props.FloatProperty(default=1.0)
     eevee_roughness_power_b341: bpy.props.FloatProperty(default=0.75)
     #
     # Cycles Modifiers
-    cycles_iris_brightness_b443: bpy.props.FloatProperty(default=0.75, min=0, max=2)
-    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_hair_b410: bpy.props.FloatProperty(default=0.25)
-    cycles_sss_teeth_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_tongue_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_eyes_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_default_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_micro_normal_b410: bpy.props.FloatProperty(default=2)
-    cycles_normal_b410: bpy.props.FloatProperty(default=1.5)
-    cycles_normal_skin_b410: bpy.props.FloatProperty(default=1.5)
-    cycles_roughness_power_b443: bpy.props.FloatProperty(default=1.0)
+    cycles_iris_brightness_b443b: bpy.props.FloatProperty(default=0.75, min=0, max=2)
+    cycles_sss_skin_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_hair_b443b: bpy.props.FloatProperty(default=0.5)
+    cycles_sss_teeth_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_tongue_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_eyes_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_default_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_normal_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_normal_skin_b443b: bpy.props.FloatProperty(default=1.25)
+    cycles_micro_normal_b443b: bpy.props.FloatProperty(default=1.25)
+    cycles_roughness_power_b443b: bpy.props.FloatProperty(default=0.75)
     #
     cycles_sss_skin_b341: bpy.props.FloatProperty(default=0.264)
     cycles_sss_hair_b341: bpy.props.FloatProperty(default=0.05)
@@ -417,9 +417,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_sss_tongue_b341: bpy.props.FloatProperty(default=0.5)
     cycles_sss_eyes_b341: bpy.props.FloatProperty(default=0.01)
     cycles_sss_default_b341: bpy.props.FloatProperty(default=0.5)
-    cycles_micro_normal_b341: bpy.props.FloatProperty(default=1.25)
     cycles_normal_b341: bpy.props.FloatProperty(default=1.0)
-    cycles_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
+    cycles_normal_skin_b341: bpy.props.FloatProperty(default=1.125)
+    cycles_micro_normal_b341: bpy.props.FloatProperty(default=1.25)
     cycles_roughness_power_b341: bpy.props.FloatProperty(default=1.0)
 
     lighting_presets_all: bpy.props.BoolProperty(default=False,
@@ -536,6 +536,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("LOCAL","Local Machine","Connect to a DataLink server running on the local machine"),
                         ("REMOTE","Remote Host","Connect to a DataLink server running on a remote machine"),
                     ], default="LOCAL", name = "DataLink Target")
+    datalink_auto_lighting: bpy.props.BoolProperty(default=True,
+                                          description="Use automatic lighting from CC/iC Go-B")
+
 
     # convert
     convert_non_standard_type: bpy.props.EnumProperty(items=[
@@ -543,6 +546,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                     ("CREATURE","Creature","Non standard character is a Creature"),
                     ("PROP","Prop","Non standard character is a Prop"),
                 ], default="PROP", name = "Non-standard Character Type")
+
 
     # addon updater preferences
     auto_check_update: bpy.props.BoolProperty(

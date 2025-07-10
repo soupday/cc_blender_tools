@@ -38,7 +38,7 @@ def copy_material_to_render_world(context):
         rot_z = shading.studiolight_rotate_z
         rot = Vector((0, 0, rot_z))
         str = shading.studiolight_intensity
-        col = (1,1,1,1)
+        col = (0,0,0,1)
         world_setup(context, ibl_path, col, loc, rot, 1.0, str)
 
 
@@ -56,20 +56,32 @@ def world_setup(context, hdri_path: str, ambient_color, loc: Vector, rot: Vector
         et_node = nodeutils.make_shader_node(nodes, "ShaderNodeTexEnvironment")
         bg_node = nodeutils.make_shader_node(nodes, "ShaderNodeBackground")
         wo_node = nodeutils.make_shader_node(nodes, "ShaderNodeOutputWorld")
-        tc_node.location = (-820,350)
-        mp_node.location = (-610,370)
-        et_node.location = (-300,320)
-        bg_node.location = (10,300)
-        wo_node.location = (300,300)
+        ab_node = nodeutils.make_shader_node(nodes, "ShaderNodeRGB")
+        am_node = nodeutils.make_shader_node(nodes, "ShaderNodeMix")
+        tc_node.location = (-820, 350)
+        mp_node.location = (-610, 370)
+        et_node.location = (-330, 330)
+        ab_node.location = (-280, 60)
+        am_node.location = (10, 310)
+        bg_node.location = (200, 300)
+        wo_node.location = (420, 300)
+        am_node.data_type = "RGBA"
+        am_node.blend_type = "ADD"
+        am_node.clamp_result = False
+        am_node.clamp_factor = False
+        nodeutils.set_node_input_value(am_node, "Factor", str)
         bg_node.name = utils.unique_name("(rl_background_node)")
-        nodeutils.set_node_input_value(bg_node, "Strength", str)
-        nodeutils.set_node_input_value(bg_node, "Color", ambient_color)
+        ab_node.name = utils.unique_name("(rl_ambient_node)")
+        nodeutils.set_node_output_value(ab_node, "Color", ambient_color)
+        nodeutils.set_node_input_value(bg_node, "Strength", 1.0)
         nodeutils.set_node_input_value(mp_node, "Location", loc)
         nodeutils.set_node_input_value(mp_node, "Rotation", rot)
         nodeutils.set_node_input_value(mp_node, "Scale", Vector((sca, sca, sca)))
+        nodeutils.link_nodes(links, et_node, "Color", am_node, "B")
+        nodeutils.link_nodes(links, ab_node, "Color", am_node, "A")
         nodeutils.link_nodes(links, tc_node, "Generated", mp_node, "Vector")
         nodeutils.link_nodes(links, mp_node, "Vector", et_node, "Vector")
-        nodeutils.link_nodes(links, et_node, "Color", bg_node, "Color")
+        nodeutils.link_nodes(links, am_node, "Result", bg_node, "Color")
         nodeutils.link_nodes(links, bg_node, "Background", wo_node, "Surface")
         et_node.image = imageutils.load_image(hdri_path, "Linear")
         if shading:
@@ -82,12 +94,16 @@ def world_setup(context, hdri_path: str, ambient_color, loc: Vector, rot: Vector
         nodes.clear()
         bg_node = nodeutils.make_shader_node(nodes, "ShaderNodeBackground")
         wo_node = nodeutils.make_shader_node(nodes, "ShaderNodeOutputWorld")
+        ab_node = nodeutils.make_shader_node(nodes, "ShaderNodeRGB")
         bg_node.location = (10,300)
         wo_node.location = (300,300)
+        ab_node.location = (-280, 60)
         bg_node.name = utils.unique_name("(rl_background_node)")
-        nodeutils.set_node_input_value(bg_node, "Strength", str)
-        nodeutils.set_node_input_value(bg_node, "Color", ambient_color)
+        ab_node.name = utils.unique_name("(rl_ambient_node)")
+        #nodeutils.set_node_input_value(bg_node, "Strength", str)
+        nodeutils.set_node_output_value(ab_node, "Color", ambient_color)
         nodeutils.link_nodes(links, bg_node, "Background", wo_node, "Surface")
+        nodeutils.link_nodes(links, ab_node, "Color", bg_node, "Color")
         if shading:
             shading.use_scene_world = False
             shading.use_scene_world_render = True

@@ -2994,26 +2994,31 @@ class LinkService():
 
         utils.object_mode()
 
-        use_lights = lights_data.get("use_lights", True)
+        use_lighting = lights_data.get("use_lights", False)
+        auto_lighting = lights_data.get("auto_lighting", False)
 
-        if use_lights:
-            container = rlx.add_light_container()
-            # create or modify existing lights
-            for light_data in lights_data["lights"]:
-                light = rlx.find_link_id(light_data["link_id"])
-                light = rlx.decode_rlx_light(light_data, light, container)
-            # clean up lights not found in scene
-            for obj in bpy.data.objects:
-                if obj.type == "LIGHT":
-                    obj_link_id = utils.get_rl_link_id(obj)
-                    if obj_link_id and obj_link_id not in lights_data["scene_lights"]:
-                        utils.delete_light_object(obj)
-        #
+        # don't set up auto lighting (from CC Go-B) if not enabled
+        if auto_lighting and not prefs.datalink_auto_lighting:
+            return
+
+        container = rlx.add_light_container()
+        # create or modify existing lights
+        for light_data in lights_data["lights"]:
+            light = rlx.find_link_id(light_data["link_id"])
+            light = rlx.decode_rlx_light(light_data, light, container)
+        # clean up lights not found in scene
+        for obj in bpy.data.objects:
+            if obj.type == "LIGHT":
+                obj_link_id = utils.get_rl_link_id(obj)
+                if obj_link_id and obj_link_id not in lights_data["scene_lights"]:
+                    utils.delete_light_object(obj)
+
         bpy.context.scene.eevee.use_taa_reprojection = True
         if utils.B420():
             bpy.context.scene.eevee.use_shadows = True
             bpy.context.scene.eevee.use_volumetric_shadows = True
             bpy.context.scene.eevee.use_raytracing = True
+            bpy.context.scene.eevee.ray_tracing_options.resolution_scale = "1"
             bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
             bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             bpy.context.scene.eevee.use_bokeh_jittered = True

@@ -580,7 +580,7 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
             layout.row().label(text=obj_text)
 
 
-def render_prefs_ui(layout: bpy.types.UILayout):
+def render_prefs_ui(layout: bpy.types.UILayout, index=1):
     prefs = vars.prefs()
     props = vars.props()
 
@@ -590,38 +590,38 @@ def render_prefs_ui(layout: bpy.types.UILayout):
         box = layout.box()
         if fake_drop_down(box.row(),
                 f"Cycles Prefs ({suffix})",
-                "cycles_options",
-                props.cycles_options):
+                f"cycles_options{index}",
+                props.cycles_options1 if index==1 else props.cycles_options2):
             column = box.column()
             split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
             if utils.B400():
                 col_1.label(text = "Iris Brightness")
-                col_2.prop(prefs, "cycles_iris_brightness_b443", text = "")
+                col_2.prop(prefs, "cycles_iris_brightness_b443b", text = "")
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "cycles_sss_skin_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_skin_b443b", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "cycles_sss_hair_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_hair_b443b", text = "")
                 col_1.label(text = "Teeth SSS")
-                col_2.prop(prefs, "cycles_sss_teeth_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_teeth_b443b", text = "")
                 col_1.label(text = "Tongue SSS")
-                col_2.prop(prefs, "cycles_sss_tongue_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_tongue_b443b", text = "")
                 col_1.label(text = "Eyes SSS")
-                col_2.prop(prefs, "cycles_sss_eyes_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_eyes_b443b", text = "")
                 col_1.label(text = "Default SSS")
-                col_2.prop(prefs, "cycles_sss_default_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_default_b443b", text = "")
                 col_1.label(text = "Roughness Power")
-                col_2.prop(prefs, "cycles_roughness_power_b443", text = "")
+                col_2.prop(prefs, "cycles_roughness_power_b443b", text = "")
                 col_1.label(text = "Normal Strength")
-                col_2.prop(prefs, "cycles_normal_b410", text = "")
+                col_2.prop(prefs, "cycles_normal_b443b", text = "")
                 col_1.label(text = "Skin Normal Strength")
-                col_2.prop(prefs, "cycles_normal_skin_b410", text = "")
+                col_2.prop(prefs, "cycles_normal_skin_b443b", text = "")
                 col_1.label(text = "Micro Normal Strength")
-                col_2.prop(prefs, "cycles_micro_normal_b410", text = "")
+                col_2.prop(prefs, "cycles_micro_normal_b443b", text = "")
             else:
                 col_1.label(text = "Iris Brightness")
-                col_2.prop(prefs, "cycles_iris_brightness_b443", text = "")
+                col_2.prop(prefs, "cycles_iris_brightness_b443b", text = "")
                 col_1.label(text = "Skin SSS")
                 col_2.prop(prefs, "cycles_sss_skin_b341", text = "")
                 col_1.label(text = "Hair SSS")
@@ -651,38 +651,38 @@ def render_prefs_ui(layout: bpy.types.UILayout):
         box = layout.box()
         if fake_drop_down(box.row(),
                 f"Eevee Prefs ({suffix})",
-                "eevee_options",
-                props.eevee_options):
+                f"eevee_options{index}",
+                props.eevee_options1 if index==1 else props.eevee_options2):
             column = box.column()
             split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
             if utils.B420():
                 col_1.label(text = "Iris Brightness")
-                col_2.prop(prefs, "eevee_iris_brightness_b443", text = "")
+                col_2.prop(prefs, "eevee_iris_brightness_b443b", text = "")
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "eevee_sss_skin_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_skin_b443b", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "eevee_sss_hair_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_hair_b443b", text = "")
                 col_1.label(text = "Teeth SSS")
-                col_2.prop(prefs, "eevee_sss_teeth_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_teeth_b443b", text = "")
                 col_1.label(text = "Tongue SSS")
-                col_2.prop(prefs, "eevee_sss_tongue_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_tongue_b443b", text = "")
                 col_1.label(text = "Eyes SSS")
-                col_2.prop(prefs, "eevee_sss_eyes_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_eyes_b443b", text = "")
                 col_1.label(text = "Default SSS")
-                col_2.prop(prefs, "eevee_sss_default_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_default_b443b", text = "")
                 col_1.label(text = "Roughness Power")
-                col_2.prop(prefs, "eevee_roughness_power_b443", text = "")
+                col_2.prop(prefs, "eevee_roughness_power_b443b", text = "")
                 col_1.label(text = "Normal Strength")
-                col_2.prop(prefs, "eevee_normal_b420", text = "")
+                col_2.prop(prefs, "eevee_normal_b443b", text = "")
                 col_1.label(text = "Skin Normal Strength")
-                col_2.prop(prefs, "eevee_normal_skin_b420", text = "")
+                col_2.prop(prefs, "eevee_normal_skin_b443b", text = "")
                 col_1.label(text = "Micro Normal Strength")
-                col_2.prop(prefs, "eevee_micro_normal_b420", text = "")
+                col_2.prop(prefs, "eevee_micro_normal_b443b", text = "")
             else:
                 col_1.label(text = "Iris Brightness")
-                col_2.prop(prefs, "eevee_iris_brightness_b443", text = "")
+                col_2.prop(prefs, "eevee_iris_brightness_b443b", text = "")
                 col_1.label(text = "Skin SSS")
                 col_2.prop(prefs, "eevee_sss_skin_b341", text = "")
                 col_1.label(text = "Hair SSS")
@@ -977,7 +977,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1.label(text="Data Override")
             col_2.prop(PREFS, "aces_data_override", text="")
 
-        render_prefs_ui(layout)
+        render_prefs_ui(layout, 1)
 
         # Build Button
         if chr_cache:
@@ -1595,7 +1595,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         if mat_cache:
             parameters = mat_cache.parameters
 
-        render_prefs_ui(layout)
+        render_prefs_ui(layout, 2)
 
         # Parameters
 
@@ -2905,11 +2905,17 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
 
     #layout.operator("cc3.scene", icon="OUTLINER_OB_SURFACE", text="Add Backdrop").param = "BACKDROP"
 
+    world_nodes = bpy.context.scene.world.node_tree.nodes
+    ambient_node = nodeutils.find_node_by_type_and_keywords(world_nodes, "RGB", "rl_ambient_node")
     row = layout.row(align=True)
     if utils.B400():
         row.prop(prefs, "lighting_use_look", expand=True)
+    row = layout.row(align=True)
     view = context.scene.view_settings
     row.prop(view, "look", text="")
+    if ambient_node:
+        row.prop(ambient_node.outputs[0], "default_value", text="")
+
     col = layout.column(align=True)
     row = col.row(align=True)
     row.prop(props, "lighting_brightness", slider=True)
@@ -3754,6 +3760,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2 = split.column()
             col_1.label(text="Auto-Start Connection")
             col_2.prop(prefs, "datalink_auto_start", text="")
+            col_1.label(text="Use Automatic Lighting")
+            col_2.prop(prefs, "datalink_auto_lighting", text="")
             col_1.label(text="Sequence Frame Sync")
             col_2.prop(prefs, "datalink_frame_sync", text="")
             col_1.label(text="Preview Shape Keys")

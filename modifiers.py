@@ -330,7 +330,6 @@ def add_decimate_modifier(obj, ratio, name):
 
 
 def add_subdivision(obj: bpy.types.Object, level, name, max_render=3, max_view=1):
-    print("###################### ADD SUB DIV", level, max_render, max_view)
     mod: bpy.types.SubsurfModifier
     mod = get_object_modifier(obj, "SUBSURF", name)
     if not mod:

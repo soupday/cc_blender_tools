@@ -283,21 +283,21 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
 def func_iris_brightness(v):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
-        v = v * prefs.cycles_iris_brightness_b443
+        v = v * prefs.cycles_iris_brightness_b443b
     elif prefs.render_target == "EEVEE":
-        v = v * prefs.eevee_iris_brightness_b443
+        v = v * prefs.eevee_iris_brightness_b443b
     return v
 
 def func_sss_skin(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_skin_b410
+            s = s * prefs.cycles_sss_skin_b443b
         else:
             s = s * prefs.cycles_sss_skin_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_skin_b420
+            s = s * prefs.eevee_sss_skin_b443b
         else:
             s = s * prefs.eevee_sss_skin_b341
     return s
@@ -306,12 +306,12 @@ def func_sss_hair(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_hair_b410
+            s = s * prefs.cycles_sss_hair_b443b
         else:
             s = s * prefs.cycles_sss_hair_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_hair_b420
+            s = s * prefs.eevee_sss_hair_b443b
         else:
             s = s * prefs.eevee_sss_hair_b341
     return s
@@ -320,12 +320,12 @@ def func_sss_teeth(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_teeth_b410
+            s = s * prefs.cycles_sss_teeth_b443b
         else:
             s = s * prefs.cycles_sss_teeth_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_teeth_b420
+            s = s * prefs.eevee_sss_teeth_b443b
         else:
             s = s * prefs.eevee_sss_teeth_b341
     return s
@@ -334,12 +334,12 @@ def func_sss_tongue(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_tongue_b410
+            s = s * prefs.cycles_sss_tongue_b443b
         else:
             s = s * prefs.cycles_sss_tongue_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_tongue_b420
+            s = s * prefs.eevee_sss_tongue_b443b
         else:
             s = s * prefs.eevee_sss_tongue_b341
     return s
@@ -348,12 +348,12 @@ def func_sss_eyes(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_eyes_b410
+            s = s * prefs.cycles_sss_eyes_b443b
         else:
             s = s * prefs.cycles_sss_eyes_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_eyes_b420
+            s = s * prefs.eevee_sss_eyes_b443b
         else:
             s = s * prefs.eevee_sss_eyes_b341
     return s
@@ -362,12 +362,12 @@ def func_sss_default(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_default_b410
+            s = s * prefs.cycles_sss_default_b443b
         else:
             s = s * prefs.cycles_sss_default_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_default_b420
+            s = s * prefs.eevee_sss_default_b443b
         else:
             s = s * prefs.eevee_sss_default_b341
     return s
@@ -436,12 +436,12 @@ def func_roughness_power(p):
     #    return p
     if prefs.render_target == "CYCLES":
         if utils.B410():
-            return p * prefs.cycles_roughness_power_b443
+            return p * prefs.cycles_roughness_power_b443b
         else:
             return p * prefs.cycles_roughness_power_b341
     else:
         if utils.B420():
-            return p * prefs.eevee_roughness_power_b443
+            return p * prefs.eevee_roughness_power_b443b
         else:
             return p * prefs.eevee_roughness_power_b341
 
@@ -509,17 +509,8 @@ def func_sclera_brightness(b):
         b *= 1.0
     return b
 
-def func_iris_scale(i):
-    return i * 1.00
-
-def func_parallax_iris_scale(i, s):
-    return (func_iris_scale(i) * s)
-
-def func_parallax_iris_tiling(i, s):
-    return 1.0 / (func_parallax_iris_scale(i, s))
-
-def func_get_iris_scale(iris_uv_radius):
-    return 0.16 / iris_uv_radius
+def func_eye_tiling(ir, ss):
+    return 0.16 / (ir * ss)
 
 def func_half(s):
     return s * 0.5
@@ -672,12 +663,12 @@ def func_normal_strength(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_normal_b410
+            s = s * prefs.cycles_normal_b443b
         else:
             s = s * prefs.cycles_normal_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_normal_b420
+            s = s * prefs.eevee_normal_b443b
         else:
             s = s * prefs.eevee_normal_b341
     return s
@@ -686,12 +677,12 @@ def func_skin_normal_strength(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_normal_skin_b410
+            s = s * prefs.cycles_normal_skin_b443b
         else:
             s = s * prefs.cycles_normal_skin_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_normal_skin_b420
+            s = s * prefs.eevee_normal_skin_b443b
         else:
             s = s * prefs.eevee_normal_skin_b341
     return s
@@ -700,12 +691,12 @@ def func_micro_normal_strength(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_micro_normal_b410
+            s = s * prefs.cycles_micro_normal_b443b
         else:
             s = s * prefs.cycles_micro_normal_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_micro_normal_b420
+            s = s * prefs.eevee_micro_normal_b443b
         else:
             s = s * prefs.eevee_micro_normal_b341
     return s
