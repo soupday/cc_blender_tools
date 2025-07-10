@@ -48,7 +48,6 @@ Links
     - curve_slider controls
     - Reimport update to CC5.
 
-
 ### 2.3.1
 - 1:1 Viseme driver fix.
 - Fix to Rigify bone locks being cleared by pose reset.

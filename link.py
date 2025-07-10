@@ -3037,7 +3037,7 @@ class LinkService():
             bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
         view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-        colorspace.set_view_settings(view_transform, "Medium High Contrast", 0, 0.75)
+        colorspace.set_view_settings(view_transform, "Medium Contrast", 0, 0.75)
         if bpy.context.scene.cycles.transparent_max_bounces < 100:
             bpy.context.scene.cycles.transparent_max_bounces = 100
         view_space = utils.get_view_3d_space()

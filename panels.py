@@ -2910,11 +2910,11 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     row = layout.row(align=True)
     if utils.B400():
         row.prop(prefs, "lighting_use_look", expand=True)
-    row = layout.row(align=True)
+    row = layout.row(align=False)
     view = context.scene.view_settings
-    row.prop(view, "look", text="")
     if ambient_node:
         row.prop(ambient_node.outputs[0], "default_value", text="")
+    row.prop(view, "look", text="")
 
     col = layout.column(align=True)
     row = col.row(align=True)
