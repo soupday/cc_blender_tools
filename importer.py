@@ -88,6 +88,7 @@ def process_material(chr_cache, obj_cache, obj, mat, obj_json, processed_images)
             bake.pack_shader_channels(chr_cache, mat_cache)
         elif props.wrinkle_mode and mat_json and "Wrinkle" in mat_json.keys():
             bake.pack_shader_channels(chr_cache, mat_cache)
+            ...
 
     else:
 

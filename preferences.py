@@ -22,6 +22,14 @@ from mathutils import Vector
 from . import addon_updater_ops, colorspace, vars
 
 
+MAX_TEX_SIZES = [
+        ("1024","1024 x 1024","1024 x 1024 texture size"),
+        ("2048","2048 x 2048","2048 x 2048 texture size"),
+        ("4096","4096 x 4096","4096 x 4096 texture size"),
+        ("8192","8192 x 8192","8192 x 8192 texture size"),
+    ]
+
+
 def reset_eevee():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
     prefs.eevee_iris_brightness_b443b = 0.75
@@ -435,12 +443,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("ALL","All","Bake all character objects"),
                         ("SELECTED","Selected","Bake only selected characeter objects"),
                     ], default="ALL", name = "Character object bake mode")
-    pack_max_tex_size: bpy.props.EnumProperty(items=[
-                        ("1024","1024 x 1024","1024 x 1024 texture size"),
-                        ("2048","2048 x 2048","2048 x 2048 texture size"),
-                        ("4096","4096 x 4096","4096 x 4096 texture size"),
-                        ("8192","8192 x 8192","8192 x 8192 texture size"),
-                    ], default="8192", name="Texture Pack Max Size")
+
+
+    use_max_tex_size: bpy.props.BoolProperty(default=False, name="Limit Texture Size", description="Limit texture sizes by texture category")
+    size_max_tex_default: bpy.props.EnumProperty(items=MAX_TEX_SIZES, default="2048", name="Default", description="Mid level detail textures such as: diffuse, roughness, metallic")
+    size_max_tex_detail: bpy.props.EnumProperty(items=MAX_TEX_SIZES, default="4096", name="Detail", description="Textures that require more details such as normals, displacements & cavity maps")
+    size_max_tex_minimal: bpy.props.EnumProperty(items=MAX_TEX_SIZES, default="1024", name="Minimal", description="Textures that don't need much detail: Subsurface, transmission and masks")
 
     physics_cloth_hair: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the hair objects.", name="Hair Cloth Physics")
     physics_cloth_clothing: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the clothing and accessory objects.", name="Clothing Cloth Physics")

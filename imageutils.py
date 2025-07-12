@@ -73,7 +73,7 @@ def load_image(filename, color_space, processed_images = None, reuse_existing = 
                                 utils.log_info("Skipping duplicate existing image, reusing: " + p[1].filepath)
                                 i = p[1]
                                 found = True
-                    if i.depth == 32 and i.alpha_mode != "CHANNEL_PACKED":
+                    if (i.depth == 32 or i.depth == 128) and i.alpha_mode != "CHANNEL_PACKED":
                         i.alpha_mode = "CHANNEL_PACKED"
                     if processed_images is not None and i and image_md5 and not found:
                         processed_images.append([image_md5, i])
@@ -99,7 +99,7 @@ def load_image(filename, color_space, processed_images = None, reuse_existing = 
         utils.log_info("Loading new image: " + filename)
         image = bpy.data.images.load(filename)
         colorspace.set_image_color_space(image, color_space)
-        if image.depth == 32:
+        if (image.depth == 32 or image.depth == 128):
             image.alpha_mode = "CHANNEL_PACKED"
         #check_max_size(image)
         if processed_images is not None and image and image_md5:
@@ -174,7 +174,14 @@ def get_image_type_json_id(texture_type):
 
 def get_image_type_lib_name(texture_type):
     for tex in params.TEXTURE_TYPES:
-        if tex[0] == texture_type and len(tex) > 4:
+        if tex[0] == texture_type and len(tex) > 5:
+            return tex[5]
+    return None
+
+
+def get_image_type_size_group(texture_type):
+    for tex in params.TEXTURE_TYPES:
+        if tex[0] == texture_type:
             return tex[4]
     return None
 
@@ -187,6 +194,45 @@ def is_library_tex(texture_type):
 
 def search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type):
     return find_image_file(chr_cache.get_import_dir(), [mat_cache.get_tex_dir(chr_cache), chr_cache.get_tex_dir()], mat, texture_type)
+
+
+def get_max_sized_width_height(width, height, max_size):
+    if width > max_size or height > max_size:
+        if width > height:
+            width = max_size
+            height = int(height * max_size / width)
+        elif height > width:
+            height = max_size
+            width = int(width * max_size / height)
+        else:
+            width = max_size
+            height = max_size
+    return width, height
+
+
+def apply_max_size(image: bpy.types.Image, texture_type):
+    prefs = vars.prefs()
+    if prefs.use_max_tex_size:
+        size_group = get_image_type_size_group(texture_type)
+        max_size = int(prefs.size_max_tex_default)
+        if size_group == "DETAIL":
+            max_size = int(prefs.size_max_tex_detail)
+        elif size_group == "MINIMAL":
+            max_size = int(prefs.size_max_tex_minimal)
+        width = image.size[0]
+        height = image.size[0]
+        if width > max_size or height > max_size:
+            if width > height:
+                width = max_size
+                height = int(height * max_size / width)
+            elif height > width:
+                height = max_size
+                width = int(width * max_size / height)
+            else:
+                width = max_size
+                height = max_size
+            utils.log_info(f"resizing image: {image.name} (size_group) to {width} x {height}")
+            image.scale(width, height)
 
 
 def find_material_image(mat, texture_type, processed_images = None, tex_json = None, mat_json = None):
@@ -213,6 +259,7 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
         image = lib.get_image(lib_name)
         colorspace.set_image_color_space(image, color_space)
         if image:
+            apply_max_size(image, texture_type)
             return image
 
     # try to find the image in the json data first:
@@ -229,20 +276,28 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
 
             # try to load image path directly
             if os.path.exists(image_file):
-                return load_image(image_file, color_space, processed_images)
+                image = load_image(image_file, color_space, processed_images)
+                if image:
+                    apply_max_size(image, texture_type)
+                    return image
 
             # try remapping the image path relative to the local directory
             if is_tex_path_relative:
                 image_file = utils.local_path(tex_path)
                 if image_file and os.path.exists(image_file):
-                    return load_image(image_file, color_space, processed_images)
+                    image = load_image(image_file, color_space, processed_images)
+                    if image:
+                        apply_max_size(image, texture_type)
+                        return image
 
             # try to find the image in the texture_mappings (all embedded images should be here)
             for tex_mapping in mat_cache.texture_mappings:
                 if tex_mapping:
                     if texture_type == tex_mapping.texture_type:
                         if tex_mapping.image:
-                            return tex_mapping.image
+                            image = tex_mapping.image
+                            apply_max_size(image, texture_type)
+                            return image
 
             utils.log_error(f"{texture_type} - json image path not found: {tex_path}")
 
@@ -265,20 +320,30 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
                     if texture_type == tex_mapping.texture_type:
                         if tex_mapping.image:
                             utils.log_info(f"Using embedded image: {tex_mapping.image.name}")
-                            return tex_mapping.image
+                            image = tex_mapping.image
+                            apply_max_size(image, texture_type)
+                            return image
 
         image_file = search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type)
         if image_file:
-            return load_image(image_file, color_space, processed_images)
+            image = load_image(image_file, color_space, processed_images)
+            if image:
+                apply_max_size(image, texture_type)
+                return image
 
         # then try to find the image in the texture_mappings (all embedded images should be here)
         for tex_mapping in mat_cache.texture_mappings:
             if tex_mapping:
                 if texture_type == tex_mapping.texture_type:
                     if tex_mapping.image:
-                        return tex_mapping.image
+                        image = tex_mapping.image
+                        apply_max_size(image, texture_type)
+                        return image
                     elif tex_mapping.texture_path is not None and tex_mapping.texture_path != "":
-                        return load_image(tex_mapping.texture_path, color_space, processed_images)
+                        image = load_image(tex_mapping.texture_path, color_space, processed_images)
+                        if image:
+                            apply_max_size(image, texture_type)
+                            return image
         return None
 
 

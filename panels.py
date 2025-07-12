@@ -950,8 +950,12 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             column.prop(PREFS, "build_shape_key_bone_drivers_head")
             column.prop(PREFS, "build_body_key_drivers")
             column.separator()
-            column.label(text="Texture Packing:")
-            column.prop(PREFS, "pack_max_tex_size")
+            column.label(text="Max Texture Sizes:")
+            column.prop(PREFS, "use_max_tex_size")
+            if PREFS.use_max_tex_size:
+                column.prop(PREFS, "size_max_tex_default")
+                column.prop(PREFS, "size_max_tex_detail")
+                column.prop(PREFS, "size_max_tex_minimal")
 
         column = layout.column(align=True)
         row = column.row(align=True)
@@ -4020,8 +4024,12 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
             column.prop(PREFS, "build_shape_key_bone_drivers_head")
             column.prop(PREFS, "build_body_key_drivers")
             column.separator()
-            column.label(text="Texture Packing:")
-            column.prop(PREFS, "pack_max_tex_size")
+            column.label(text="Max Texture Sizes:")
+            column.prop(PREFS, "use_max_tex_size")
+            if PREFS.use_max_tex_size:
+                column.prop(PREFS, "size_max_tex_default")
+                column.prop(PREFS, "size_max_tex_detail")
+                column.prop(PREFS, "size_max_tex_minimal")
 
         row = layout.row()
         row.scale_y = 2
