@@ -694,7 +694,7 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
                 nodeutils.link_nodes(links, CNI_A_node, "Image", CNS_A_node, "Image")
                 #nodeutils.link_nodes(links, CNS_A_node, "Image", CNC_node, "Alpha")
             else:
-                nodeutils.link_nodes(links, CNS_A_node, "Image", CNC_node, "Alpha")
+                nodeutils.link_nodes(links, CNI_A_node, "Image", CNC_node, "Alpha")
 
     else:
 
@@ -769,7 +769,7 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
     context.scene.render.resolution_x = width
     context.scene.render.resolution_y = height
     context.scene.render.image_settings.file_format = 'OPEN_EXR'
-    context.scene.render.image_settings.color_depth = '16'
+    context.scene.render.image_settings.color_depth = color_depth
     context.scene.render.image_settings.color_mode = 'RGBA'
     context.scene.render.image_settings.exr_codec = 'ZIP'
     context.scene.render.image_settings.color_management = 'OVERRIDE'
