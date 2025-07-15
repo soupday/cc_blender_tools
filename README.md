@@ -44,9 +44,8 @@ Links
 - Max texture pack size option added.
 - Datalink use automatic lighting option added.
 - TBD:
-    - MetaHuman profile constraints
+    - MetaHuman profile limits
     - curve_slider controls
-    - Reimport update to CC5.
 
 ### 2.3.1
 - 1:1 Viseme driver fix.

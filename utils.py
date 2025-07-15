@@ -2594,6 +2594,15 @@ def object_has_shape_keys(obj):
         return False
 
 
+def object_has_shape_key(obj, key_name):
+    try:
+        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            return key_name in obj.data.shape_keys.key_blocks
+    except:
+        ...
+    return False
+
+
 def object_scale(obj):
     try:
         return (obj.scale[0] + obj.scale[1] + obj.scale[2]) / 3.0

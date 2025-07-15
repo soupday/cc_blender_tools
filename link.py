@@ -2995,7 +2995,7 @@ class LinkService():
         utils.object_mode()
 
         use_lighting = lights_data.get("use_lights", False)
-        auto_lighting = lights_data.get("auto_lighting", False)
+        auto_lighting = lights_data.get("auto_lights", False)
 
         # don't set up auto lighting (from CC Go-B) if not enabled
         if auto_lighting and not prefs.datalink_auto_lighting:

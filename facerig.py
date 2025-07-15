@@ -749,6 +749,11 @@ def build_facerig_drivers(chr_cache, rigify_rig):
 
             drivers.add_bone_driver(rigify_rig, bone_name, driver_def, var_defs, 1.0)
 
+    # constraint drivers
+    facial_profile, viseme_profile = chr_cache.get_facial_profile()
+    if facial_profile == "MH":
+        build_constraint_drivers(chr_cache, rigify_rig)
+
 
 def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects, shape_key_only=False, arkit=False):
 
@@ -1046,6 +1051,104 @@ def remove_facerig_retarget_drivers(chr_cache, rigify_rig: bpy.types.Object):
                 pose_bone.driver_remove("location", 0)
                 pose_bone.driver_remove("location", 1)
         update_facerig_color(None, chr_cache=chr_cache)
+
+
+def get_constraint_source_object(objects, head, shape_key_name):
+    if utils.object_exists_is_mesh(head) and utils.object_has_shape_key(head, shape_key_name):
+        return head
+    for obj in objects:
+        if utils.object_exists_is_mesh(obj) and utils.object_has_shape_key(obj, shape_key_name):
+            return obj
+    return None
+
+
+def build_add_constraint_driver(chr_cache, rigify_rig, objects, head,
+                                source_keys, target_key,
+                                curve_mode, points):
+    var_defs = []
+    vidx = 0
+    expression = ""
+
+    for key in source_keys:
+        source_obj = get_constraint_source_object(objects, head, key)
+        var_name = f"var{vidx}"
+        vidx += 1
+        var_def = drivers.make_shape_key_var_def(var_name, source_obj, key)
+        var_defs.append(var_def)
+
+        var_expression = ""
+        if len(points) == 2:
+            x0 = points[0][0] # should be 0.0
+            x1 = points[1][0] # should be 0.0
+            y0 = points[0][1] # should be 1.0
+            y1 = points[1][1] # should be 1.0
+            dy = y1 - y0
+            dx = x1 - x0
+            if dx == 0: dx = 1
+            dybydx = dy / dx
+            # y0 + (V - x0) * dy/dx
+            var_expression = f"max(0,min(1,{fvar(y0)}+{fvar(dybydx)}*({var_name}-{fvar(x0)})))"
+        elif len(points) == 3:
+            xs = points[0][0] # should be 1.0
+            ys = points[0][1] # should be 0.0
+            xm = points[1][0] # should be 0.5
+            ym = points[1][1] # should be 1.0
+            xe = points[2][0] # should be 1.0
+            ye = points[2][1] # should be 0.0
+            dx = ((xe - xm) + (xm - xs)) / 2 # should be 0.5
+            dy = ((ye - ym) + (ym - ys)) / 2 # should be -1
+            dybydx = dy / dx
+            # ym + abs(V - xm) * dy/dx
+            var_expression = f"max(0,min(1,{fvar(ym)}+{fvar(dybydx)}*abs({var_name}-{fvar(xm)})))"
+        elif len(points) == 5:
+            xs = points[1][0] # should be 0.25
+            ys = points[1][1] # should be 0.0
+            xm = points[2][0] # should be 0.5
+            ym = points[2][1] # should be 1.0
+            xe = points[3][0] # should be 0.75
+            ye = points[3][1] # should be 0.0
+            dx = ((xe - xm) + (xm - xs)) / 2 # should be 0.25
+            dy = ((ye - ym) + (ym - ys)) / 2 # should be -1
+            dybydx = dy / dx
+            var_expression = f"max(0,min(1,{fvar(ym)}+{fvar(dybydx)}*abs({var_name}-{fvar(xm)})))"
+
+        if expression:
+            expression += "*"
+        expression += var_expression
+
+    driver_def = ["SCRIPTED", expression]
+
+    for obj in objects:
+        if utils.object_has_shape_key(obj, target_key):
+            drivers.add_shape_key_driver(rigify_rig, obj, target_key, driver_def, var_defs, 1.0)
+
+
+def build_limit_constraint_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points):
+    return
+
+
+def build_constraint_drivers(chr_cache, rigify_rig):
+    objects = chr_cache.get_cache_objects()
+    head = drivers.get_head_body_object(chr_cache)
+    chr_json = chr_cache.get_character_json()
+    if "Constraint" in chr_json:
+        for constraint_name, constraint_def in chr_json["Constraint"].items():
+            source_keys = constraint_def["Source Channels"]
+            target_key = constraint_def["Target Channel"]
+            curve_mode = constraint_def["Curve Mode"]
+            mode = constraint_def["Mode"]
+            points = set()
+            for point in constraint_def["Curve"]:
+                co = (point[0], point[1])
+                points.add(co)
+            points = list(points)
+            # sort by x value
+            points.sort(key=lambda co: co[0])
+            print(mode, points, source_keys, target_key)
+            if mode == "Add":
+                build_add_constraint_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points)
+            elif mode == "Limit":
+                build_limit_constraint_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points)
 
 
 def clear_expression_pose(chr_cache, rigify_rig, selected=False):

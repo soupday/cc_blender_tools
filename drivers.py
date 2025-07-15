@@ -605,6 +605,10 @@ def clear_facial_shape_key_bone_drivers(chr_cache):
                         pose_bone.driver_remove("scale", 2)
 
 
+def get_head_body_object(chr_cache):
+    return meshutils.get_head_body_object(chr_cache)
+
+
 def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
     """Add drivers for the jaw, eye and head bones (optional) based on the facial
        expression shape keys.
@@ -825,12 +829,11 @@ def get_id_type(obj):
     return "OBJECT"
 
 
-def make_custom_prop_var_def(var_name, obj, prop_name):
-    T = type(obj)
-    data_path = f"{obj.path_from_id()}[\"{prop_name}\"]"
+def make_custom_prop_var_def(var_name, source_obj, prop_name):
+    data_path = f"{source_obj.path_from_id()}[\"{prop_name}\"]"
     var_def = [var_name,
                "SINGLE_PROP",
-               obj,
+               source_obj,
                data_path]
     return var_def
 
@@ -852,6 +855,16 @@ def make_transform_var_def(var_name, source_obj, transform_prop, space="LOCAL_SP
                None,
                transform_prop,
                space]
+    return var_def
+
+
+def make_shape_key_var_def(var_name, source_obj, key_name):
+    key = get_shape_key(source_obj, key_name)
+    data_path = "shape_keys." + key.path_from_id("value")
+    var_def = [var_name,
+               "SINGLE_PROP",
+               source_obj.data,
+               data_path]
     return var_def
 
 
@@ -891,8 +904,8 @@ def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_defs, scale=1
                     var.targets[0].transform_space = var_def[5]
                 if var_def[1] == "SINGLE_PROP":
                     var_obj = var_def[2]
-                    var.targets[0].id = var_obj.id_data
                     var.targets[0].id_type = get_id_type(var_obj)
+                    var.targets[0].id = var_obj.id_data
                     var.targets[0].data_path = var_def[3]
             return driver
     return None
@@ -936,8 +949,8 @@ def add_bone_driver(rig, bone_name, driver_def, var_defs, scale=1.0):
                     var.targets[0].transform_space = var_def[5]
                 if var_def[1] == "SINGLE_PROP":
                     var_obj = var_def[2]
-                    var.targets[0].id = var_obj.id_data
                     var.targets[0].id_type = get_id_type(var_obj)
+                    var.targets[0].id = var_obj.id_data
                     var.targets[0].data_path = var_def[3]
             return driver
     return None

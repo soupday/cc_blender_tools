@@ -2678,9 +2678,20 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         len(body.data.polygons) == 13100):
                         return True
                 elif self.generation == "G3Plus":
+                    # level 0
                     if (len(body.data.vertices) == 14164 and
                         len(body.data.edges) == 28202 and
                         len(body.data.polygons) == 14046):
+                        return True
+                    # level 1
+                    if (len(body.data.vertices) == 56412 and
+                        len(body.data.edges) == 112588 and
+                        len(body.data.polygons) == 56184):
+                        return True
+                    # level 2
+                    if (len(body.data.vertices) == 225184 and
+                        len(body.data.edges) == 449912 and
+                        len(body.data.polygons) == 224736):
                         return True
             return False
         else:
