@@ -1542,9 +1542,9 @@ FACERIG_MH_CONFIG = {
             [
                 {
                     "bone": "CC_Base_JawRoot",
-                    "axis": "y",
+                    "axis": "z",
                     "offset": 0,
-                    "translation": -0.658
+                    "translation": 0.658
                 }
             ],
             "vertical":
@@ -2434,9 +2434,9 @@ FACERIG_EXT_CONFIG = {
             [
                 {
                     "bone": "CC_Base_JawRoot",
-                    "axis": "y",
+                    "axis": "z",
                     "offset": 0,
-                    "translation": -0.658
+                    "translation": 0.658
                 }
             ],
             "vertical":
@@ -3984,9 +3984,9 @@ FACERIG_STD_CONFIG = {
             [
                 {
                     "bone": "CC_Base_JawRoot",
-                    "axis": "y",
+                    "axis": "z",
                     "offset": 0,
-                    "translation": -0.658
+                    "translation": 0.658
                 }
             ],
             "vertical":

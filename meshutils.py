@@ -280,7 +280,7 @@ def remove_material_verts(obj, mat):
     utils.object_mode_to(obj)
 
 
-def find_shape_key(obj : bpy.types.Object, shape_key_name):
+def find_shape_key(obj : bpy.types.Object, shape_key_name) -> bpy.types.ShapeKey:
     try:
         return obj.data.shape_keys.key_blocks[shape_key_name]
     except:

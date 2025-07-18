@@ -393,6 +393,7 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
 
 def get_generated_controls(chr_cache, rigify_rig):
     slider_controls = {}
+    curve_slider_controls = {}
     rect_controls = {}
 
     FACERIG_CONFIG = get_facerig_config(chr_cache)
@@ -409,6 +410,16 @@ def get_generated_controls(chr_cache, rigify_rig):
                 length = line_pose_bone["slider_length"] if "slider_length" in line_pose_bone else line_bone.length * 2
                 slider_controls[control_name] = (control_def, line_bone_name, nub_bone_name, length, zero_point)
 
+        if control_def["widget_type"] == "curve_slider":
+            zero_point = utils.inverse_lerp(control_def["range"][0], control_def["range"][1], 0.0)
+            line_bone_name = control_name + "_line"
+            nub_bone_name = control_name
+            if line_bone_name in rigify_rig.pose.bones:
+                line_pose_bone = rigify_rig.pose.bones[line_bone_name]
+                line_bone = line_pose_bone.bone
+                length = line_pose_bone["slider_length"] if "slider_length" in line_pose_bone else line_bone.length * 2
+                curve_slider_controls[control_name] = (control_def, line_bone_name, nub_bone_name, length, zero_point)
+
         if control_def["widget_type"] == "rect":
             zero_x = utils.inverse_lerp(control_def["x_range"][0], control_def["x_range"][1], 0.0)
             zero_y = utils.inverse_lerp(control_def["y_range"][0], control_def["y_range"][1], 0.0)
@@ -421,10 +432,11 @@ def get_generated_controls(chr_cache, rigify_rig):
                 height = box_pose_bone["y_slider_length"] if "y_slider_length" in box_pose_bone else box_bone.length * 2
                 rect_controls[control_name] = (control_def, box_bone_name, nub_bone_name, width, height, zero_x, zero_y)
 
-    return slider_controls, rect_controls
+    return slider_controls, curve_slider_controls, rect_controls
 
 
-def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
+def collect_driver_defs(chr_cache, rigify_rig,
+                        slider_controls, curve_slider_controls, rect_controls):
 
     shape_key_driver_defs = {}
     bone_driver_defs = {}
@@ -490,6 +502,39 @@ def collect_driver_defs(chr_cache, rigify_rig, slider_controls, rect_controls):
                         if driver_id not in bone_driver_defs:
                             bone_driver_defs[driver_id] = {}
                         bone_driver_defs[driver_id][nub_bone_name] = bone_control_def
+
+    # collect curve_slider control data into shapekey and bone driver defs
+    for slider_name, slider_def in curve_slider_controls.items():
+
+        control_def, line_bone_name, nub_bone_name, length, zero_point = slider_def
+        control_range_y = control_def["range"]
+        min_y = (length * zero_point) * control_range_y[0]
+        max_y = length * (1 - zero_point) * control_range_y[1]
+        allow_negative = control_def.get("negative", False)
+
+        # only blend shapes in curve sliders
+        if "blendshapes" in control_def:
+
+            num_keys = len(control_def["blendshapes"])
+            for i, (shape_key_name, shape_key_value) in enumerate(control_def["blendshapes"].items()):
+                curve: list = control_def["curve"][i].copy()
+                curve.sort()
+                distance = min_y if shape_key_value == control_range_y[0] else max_y
+                var_axis = facerig_data.LOC_AXES.get("y")[1]
+                if shape_key_name not in shape_key_driver_defs:
+                    shape_key_driver_defs[shape_key_name] = {}
+                key_control_def = {
+                    "start": curve[0],
+                    "mid": curve[1],
+                    "end": curve[-1],
+                    "value": abs(shape_key_value),
+                    "distance": distance,
+                    "var_axis": var_axis,
+                    "num_keys": num_keys,
+                    "negative": allow_negative,
+                    "use_strength": control_def.get("strength", True),
+                }
+                shape_key_driver_defs[shape_key_name][nub_bone_name] = key_control_def
 
     # collect rect control data into shape key and bone driver defs
     for rect_name, rect_def in rect_controls.items():
@@ -599,6 +644,17 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                         if bone_name in BONE_CLEAR_CONSTRAINTS:
                             bones.clear_constraints(rigify_rig, bone_name)
 
+        if control_def["widget_type"] == "curve_slider":
+            rigify_bones = control_def.get("rigify")
+            if rigify_bones:
+                for bone_def in rigify_bones:
+                    bone_name = bone_def["bone"]
+                    if bone_name in rigify_rig.pose.bones:
+                        pose_bone = rigify_rig.pose.bones[bone_name]
+                        pose_bone.rotation_mode = "XYZ"
+                        if bone_name in BONE_CLEAR_CONSTRAINTS:
+                            bones.clear_constraints(rigify_rig, bone_name)
+
         if control_def["widget_type"] == "rect":
             rigify_bones = control_def.get("rigify")
             if rigify_bones:
@@ -611,7 +667,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                             if bone_name in BONE_CLEAR_CONSTRAINTS:
                                 bones.clear_constraints(rigify_rig, bone_name)
 
-    slider_controls, rect_controls = get_generated_controls(chr_cache, rigify_rig)
+    slider_controls, curve_slider_controls, rect_controls = get_generated_controls(chr_cache, rigify_rig)
     objects = chr_cache.get_cache_objects()
 
     if rigutils.select_rig(rigify_rig):
@@ -655,7 +711,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                                               rot_con2, expression="(rf - 1)")
 
         shape_key_driver_defs, bone_driver_defs = collect_driver_defs(chr_cache, rigify_rig,
-                                                                      slider_controls, rect_controls)
+                                                                      slider_controls, curve_slider_controls, rect_controls)
 
         # build shape key drivers from shape key driver defs
         for shape_key_name, shape_key_driver_def in shape_key_driver_defs.items():
@@ -669,6 +725,14 @@ def build_facerig_drivers(chr_cache, rigify_rig):
             value = 1.0
             for nub_bone_name, key_control_def in shape_key_driver_def.items():
                 if nub_bone_name in rigify_rig.pose.bones:
+                    is_curve = "start" in key_control_def
+                    if is_curve:
+                        start = key_control_def.get("start", 0.0)
+                        mid = key_control_def.get("mid", 0.5)
+                        end = key_control_def.get("end", 1.0)
+                        if end == mid:
+                            end = mid + mid - start
+                        range = (end - mid + mid - start) / 2
                     num_keys = key_control_def["num_keys"]
                     var_axis = key_control_def["var_axis"]
                     distance = key_control_def["distance"]
@@ -677,13 +741,17 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                     value = key_control_def["value"]
                     var_name = f"var{vidx}"
                     vidx += 1
+                    expr = f"{var_name}/{fvar(distance)}"
+                    if is_curve:
+                        ve = f"({expr})"
+                        expr = f"min(1,max(0,1-abs({ve}-{fvar(mid)})/{fvar(range)}))"
                     if var_expression:
                         var_expression += "+"
                     use_negative = allow_negative and (num_keys == 1 or num_key_controls > 1)
                     if use_negative:
-                        var_expression += f"({var_name}/{fvar(distance)})"
+                        var_expression += f"({expr})"
                     else:
-                        var_expression += f"max(0,{var_name}/{fvar(distance)})"
+                        var_expression += f"max(0,{expr})"
                     var_def = drivers.make_bone_transform_var_def(var_name, rigify_rig, nub_bone_name, var_axis, "TRANSFORM_SPACE")
                     var_defs.append(var_def)
 
@@ -752,7 +820,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
     # constraint drivers
     facial_profile, viseme_profile = chr_cache.get_facial_profile()
     if facial_profile == "MH":
-        build_constraint_drivers(chr_cache, rigify_rig)
+        build_expression_constraint_drivers(chr_cache, rigify_rig)
 
 
 def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_objects, shape_key_only=False, arkit=False):
@@ -764,6 +832,11 @@ def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_obj
     if rigutils.select_rig(rigify_rig):
 
         facial_profile, viseme_profile = chr_cache.get_facial_profile()
+        if facial_profile == "MH":
+            # ensure curve retarget function is in driver namespace
+            if ("rl_curve_retarget" not in bpy.app.driver_namespace or
+                bpy.app.driver_namespace["rl_curve_retarget"] != func_rl_curve_slider_retarget):
+                bpy.app.driver_namespace["rl_curve_retarget"] = func_rl_curve_slider_retarget
 
         for control_name, control_def in FACERIG_CONFIG.items():
 
@@ -808,15 +881,15 @@ def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_obj
                         if source_name in source_rig.pose.bones:
                             if "translation" in bone_def:
                                 prop, prop_axis, prop_index = facerig_data.LOC_AXES.get(bone_def["axis"], (None, None, None))
-                                source_rig_axis_scale = source_rig.scale[prop_index]
+                                source_rig_axis_scale = 1 / source_rig.scale[prop_index]
                                 offset = bone_def["offset"] * source_rig_axis_scale
                                 if type(bone_def["translation"]) is list:
-                                    scalar = [bone_def["translation"][0],
-                                              bone_def["translation"][1]]
+                                    scalar = [bone_def["translation"][0] * source_rig_axis_scale,
+                                              bone_def["translation"][1] * source_rig_axis_scale]
                                     scale = [slider_length/(control_range[1] * scalar[0]),
                                              slider_length/(control_range[1] * scalar[1])]
                                 else:
-                                    scalar = bone_def["translation"]
+                                    scalar = bone_def["translation"] * source_rig_axis_scale
                                     scale = slider_length/(control_range[1] * scalar)
                             else:
                                 prop, prop_axis, prop_index = facerig_data.ROT_AXES.get(bone_def["axis"], (None, None, None))
@@ -833,18 +906,30 @@ def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_obj
                                                                       "axis": prop_axis })
                 elif blend_shapes:
 
+                    is_curve = control_def["widget_type"] == "curve_slider"
                     ctrl_drivers[driver_id] = { "method": method,
                                                 "parent": parent,
                                                 "length": slider_length,
+                                                "is_curve": is_curve,
                                                 "shape_keys": [] }
 
-                    left_shape = right_shape = None
                     for i, (blend_shape_name, blend_shape_value) in enumerate(blend_shapes.items()):
                         # if 'retarget' list exists in control def, only retarget blendshapes
                         # in the list, to avoid uncontrolled duplicate retargets
                         if "retarget" in control_def:
                             if blend_shape_name not in control_def["retarget"]:
                                 continue
+                        if is_curve:
+                            curve = control_def["curve"][i]
+                            start = curve[0]
+                            mid = curve[1]
+                            end = curve[-1]
+                            if end == mid:
+                                end = mid + mid - start
+                            range = (end - mid + mid - start) / 2
+                        else:
+                            mid = 0.5
+                            range = 1
                         # if retargeting from an ARKit proxy, remap the shapes and only target these shapes
                         if arkit:
                             arkit_blend_shape_name = arkit_find_target_blend_shape(facial_profile, blend_shape_name)
@@ -853,29 +938,17 @@ def build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, source_obj
                             else:
                                 continue
                         if utils.same_sign(blend_shape_value, control_range[0]):
-                            left_shape = (blend_shape_name, abs(blend_shape_value), slider_length/control_range[0])
+                            ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": blend_shape_name,
+                                                                           "value": abs(blend_shape_value),
+                                                                           "scale": slider_length/control_range[0],
+                                                                           "mid": mid,
+                                                                           "range": range })
                         elif utils.same_sign(blend_shape_value, control_range[1]):
-                            right_shape = (blend_shape_name, abs(blend_shape_value), slider_length/control_range[1])
-
-                        if left_shape and right_shape:
-                            if left_shape:
-                                ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": left_shape[0],
-                                                                                "value": left_shape[1],
-                                                                                "scale": left_shape[2] })
-                            if right_shape:
-                                ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": right_shape[0],
-                                                                                "value": right_shape[1],
-                                                                                "scale": right_shape[2] })
-                            left_shape = right_shape = None
-
-                    if left_shape:
-                        ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": left_shape[0],
-                                                                        "value": left_shape[1],
-                                                                        "scale": left_shape[2] })
-                    if right_shape:
-                        ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": right_shape[0],
-                                                                        "value": right_shape[1],
-                                                                        "scale": right_shape[2] })
+                            ctrl_drivers[driver_id]["shape_keys"].append({ "shape_key": blend_shape_name,
+                                                                           "value": abs(blend_shape_value),
+                                                                           "scale": slider_length/control_range[1],
+                                                                           "mid": mid,
+                                                                           "range": range })
 
         for driver_id, driver_def in ctrl_drivers.items():
             bone_name, prop, index = driver_id
@@ -913,6 +986,7 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
     expression = ""
     var_defs = []
     prop_defs = []
+    is_curve = driver_def.get("is_curve", False)
 
     vidx = 0 if not pre_var_defs else len(pre_var_defs)
 
@@ -920,9 +994,12 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
 
         count = 0
         shape_key_defs = driver_def["shape_keys"]
+        scale = 1
         for key_def in shape_key_defs:
             scale = key_def["scale"]
             value = key_def["value"]
+            mid = key_def["mid"]
+            range = key_def["range"]
             if length_override:
                 scale *= length_override / length
                 length = length_override
@@ -931,8 +1008,11 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
             if real_shape_key_name:
                 var_name = f"var{vidx}"
                 if count > 0:
-                    expression += "+"
-                var_expression = f"({var_name}*{fvar(scale)}/{fvar(value)})"
+                    expression += "," if is_curve else "+"
+                if is_curve:
+                    var_expression = f"({var_name}/{fvar(value)},{fvar(mid)},{fvar(range)})"
+                else:
+                    var_expression = f"({var_name}*{fvar(scale)}/{fvar(value)})"
                 if arkit:
                     var_expression = add_arkit_driver_func(chr_cache, var_expression, length,
                                                            shape_key_name, prop_defs)
@@ -949,7 +1029,10 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
             count = 2
 
         if expression:
-            expression = f"({expression})"
+            if is_curve:
+                expression = f"rl_curve_retarget([{expression}])*{fvar(scale)}"
+            else:
+                expression = f"({expression})"
 
         if expression and method == "AVERAGE" and count > 1:
             expression = f"min({fvar(high)},max({fvar(low)},{expression}/{count}))"
@@ -1053,7 +1136,47 @@ def remove_facerig_retarget_drivers(chr_cache, rigify_rig: bpy.types.Object):
         update_facerig_color(None, chr_cache=chr_cache)
 
 
-def get_constraint_source_object(objects, head, shape_key_name):
+def func_rl_curve_slider_retarget(args):
+    """args = [ (v0, m0, r0), (v1, m1, r1), ... ]"""
+    T = 0.0001
+    result = 0
+    max_v = 0
+    min_v = 1
+    L = len(args) - 1
+    for arg in args:
+        v = arg[0]
+        if v > max_v: max_v = v
+        if v < min_v: min_v = v
+    if max_v < T:
+        result = 0
+    elif args[L][0] > 1 - T:
+        result = 1
+    else:
+        for i, arg in enumerate(args):
+            v, m, r = arg
+            if v == max_v:
+                if i == 0:
+                    v1 = args[i+1][0]
+                    if v1 < T:
+                        result = m - r * (1 - v)
+                    else:
+                        result = m + r * (1 - v)
+                    break
+                elif i == L:
+                    result = m - r * (1 - v)
+                    break
+                else:
+                    v0 = args[i-1][0]
+                    v1 = args[i+1][0]
+                    if v0 > v1:
+                        result = m - r * (1 - v)
+                    else:
+                        result = m + r * (1 - v)
+                    break
+    return min(1, max(0, result))
+
+
+def get_expression_shape_key_source_object(objects, head, shape_key_name):
     if utils.object_exists_is_mesh(head) and utils.object_has_shape_key(head, shape_key_name):
         return head
     for obj in objects:
@@ -1062,7 +1185,48 @@ def get_constraint_source_object(objects, head, shape_key_name):
     return None
 
 
-def build_add_constraint_driver(chr_cache, rigify_rig, objects, head,
+def get_expression_constraint_var_expression(var_name, points):
+    var_expression = ""
+    if len(points) == 2:
+        x0 = points[0][0] # should be 0.0
+        x1 = points[1][0] # should be 0.0
+        y0 = points[0][1] # should be 1.0
+        y1 = points[1][1] # should be 1.0
+        dy = y1 - y0
+        dx = x1 - x0
+        if dx == 0: dx = 1
+        dybydx = dy / dx
+        # y0 + (V - x0) * dy/dx
+        var_expression = f"max(0,min(1,{fvar(y0)}+{fvar(dybydx)}*({var_name}-{fvar(x0)})))"
+    elif len(points) == 3:
+        xs = points[0][0] # should be 0.0
+        ys = points[0][1] # should be 0.0
+        xm = points[1][0] # should be 0.5
+        ym = points[1][1] # should be 1.0
+        xe = points[2][0] # should be 1.0
+        ye = points[2][1] # should be 0.0
+        dx = ((xe - xm) + (xm - xs)) / 2 # should be 0.5
+        dy = ((ye - ym) + (ys - ym)) / 2 # should be -1
+        if dx == 0: dx = 1
+        dybydx = dy / dx
+        # ym + abs(V - xm) * dy/dx
+        var_expression = f"max(0,min(1,{fvar(ym)}+{fvar(dybydx)}*abs({var_name}-{fvar(xm)})))"
+    elif len(points) == 5:
+        xs = points[1][0] # should be 0.25
+        ys = points[1][1] # should be 0.0
+        xm = points[2][0] # should be 0.5
+        ym = points[2][1] # should be 1.0
+        xe = points[3][0] # should be 0.75
+        ye = points[3][1] # should be 0.0
+        dx = ((xe - xm) + (xm - xs)) / 2 # should be 0.25
+        dy = ((ye - ym) + (ys - ym)) / 2 # should be -1
+        if dx == 0: dx = 1
+        dybydx = dy / dx
+        var_expression = f"max(0,min(1,{fvar(ym)}+{fvar(dybydx)}*abs({var_name}-{fvar(xm)})))"
+    return var_expression
+
+
+def build_expression_constraint_add_driver(chr_cache, rigify_rig, objects, head,
                                 source_keys, target_key,
                                 curve_mode, points):
     var_defs = []
@@ -1070,47 +1234,13 @@ def build_add_constraint_driver(chr_cache, rigify_rig, objects, head,
     expression = ""
 
     for key in source_keys:
-        source_obj = get_constraint_source_object(objects, head, key)
+        source_obj = get_expression_shape_key_source_object(objects, head, key)
         var_name = f"var{vidx}"
         vidx += 1
         var_def = drivers.make_shape_key_var_def(var_name, source_obj, key)
         var_defs.append(var_def)
 
-        var_expression = ""
-        if len(points) == 2:
-            x0 = points[0][0] # should be 0.0
-            x1 = points[1][0] # should be 0.0
-            y0 = points[0][1] # should be 1.0
-            y1 = points[1][1] # should be 1.0
-            dy = y1 - y0
-            dx = x1 - x0
-            if dx == 0: dx = 1
-            dybydx = dy / dx
-            # y0 + (V - x0) * dy/dx
-            var_expression = f"max(0,min(1,{fvar(y0)}+{fvar(dybydx)}*({var_name}-{fvar(x0)})))"
-        elif len(points) == 3:
-            xs = points[0][0] # should be 1.0
-            ys = points[0][1] # should be 0.0
-            xm = points[1][0] # should be 0.5
-            ym = points[1][1] # should be 1.0
-            xe = points[2][0] # should be 1.0
-            ye = points[2][1] # should be 0.0
-            dx = ((xe - xm) + (xm - xs)) / 2 # should be 0.5
-            dy = ((ye - ym) + (ym - ys)) / 2 # should be -1
-            dybydx = dy / dx
-            # ym + abs(V - xm) * dy/dx
-            var_expression = f"max(0,min(1,{fvar(ym)}+{fvar(dybydx)}*abs({var_name}-{fvar(xm)})))"
-        elif len(points) == 5:
-            xs = points[1][0] # should be 0.25
-            ys = points[1][1] # should be 0.0
-            xm = points[2][0] # should be 0.5
-            ym = points[2][1] # should be 1.0
-            xe = points[3][0] # should be 0.75
-            ye = points[3][1] # should be 0.0
-            dx = ((xe - xm) + (xm - xs)) / 2 # should be 0.25
-            dy = ((ye - ym) + (ym - ys)) / 2 # should be -1
-            dybydx = dy / dx
-            var_expression = f"max(0,min(1,{fvar(ym)}+{fvar(dybydx)}*abs({var_name}-{fvar(xm)})))"
+        var_expression = get_expression_constraint_var_expression(var_name, points)
 
         if expression:
             expression += "*"
@@ -1123,11 +1253,87 @@ def build_add_constraint_driver(chr_cache, rigify_rig, objects, head,
             drivers.add_shape_key_driver(rigify_rig, obj, target_key, driver_def, var_defs, 1.0)
 
 
-def build_limit_constraint_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points):
-    return
+def apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def, target_key, expression, var_defs,
+                                          line_suffix="_line", key_group="", axis="y"):
+    nub_bone_name = control_name
+    nub_bone = bones.get_pose_bone(rigify_rig, nub_bone_name)
+    line_bone_name = control_name + line_suffix
+    line_bone = bones.get_pose_bone(rigify_rig, line_bone_name)
+    if nub_bone and line_bone:
+        if "blendshapes" in control_def:
+            if key_group:
+                prefix = f"{key_group}_"
+                shapes = control_def["blendshapes"][key_group]
+            else:
+                prefix = ""
+                shapes = control_def["blendshapes"]
+            for i, (key_name, key_value) in enumerate(shapes.items()):
+                if key_name == target_key:
+                    slider_length = line_bone[f"{prefix}slider_length"] if f"{prefix}slider_length" in line_bone else line_bone.bone.length * 2
+                    if control_def.get(f"{prefix}invert", False):
+                        key_value = -key_value
+                    if control_def.get(f"{prefix}mirror", False):
+                        key_value = -key_value
+                    limit_value = slider_length * key_value
+                    if key_value < 0:
+                        prop = f"min_{axis}"
+                    else:
+                        prop = f"max_{axis}"
+                    limit_expression = f"{fvar(limit_value)}*{expression}"
+                    driver_def = ["SCRIPTED", prop, -1, limit_expression]
+                    drivers.add_constraint_prop_driver(rigify_rig, nub_bone_name,
+                                                        driver_def, var_defs,
+                                                        constraint_type="LIMIT_LOCATION")
 
 
-def build_constraint_drivers(chr_cache, rigify_rig):
+def build_expression_constraint_limit_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points):
+    var_defs = []
+    vidx = 0
+    limit_expression = ""
+
+    for key in source_keys:
+        source_obj = get_expression_shape_key_source_object(objects, head, key)
+        var_name = f"lv{vidx}"
+        vidx += 1
+        var_def = drivers.make_shape_key_var_def(var_name, source_obj, key)
+        var_defs.append(var_def)
+
+        var_expression = get_expression_constraint_var_expression(var_name, points)
+
+        if limit_expression:
+            limit_expression += "*"
+        limit_expression += var_expression
+
+    # limit facerig control movement ranges
+    FACERIG_CONFIG = get_facerig_config(chr_cache)
+    for control_name, control_def in FACERIG_CONFIG.items():
+        if control_def["widget_type"] == "slider":
+            apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def,
+                                                   target_key, limit_expression, var_defs,
+                                                   "_line", "", "y")
+        elif control_def["widget_type"] == "rect":
+            apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def,
+                                                   target_key, limit_expression, var_defs,
+                                                   "_box", "x", "x")
+            apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def,
+                                                   target_key, limit_expression, var_defs,
+                                                   "_box", "y", "y")
+
+    # apply a min(expression, limit_expression) to existing shape key value driver
+    # (driving the shape key max value has no effect)
+    for obj in objects:
+        if utils.object_has_shape_key(obj, target_key):
+            driver: bpy.types.Driver = drivers.get_shape_key_driver(obj, target_key)
+            if driver and driver.expression:
+                driver_expression = driver.expression
+                drivers.add_driver_var_defs(driver, var_defs)
+                new_expression = f"min({driver_expression}, {limit_expression})"
+                driver.expression = new_expression
+            else:
+                print(f"NO DRIVER: {obj.name} {target_key}")
+
+
+def build_expression_constraint_drivers(chr_cache, rigify_rig):
     objects = chr_cache.get_cache_objects()
     head = drivers.get_head_body_object(chr_cache)
     chr_json = chr_cache.get_character_json()
@@ -1137,18 +1343,17 @@ def build_constraint_drivers(chr_cache, rigify_rig):
             target_key = constraint_def["Target Channel"]
             curve_mode = constraint_def["Curve Mode"]
             mode = constraint_def["Mode"]
-            points = set()
+            points = []
             for point in constraint_def["Curve"]:
-                co = (point[0], point[1])
-                points.add(co)
-            points = list(points)
+                co = (min(1, max(0, point[0])), (min(1, max(0, point[1]))))
+                if co not in points:
+                    points.append(co)
             # sort by x value
             points.sort(key=lambda co: co[0])
-            print(mode, points, source_keys, target_key)
             if mode == "Add":
-                build_add_constraint_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points)
+                build_expression_constraint_add_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points)
             elif mode == "Limit":
-                build_limit_constraint_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points)
+                build_expression_constraint_limit_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points)
 
 
 def clear_expression_pose(chr_cache, rigify_rig, selected=False):
