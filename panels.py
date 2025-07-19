@@ -2158,7 +2158,14 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if obj == chr_cache.rig_meta_rig:
 
                             layout.row().label(text="Re-rigify", icon="INFO")
-                            row = layout.row()
+                            col = layout.column(align=True)
+                            col.label(text="Expression Rig:")
+                            col.row(align=True).prop(prefs, "rigify_expression_rig", expand=True)
+                            col = layout.column()
+                            if prefs.rigify_expression_rig == "META":
+                                col.row().prop(prefs, "rigify_face_control_color")
+                            row = col.row()
+                            row.scale_y = 1.5
                             row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Regenerate Rigify").param = "RE_RIGIFY_META"
 
                             layout.separator()
