@@ -1287,6 +1287,8 @@ def apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def
 
 
 def build_expression_constraint_limit_driver(chr_cache, rigify_rig, objects, head, source_keys, target_key, curve_mode, points):
+    prefs = vars.prefs()
+
     var_defs = []
     vidx = 0
     limit_expression = ""
@@ -1305,19 +1307,20 @@ def build_expression_constraint_limit_driver(chr_cache, rigify_rig, objects, hea
         limit_expression += var_expression
 
     # limit facerig control movement ranges
-    FACERIG_CONFIG = get_facerig_config(chr_cache)
-    for control_name, control_def in FACERIG_CONFIG.items():
-        if control_def["widget_type"] == "slider":
-            apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def,
-                                                   target_key, limit_expression, var_defs,
-                                                   "_line", "", "y")
-        elif control_def["widget_type"] == "rect":
-            apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def,
-                                                   target_key, limit_expression, var_defs,
-                                                   "_box", "x", "x")
-            apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def,
-                                                   target_key, limit_expression, var_defs,
-                                                   "_box", "y", "y")
+    if prefs.rigify_limit_control_range:
+        FACERIG_CONFIG = get_facerig_config(chr_cache)
+        for control_name, control_def in FACERIG_CONFIG.items():
+            if control_def["widget_type"] == "slider":
+                apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def,
+                                                    target_key, limit_expression, var_defs,
+                                                    "_line", "", "y")
+            elif control_def["widget_type"] == "rect":
+                apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def,
+                                                    target_key, limit_expression, var_defs,
+                                                    "_box", "x", "x")
+                apply_control_limit_constraint_drivers(rigify_rig, control_name, control_def,
+                                                    target_key, limit_expression, var_defs,
+                                                    "_box", "y", "y")
 
     # apply a min(expression, limit_expression) to existing shape key value driver
     # (driving the shape key max value has no effect)
@@ -1330,7 +1333,7 @@ def build_expression_constraint_limit_driver(chr_cache, rigify_rig, objects, hea
                 new_expression = f"min({driver_expression}, {limit_expression})"
                 driver.expression = new_expression
             else:
-                print(f"NO DRIVER: {obj.name} {target_key}")
+                utils.log_warn(f"NO DRIVER: {obj.name} {target_key}")
 
 
 def build_expression_constraint_drivers(chr_cache, rigify_rig):

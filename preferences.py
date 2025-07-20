@@ -89,6 +89,9 @@ def reset_rigify():
     prefs.rigify_export_naming = "METARIG"
     prefs.rigify_expression_rig = "META"
     prefs.rigify_auto_retarget = True
+    prefs.rigify_preview_shape_keys = True
+    prefs.rigify_limit_control_range = False
+    prefs.rigify_bake_shape_keys = True
     prefs.rigify_preview_retarget_fk_ik = "BOTH"
     prefs.rigify_bake_nla_fk_ik = "BOTH"
     prefs.rigify_align_bones = "METARIG"
@@ -292,7 +295,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("CREATURE","Creature","Export the selected armature and objects as a creature .Fbx file, with generated .json data for import into CC4 (Only)"),
                         ("PROP","Prop","Export the selected objects as a prop .Fbx file, with generated .json data for import into CC4 (Only)"),
                     ], default="HUMANOID", name = "Non-standard Export")
-    export_texture_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Size of procedurally generated textures to bake")
+    export_texture_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048",
+                                                name="Export Texture Size",
+                                                description="Size of procedurally generated textures to bake")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
@@ -465,18 +470,20 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
                         ("MOTION","Motion","Export the animation only, with minimal mesh and no materials. Shapekey animations will also export their requisite mesh objects"),
                         ("BOTH","Both","Export both the character mesh with materials and the animation"),
-                    ], default="MOTION")
+                    ], default="MOTION",
+                    name="Export Mode")
     rigify_export_naming: bpy.props.EnumProperty(items=[
                         ("METARIG","Metarig","Use metarig bone names without a Root bone.\n" \
-                                             "For exporting animations to CC4/iClone, Unity or other applications.\n" \
+                                             "For exporting animations to CC4/iClone, or other applications.\n" \
                                              "Note: CC4 will auto detect a blender meta-rig, but you must use the generated hik (.3dxProfile) profile to import animations back into CC4"),
                         ("RIGIFY","Rigify","Use custom Rigify_Base_ bone names with a Rigify_Base_Root bone. \n" \
-                                           "For exporting animations and characters to Unity and be compatible with the Unity auto-setup.\n" \
                                            "*Warning*: Does not import correctly back into CC4!"),
                         ("CC","CC Base","Use original CC_Base_ bone names with a CC_Base_Root bone. \n" \
-                                        "Note: The bone names are the same but their orientations are different from the original CC bones. \n"
+                                        "Bones are exported in their original CC rig orientations where possible. \n" \
+                                        "For exporting animations and characters to Unity and be compatible with the Unity auto-setup.\n" \
                                         "*Warning*: Does not import correctly back into CC4!"),
-                    ], default="METARIG", name = "Bone names to use when exporting Rigify characters and motions.")
+                    ], default="METARIG", description="Bone names to use when exporting Rigify characters and motions.",
+                                          name="Export Bone Naming")
     rigify_expression_rig: bpy.props.EnumProperty(items=[
                         ("NONE","None","No expression rig, just eye and jaw controls"),
                         ("RIGIFY","Rigify","Rigify full face rig"),
@@ -487,7 +494,11 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                                 min = 0.0, max = 1.0,
                                                 name="Rig Color")
     rigify_auto_retarget: bpy.props.BoolProperty(default=True,
+                                                 name="Auto Retarget",
                                                  description="Auto retarget any animation currently on the character armature")
+    rigify_limit_control_range: bpy.props.BoolProperty(default=False,
+                                                       name="Limit Control Range",
+                                                       description="When using limit constraints, hard limit the control range of the constrained control")
     rigify_preview_retarget_fk_ik: bpy.props.EnumProperty(items=[
                         ("FK","FK","Retarget to FK controls only"),
                         ("IK","IK","Retarget to IK controls only"),
@@ -596,20 +607,20 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.use_property_split = True
 
         layout.label(text="Import:")
-        layout.prop(self, "import_deduplicate")
-        layout.prop(self, "import_auto_convert")
-        layout.prop(self, "auto_convert_materials")
-        layout.prop(self, "build_limit_textures")
-        layout.prop(self, "build_pack_texture_channels")
-        layout.prop(self, "build_pack_wrinkle_diffuse_roughness")
-        layout.prop(self, "build_armature_edit_modifier")
-        layout.prop(self, "build_armature_preserve_volume")
-        layout.prop(self, "build_skin_shader_dual_spec")
-        layout.separator()
-        layout.prop(self, "build_shape_key_bone_drivers_jaw")
-        layout.prop(self, "build_shape_key_bone_drivers_eyes")
-        layout.prop(self, "build_shape_key_bone_drivers_head")
-        layout.prop(self, "build_body_key_drivers")
+        grid = layout.grid_flow(row_major=True, columns=2)
+        grid.prop(self, "import_deduplicate")
+        grid.prop(self, "import_auto_convert")
+        grid.prop(self, "auto_convert_materials")
+        grid.prop(self, "build_limit_textures")
+        grid.prop(self, "build_pack_texture_channels")
+        grid.prop(self, "build_pack_wrinkle_diffuse_roughness")
+        grid.prop(self, "build_armature_edit_modifier")
+        grid.prop(self, "build_armature_preserve_volume")
+        grid.prop(self, "build_skin_shader_dual_spec")
+        grid.prop(self, "build_shape_key_bone_drivers_jaw")
+        grid.prop(self, "build_shape_key_bone_drivers_eyes")
+        grid.prop(self, "build_shape_key_bone_drivers_head")
+        grid.prop(self, "build_body_key_drivers")
 
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")
@@ -643,17 +654,32 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "physics_weightmap_curve")
 
         layout.label(text="Rigify:")
-        layout.prop(self, "rigify_align_bones")
+
+        grid = layout.grid_flow(row_major=True, columns=2)
+        grid.prop(self, "rigify_preview_shape_keys")
+        grid.prop(self, "rigify_bake_shape_keys")
+        grid.prop(self, "rigify_export_t_pose")
+        grid.prop(self, "rigify_auto_retarget")
+        grid.prop(self, "rigify_limit_control_range")
+        grid = layout.grid_flow(row_major=True, columns=2)
+        grid.prop(self, "rigify_align_bones")
+        grid.prop(self, "rigify_export_mode")
+        grid.prop(self, "rigify_export_naming")
+        grid.prop(self, "rigify_expression_rig")
+        grid.prop(self, "rigify_face_control_color")
+        grid.prop(self, "rigify_preview_retarget_fk_ik")
+        grid.prop(self, "rigify_bake_nla_fk_ik")
 
         layout.label(text="Export:")
-        layout.prop(self, "export_json_changes")
-        layout.prop(self, "export_texture_changes")
-        layout.prop(self, "export_legacy_bone_roll_fix")
-        layout.prop(self, "export_bake_nodes")
-        layout.prop(self, "export_bake_bump_to_normal")
-        layout.prop(self, "export_unity_remove_objects")
+        grid = layout.grid_flow(row_major=True, columns=2)
+        grid.prop(self, "export_json_changes")
+        grid.prop(self, "export_texture_changes")
+        grid.prop(self, "export_legacy_bone_roll_fix")
+        grid.prop(self, "export_bake_nodes")
+        grid.prop(self, "export_bake_bump_to_normal")
+        grid.prop(self, "export_unity_remove_objects")
+        grid.prop(self, "export_require_key")
         layout.prop(self, "export_texture_size")
-        layout.prop(self, "export_require_key")
 
         layout.label(text="Convert:")
         layout.prop(self, "convert_non_standard_type")
