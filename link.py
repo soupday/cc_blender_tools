@@ -4098,7 +4098,7 @@ class LinkService():
                         chr_colliders[bone_name] = copy.deepcopy(tmp_colliders[bone_name])
 
                 # write the changes to a .json_local
-                jsonutils.write_json(chr_json, chr_cache.import_file, is_fbx_path=True, is_json_local=True)
+                jsonutils.write_json(chr_json, chr_cache.import_file, is_fbx_path=True, is_json_local=True, update_cache=True)
 
                 # remove unused images/folders from the update import files
                 tmp_images = jsonutils.get_meshes_images(tmp_meshes)

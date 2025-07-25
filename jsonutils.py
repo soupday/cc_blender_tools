@@ -22,8 +22,16 @@ import copy
 from . import utils
 
 
+JSON_CACHE = {}
+
+
 def read_json(fbx_path, errors, no_local=False):
     json_file_exists = False
+    if fbx_path in JSON_CACHE:
+        json_data = JSON_CACHE[fbx_path]
+        if json_data is not None:
+            return copy.deepcopy(json_data)
+        return None
     try:
         fbx_file = os.path.basename(fbx_path)
         fbx_folder = os.path.dirname(fbx_path)
@@ -56,10 +64,12 @@ def read_json(fbx_path, errors, no_local=False):
             text_data = file.read()
             json_data = json.loads(text_data)
             file.close()
+            JSON_CACHE[fbx_path] = json_data
             utils.log_info("Json data successfully parsed: " + json_path)
             return json_data
 
         utils.log_info("No Json data to parse, using defaults...")
+        JSON_CACHE[fbx_path] = None
         if errors:
             errors.append("NO_JSON")
         return None
@@ -73,8 +83,10 @@ def read_json(fbx_path, errors, no_local=False):
         return None
 
 
-def write_json(json_data, path, is_fbx_path=False, is_json_local=False):
+def write_json(json_data, path, is_fbx_path=False, is_json_local=False, update_cache=False):
     if is_fbx_path:
+        if update_cache:
+            JSON_CACHE[path] = json_data
         file = os.path.basename(path)
         folder = os.path.dirname(path)
         name = os.path.splitext(file)[0]

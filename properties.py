@@ -2487,7 +2487,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return jsonutils.read_json(self.import_file, errors)
 
     def write_json_data(self, json_data):
-        jsonutils.write_json(json_data, self.import_file, is_fbx_path=True)
+        jsonutils.write_json(json_data, self.import_file, is_fbx_path=True, update_cache=True)
 
     def change_import_file(self, filepath):
         self.import_file = filepath
