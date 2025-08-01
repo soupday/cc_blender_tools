@@ -1368,6 +1368,7 @@ def shutdown():
     try:
         link_service = get_link_service()
         if link_service:
+            print("DISCONNECT")
             link_service.service_disconnect()
     except Exception as e:
         utils.log_error("Shutdown error!", e)
@@ -1854,9 +1855,17 @@ class LinkService():
         except Exception as e:
             utils.log_error("Service Disconnect error: Send", e)
         try:
-            self.service_recv_disconnected()
+            self.stop_timer()
         except Exception as e:
-            utils.log_error("Service Disconnect error: Disconnect", e)
+            utils.log_error("Service Disconnect error: Stop Timer", e)
+        try:
+            self.stop_client()
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Stop Client", e)
+        try:
+            self.stop_server()
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Stop Server", e)
 
     def service_recv_disconnected(self):
         try:
