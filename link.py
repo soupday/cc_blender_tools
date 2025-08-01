@@ -1558,7 +1558,7 @@ class LinkService():
             self.client_stopped.emit()
             self.changed.emit()
         except Exception as e:
-            utils.log_error("Stop Client error: ", e)
+            utils.log_error("Stop Client error!", e)
 
     def has_client_sock(self):
         if self.client_sock and (self.is_connected or self.is_connecting):
@@ -1838,11 +1838,11 @@ class LinkService():
         try:
             self.send(OpCodes.DISCONNECT)
         except Exception as e:
-            utils.log_error("Service Disconnect error (Send): ", e)
+            utils.log_error("Service Disconnect error: Send", e)
         try:
             self.service_recv_disconnected()
         except Exception as e:
-            utils.log_error("Service Disconnect error (Disconnect): ", e)
+            utils.log_error("Service Disconnect error: Disconnect", e)
 
 
     def service_recv_disconnected(self):
@@ -1850,11 +1850,11 @@ class LinkService():
             if CLIENT_ONLY:
                 self.stop_timer()
         except Exception as e:
-            utils.log_error("Service Recv Disconnected error (Stop Timer): ", e)
+            utils.log_error("Service Recv Disconnected error: Stop Timer", e)
         try:
             self.stop_client()
         except Exception as e:
-            utils.log_error("Service Recv Disconnected error (Stop Client): ", e)
+            utils.log_error("Service Recv Disconnected error: Stop Client", e)
 
     def service_stop(self):
         self.send(OpCodes.STOP)
