@@ -1362,6 +1362,17 @@ class Signal():
             func(*args)
 
 
+@atexit.register
+def shutdown():
+    print("SHUTDOWN")
+    try:
+        link_service = get_link_service()
+        if link_service:
+            link_service.service_disconnect()
+    except Exception as e:
+        utils.log_error("Shutdown error!", e)
+
+
 class LinkService():
     timer = None
     server_sock: socket.socket = None
@@ -1412,14 +1423,14 @@ class LinkService():
     def __init__(self):
         global LINK_DATA
         self.link_data = LINK_DATA
-        atexit.register(self.service_disconnect)
+        #atexit.register(self.service_disconnect)
 
     def __enter__(self):
         return self
 
     def __exit__(self):
         self.service_stop()
-        atexit.unregister(self.service_disconnect)
+        #atexit.unregister(self.service_disconnect)
 
     def compatible_plugin(self, plugin_version):
         if f"v{plugin_version}" == vars.VERSION_STRING:
@@ -1471,9 +1482,10 @@ class LinkService():
     def start_timer(self):
         self.time = time.time()
         if not self.timer:
-            bpy.app.timers.register(self.loop, first_interval=TIMER_INTERVAL)
-            self.timer = True
-            utils.log_info(f"Service timer started")
+            if not bpy.app.timers.is_registered(self.loop):
+                bpy.app.timers.register(self.loop, first_interval=TIMER_INTERVAL)
+                self.timer = True
+                utils.log_info(f"Service timer started")
 
     def stop_timer(self):
         if self.timer:
