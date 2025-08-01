@@ -2023,6 +2023,7 @@ SHADER_MATRIX = [
             ["hair_bump_strength", 1.0, "", "Pbr/Normal"],
             ["hair_emission_strength", 0, "", "Pbr/Glow"],
             ["hair_displacement_strength", 1, "", "Pbr/Displacement"],
+            ["hair_alpha_strength", 1.0, "func_mul", "Pbr/Opacity", "Base/Opacity"],
             # non json properties (just defaults)
             ["hair_ao_power", 1, "DEF"],
             ["hair_diffuse_hue", 0.5, "", "/Diffuse Hue"],
@@ -2036,7 +2037,6 @@ SHADER_MATRIX = [
             ["hair_specular_blend", 0.9, "DEF"],
             ["hair_anisotropic_color", (1.000000, 0.798989, 0.689939, 1.000000), "DEF"],
             ["hair_subsurface_falloff", (1.000000, 0.815931, 0.739236, 1.000000), "DEF"],
-
             ["hair_subsurface_falloff_mix", 0.5, "DEF"],
         ],
         # export variables to update json file on export that need special conversion
