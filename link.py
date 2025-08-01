@@ -1364,6 +1364,7 @@ class Signal():
 
 @atexit.register
 def shutdown():
+    print("SHUTDOWN")
     try:
         link_service = get_link_service()
         if link_service:
