@@ -1419,6 +1419,7 @@ class LinkService():
 
     def __exit__(self):
         self.service_stop()
+        atexit.unregister(self.service_disconnect)
 
     def compatible_plugin(self, plugin_version):
         if f"v{plugin_version}" == vars.VERSION_STRING:
@@ -1477,7 +1478,8 @@ class LinkService():
     def stop_timer(self):
         if self.timer:
             try:
-                bpy.app.timers.unregister(self.loop)
+                if bpy.app.timers.is_registered(self.loop):
+                    bpy.app.timers.unregister(self.loop)
             except:
                 pass
             self.timer = False
