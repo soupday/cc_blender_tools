@@ -1478,8 +1478,8 @@ class LinkService():
         if self.timer:
             try:
                 bpy.app.timers.unregister(self.loop)
-            except:
-                pass
+            except Exception as e:
+                utils.log_error("Stop Timer error!", e)
             self.timer = False
             utils.log_info(f"Service timer stopped")
 
@@ -1542,15 +1542,15 @@ class LinkService():
                 try:
                     self.client_sock.shutdown()
                     self.client_sock.close()
-                except:
-                    pass
+                except Exception as e:
+                    utils.log_error("Stop Client error!", e)
             self.is_connected = False
             self.is_connecting = False
             try:
                 link_props = vars.link_props()
                 link_props.connected = False
-            except:
-                pass
+            except Exception as e:
+                utils.log_error("Stop Client error!", e)
             self.client_sock = None
             self.client_sockets = []
             if self.listening:
