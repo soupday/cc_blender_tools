@@ -1536,26 +1536,29 @@ class LinkService():
         self.send(OpCodes.HELLO, encode_from_json(json_data))
 
     def stop_client(self):
-        if self.client_sock:
-            utils.log_info(f"Closing Client Socket")
+        try:
+            if self.client_sock:
+                utils.log_info(f"Closing Client Socket")
+                try:
+                    self.client_sock.shutdown()
+                    self.client_sock.close()
+                except:
+                    pass
+            self.is_connected = False
+            self.is_connecting = False
             try:
-                self.client_sock.shutdown()
-                self.client_sock.close()
+                link_props = vars.link_props()
+                link_props.connected = False
             except:
                 pass
-        self.is_connected = False
-        self.is_connecting = False
-        try:
-            link_props = vars.link_props()
-            link_props.connected = False
-        except:
-            pass
-        self.client_sock = None
-        self.client_sockets = []
-        if self.listening:
-            self.keepalive_timer = HANDSHAKE_TIMEOUT_S
-        self.client_stopped.emit()
-        self.changed.emit()
+            self.client_sock = None
+            self.client_sockets = []
+            if self.listening:
+                self.keepalive_timer = HANDSHAKE_TIMEOUT_S
+            self.client_stopped.emit()
+            self.changed.emit()
+        except Exception as e:
+            utils.log_error("Stop Client error!", e)
 
     def has_client_sock(self):
         if self.client_sock and (self.is_connected or self.is_connecting):
@@ -1834,13 +1837,23 @@ class LinkService():
     def service_disconnect(self):
         try:
             self.send(OpCodes.DISCONNECT)
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Send", e)
+        try:
             self.service_recv_disconnected()
-        except: ...
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Disconnect", e)
 
     def service_recv_disconnected(self):
-        if CLIENT_ONLY:
-            self.stop_timer()
-        self.stop_client()
+        try:
+            if CLIENT_ONLY:
+                self.stop_timer()
+        except Exception as e:
+            utils.log_error("Service Recv Disconnected error: Stop Timer", e)
+        try:
+            self.stop_client()
+        except Exception as e:
+            utils.log_error("Service Recv Disconnected error: Stop Client", e)
 
     def service_stop(self):
         self.send(OpCodes.STOP)
