@@ -1362,6 +1362,16 @@ class Signal():
             func(*args)
 
 
+@atexit.register
+def shutdown():
+    try:
+        link_service = get_link_service()
+        if link_service:
+            link_service.service_disconnect()
+    except Exception as e:
+        utils.log_error("Shutdown error!", e)
+
+
 class LinkService():
     timer = None
     server_sock: socket.socket = None
@@ -1412,13 +1422,14 @@ class LinkService():
     def __init__(self):
         global LINK_DATA
         self.link_data = LINK_DATA
-        atexit.register(self.service_disconnect)
+        #atexit.register(self.service_disconnect)
 
     def __enter__(self):
         return self
 
-    def __exit__(self):
+    def __exit__(self, exception_type, excetpion_value, exception_traceback):
         self.service_stop()
+        #atexit.unregister(self.service_disconnect)
 
     def compatible_plugin(self, plugin_version):
         if f"v{plugin_version}" == vars.VERSION_STRING:
@@ -1477,7 +1488,8 @@ class LinkService():
     def stop_timer(self):
         if self.timer:
             try:
-                bpy.app.timers.unregister(self.loop)
+                if bpy.app.timers.is_registered(self.loop):
+                    bpy.app.timers.unregister(self.loop)
             except Exception as e:
                 utils.log_error("Stop Timer error!", e)
             self.timer = False
@@ -1840,10 +1852,17 @@ class LinkService():
         except Exception as e:
             utils.log_error("Service Disconnect error: Send", e)
         try:
-            self.service_recv_disconnected()
+            self.stop_timer()
         except Exception as e:
-            utils.log_error("Service Disconnect error: Disconnect", e)
-
+            utils.log_error("Service Disconnect error: Stop Timer", e)
+        try:
+            self.stop_client()
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Stop Client", e)
+        try:
+            self.stop_server()
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Stop Server", e)
 
     def service_recv_disconnected(self):
         try:
