@@ -1,7 +1,6 @@
 import bpy #, bpy_extras
 from bpy.app.handlers import persistent
 #import bpy_extras.view3d_utils as v3d
-import atexit
 from enum import IntEnum
 import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
@@ -1415,14 +1414,12 @@ class LinkService():
     def __init__(self):
         global LINK_DATA
         self.link_data = LINK_DATA
-        #atexit.register(self.service_disconnect)
 
     def __enter__(self):
         return self
 
     def __exit__(self):
         self.service_stop()
-        #atexit.unregister(self.service_disconnect)
 
     def compatible_plugin(self, plugin_version):
         if f"v{plugin_version}" == vars.VERSION_STRING:
