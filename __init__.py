@@ -63,7 +63,6 @@ if "bpy" in locals():
     importlib.reload(rlx)
 
 import bpy
-from bpy.app.handlers import persistent
 
 from . import addon_updater_ops
 from . import preferences
@@ -238,6 +237,8 @@ classes = (
     panels.CC3ToolsUtilityPanel,
 )
 
+
+
 def register():
 
     addon_updater_ops.register(bl_info)
@@ -254,11 +255,17 @@ def register():
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import_animation)
     bpy.types.TOPBAR_MT_file_export.append(exporter.menu_func_export)
 
-    if link_reconnect not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(link_reconnect)
+    if link.disconnect not in bpy.app.handlers.load_pre:
+        bpy.app.handlers.load_pre.append(link.disconnect)
+    if link.reconnect not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(link.reconnect)
+
+    bpy.app.timers.register(link.reconnect, first_interval=0.5, persistent=False)
 
 
 def unregister():
+
+    link.disconnect()
 
     addon_updater_ops.unregister()
 
@@ -275,11 +282,8 @@ def unregister():
     del(bpy.types.Scene.CCICBakeProps)
     del(bpy.types.Scene.CCICLinkProps)
 
-    if link_reconnect in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(link_reconnect)
-
-
-@persistent
-def link_reconnect(file_path):
-    link.reconnect()
+    if link.disconnect in bpy.app.handlers.load_pre:
+        bpy.app.handlers.load_pre.remove(link.disconnect)
+    if link.reconnect in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(link.reconnect)
 

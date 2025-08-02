@@ -37,13 +37,13 @@ def prefs():
     return bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
 def props():
-    return bpy.context.scene.CC3ImportProps
+    return getattr(bpy.context.scene, "CC3ImportProps", None)
 
 def link_props():
-    return bpy.context.scene.CCICLinkProps
+    return getattr(bpy.context.scene, "CCICLinkProps", None)
 
 def bake_props():
-    return bpy.context.scene.CCICBakeProps
+    return getattr(bpy.context.scene, "CCICBakeProps", None)
 
 def get_context(context=None) -> bpy.types.Context:
     if not context:

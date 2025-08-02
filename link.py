@@ -1,6 +1,6 @@
 import bpy #, bpy_extras
+from bpy.app.handlers import persistent
 #import bpy_extras.view3d_utils as v3d
-import atexit
 from enum import IntEnum
 import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
@@ -1362,17 +1362,6 @@ class Signal():
             func(*args)
 
 
-@atexit.register
-def shutdown():
-    print("SHUTDOWN")
-    try:
-        link_service = get_link_service()
-        if link_service:
-            link_service.service_disconnect()
-    except Exception as e:
-        utils.log_error("Shutdown error!", e)
-
-
 class LinkService():
     timer = None
     server_sock: socket.socket = None
@@ -1423,14 +1412,12 @@ class LinkService():
     def __init__(self):
         global LINK_DATA
         self.link_data = LINK_DATA
-        #atexit.register(self.service_disconnect)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exception_type, excetpion_value, exception_traceback):
         self.service_stop()
-        #atexit.unregister(self.service_disconnect)
 
     def compatible_plugin(self, plugin_version):
         if f"v{plugin_version}" == vars.VERSION_STRING:
@@ -1472,7 +1459,7 @@ class LinkService():
                 self.server_sock.shutdown()
                 self.server_sock.close()
             except:
-                pass
+                utils.log_error(f"Closing Server Socket error!")
         self.is_listening = False
         self.server_sock = None
         self.server_sockets = []
@@ -1560,11 +1547,9 @@ class LinkService():
                     utils.log_error("Stop Client error!", e)
             self.is_connected = False
             self.is_connecting = False
-            try:
-                link_props = vars.link_props()
+            link_props = vars.link_props()
+            if link_props:
                 link_props.connected = False
-            except Exception as e:
-                utils.log_error("Stop Client error!", e)
             self.client_sock = None
             self.client_sockets = []
             if self.listening:
@@ -1905,8 +1890,8 @@ class LinkService():
         global LINK_SERVICE
         global LINK_DATA
         if not LINK_SERVICE or not LINK_DATA:
-            utils.log_error("DataLink service data lost. Due to script reload?")
-            utils.log_error("Connection is maintained but actor data has been reset.")
+            utils.log_info("DataLink service data lost. Due to script reload?")
+            utils.log_info("Connection is maintained but actor data has been reset.")
             LINK_SERVICE = self
             LINK_DATA = self.link_data
             LINK_DATA.reset()
@@ -4265,24 +4250,55 @@ def update_link_status(text):
     utils.update_ui()
 
 
-def reconnect():
+
+@persistent
+def reconnect(file_path=None):
     global LINK_SERVICE
     link_props = vars.link_props()
     prefs = vars.prefs()
 
-    if link_props.connected:
-        if LINK_SERVICE and LINK_SERVICE.is_connected:
-            utils.log_info("DataLink remains connected.")
-        elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
-            utils.log_info("DataLink was connected. Attempting to reconnect...")
+    utils.log_info("Reconnecting DataLink...")
+    connected = LINK_SERVICE.is_connected if LINK_SERVICE else False
+    connecting = LINK_SERVICE.is_connecting if LINK_SERVICE else False
+
+    if connected:
+        utils.log_info(" - DataLink already connected.")
+
+    elif connecting:
+        utils.log_info(" - DataLink Connecting...")
+
+    else:
+
+        if link_props.reconnect or link_props.connected:
+            link_props.reconnect = False
+            utils.log_info(" - DataLink was connected. Attempting to reconnect...")
             bpy.ops.ccic.datalink(param="START")
 
-    elif prefs.datalink_auto_start:
-        if LINK_SERVICE and LINK_SERVICE.is_connected:
-            utils.log_info("DataLink already connected.")
-        elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
-            utils.log_info("Auto-starting datalink...")
+        elif prefs.datalink_auto_start:
+            utils.log_info(" - Auto-starting datalink...")
+
+
+
             bpy.ops.ccic.datalink(param="START")
+
+        else:
+            utils.log_info(" - No previous DataLink to restart.")
+
+    return None
+
+
+@persistent
+def disconnect(file_path=None):
+    global LINK_SERVICE
+    link_props = vars.link_props()
+
+    if LINK_SERVICE:
+        utils.log_info("Disconnecting DataLink...")
+        link_props.reconnect = link_props.connected
+        LINK_SERVICE.service_disconnect()
+
+    return None
+
 
 
 class CCICDataLink(bpy.types.Operator):

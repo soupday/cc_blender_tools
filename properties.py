@@ -3346,5 +3346,6 @@ class CCICLinkProps(bpy.types.PropertyGroup):
     remote_path: bpy.props.StringProperty(default="", subtype="DIR_PATH")
     remote_exe: bpy.props.StringProperty(default="")
     connected: bpy.props.BoolProperty(default=False)
+    reconnect: bpy.props.BoolProperty(default=False)
     temp_folder: bpy.props.StringProperty(default="", subtype="DIR_PATH")
     temp_files: bpy.props.StringProperty(default="", subtype="DIR_PATH")
