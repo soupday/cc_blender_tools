@@ -1482,9 +1482,10 @@ class LinkService():
     def start_timer(self):
         self.time = time.time()
         if not self.timer:
-            bpy.app.timers.register(self.loop, first_interval=TIMER_INTERVAL)
-            self.timer = True
-            utils.log_info(f"Service timer started")
+            if not bpy.app.timers.is_registered(self.loop):
+                bpy.app.timers.register(self.loop, first_interval=TIMER_INTERVAL)
+                self.timer = True
+                utils.log_info(f"Service timer started")
 
     def stop_timer(self):
         if self.timer:
