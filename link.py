@@ -1,6 +1,6 @@
 import bpy #, bpy_extras
+from bpy.app.handlers import persistent
 #import bpy_extras.view3d_utils as v3d
-import atexit
 from enum import IntEnum
 import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
@@ -1362,6 +1362,8 @@ class Signal():
             func(*args)
 
 
+
+
 class LinkService():
     timer = None
     server_sock: socket.socket = None
@@ -1412,7 +1414,6 @@ class LinkService():
     def __init__(self):
         global LINK_DATA
         self.link_data = LINK_DATA
-        atexit.register(self.service_disconnect)
 
     def __enter__(self):
         return self
@@ -1460,7 +1461,7 @@ class LinkService():
                 self.server_sock.shutdown()
                 self.server_sock.close()
             except:
-                pass
+                utils.log_error(f"Closing Server Socket error!")
         self.is_listening = False
         self.server_sock = None
         self.server_sockets = []
@@ -1470,14 +1471,16 @@ class LinkService():
     def start_timer(self):
         self.time = time.time()
         if not self.timer:
-            bpy.app.timers.register(self.loop, first_interval=TIMER_INTERVAL)
-            self.timer = True
-            utils.log_info(f"Service timer started")
+            if not bpy.app.timers.is_registered(self.loop):
+                bpy.app.timers.register(self.loop, first_interval=TIMER_INTERVAL)
+                self.timer = True
+                utils.log_info(f"Service timer started")
 
     def stop_timer(self):
         if self.timer:
             try:
-                bpy.app.timers.unregister(self.loop)
+                if bpy.app.timers.is_registered(self.loop):
+                    bpy.app.timers.unregister(self.loop)
             except:
                 pass
             self.timer = False
@@ -1536,26 +1539,27 @@ class LinkService():
         self.send(OpCodes.HELLO, encode_from_json(json_data))
 
     def stop_client(self):
-        if self.client_sock:
-            utils.log_info(f"Closing Client Socket")
-            try:
-                self.client_sock.shutdown()
-                self.client_sock.close()
-            except:
-                pass
-        self.is_connected = False
-        self.is_connecting = False
         try:
+            if self.client_sock:
+                utils.log_info(f"Closing Client Socket")
+                try:
+                    self.client_sock.shutdown()
+                    self.client_sock.close()
+                except:
+                    pass
+            self.is_connected = False
+            self.is_connecting = False
             link_props = vars.link_props()
-            link_props.connected = False
-        except:
-            pass
-        self.client_sock = None
-        self.client_sockets = []
-        if self.listening:
-            self.keepalive_timer = HANDSHAKE_TIMEOUT_S
-        self.client_stopped.emit()
-        self.changed.emit()
+            if link_props:
+                link_props.connected = False
+            self.client_sock = None
+            self.client_sockets = []
+            if self.listening:
+                self.keepalive_timer = HANDSHAKE_TIMEOUT_S
+            self.client_stopped.emit()
+            self.changed.emit()
+        except Exception as e:
+            utils.log_error("Stop Client error!", e)
 
     def has_client_sock(self):
         if self.client_sock and (self.is_connected or self.is_connecting):
@@ -1834,13 +1838,31 @@ class LinkService():
     def service_disconnect(self):
         try:
             self.send(OpCodes.DISCONNECT)
-            self.service_recv_disconnected()
-        except: ...
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Send", e)
+        try:
+            self.stop_timer()
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Stop Timer", e)
+        try:
+            self.stop_client()
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Stop Client", e)
+        try:
+            self.stop_server()
+        except Exception as e:
+            utils.log_error("Service Disconnect error: Stop Server", e)
 
     def service_recv_disconnected(self):
-        if CLIENT_ONLY:
-            self.stop_timer()
-        self.stop_client()
+        try:
+            if CLIENT_ONLY:
+                self.stop_timer()
+        except Exception as e:
+            utils.log_error("Service Recv Disconnected error: Stop Timer", e)
+        try:
+            self.stop_client()
+        except Exception as e:
+            utils.log_error("Service Recv Disconnected error: Stop Client", e)
 
     def service_stop(self):
         self.send(OpCodes.STOP)
@@ -1870,8 +1892,8 @@ class LinkService():
         global LINK_SERVICE
         global LINK_DATA
         if not LINK_SERVICE or not LINK_DATA:
-            utils.log_error("DataLink service data lost. Due to script reload?")
-            utils.log_error("Connection is maintained but actor data has been reset.")
+            utils.log_info("DataLink service data lost. Due to script reload?")
+            utils.log_info("Connection is maintained but actor data has been reset.")
             LINK_SERVICE = self
             LINK_DATA = self.link_data
             LINK_DATA.reset()
@@ -4226,24 +4248,50 @@ def update_link_status(text):
     utils.update_ui()
 
 
-def reconnect():
+@persistent
+def reconnect(file_path=None):
     global LINK_SERVICE
     link_props = vars.link_props()
     prefs = vars.prefs()
 
-    if link_props.connected:
-        if LINK_SERVICE and LINK_SERVICE.is_connected:
-            utils.log_info("DataLink remains connected.")
-        elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
-            utils.log_info("DataLink was connected. Attempting to reconnect...")
+    utils.log_info("Reconnecting DataLink...")
+    connected = LINK_SERVICE.is_connected if LINK_SERVICE else False
+    connecting = LINK_SERVICE.is_connecting if LINK_SERVICE else False
+
+    if connected:
+        utils.log_info(" - DataLink already connected.")
+
+    elif connecting:
+        utils.log_info(" - DataLink Connecting...")
+
+    else:
+
+        if link_props.reconnect or link_props.connected:
+            link_props.reconnect = False
+            utils.log_info(" - DataLink was connected. Attempting to reconnect...")
             bpy.ops.ccic.datalink(param="START")
 
-    elif prefs.datalink_auto_start:
-        if LINK_SERVICE and LINK_SERVICE.is_connected:
-            utils.log_info("DataLink already connected.")
-        elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
-            utils.log_info("Auto-starting datalink...")
+        elif prefs.datalink_auto_start:
+            utils.log_info(" - Auto-starting datalink...")
             bpy.ops.ccic.datalink(param="START")
+
+        else:
+            utils.log_info(" - No previous DataLink to restart.")
+
+    return None
+
+
+@persistent
+def disconnect(file_path=None):
+    global LINK_SERVICE
+    link_props = vars.link_props()
+
+    if LINK_SERVICE:
+        utils.log_info("Disconnecting DataLink...")
+        link_props.reconnect = link_props.connected
+        LINK_SERVICE.service_disconnect()
+
+    return None
 
 
 class CCICDataLink(bpy.types.Operator):
