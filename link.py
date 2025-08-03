@@ -1459,7 +1459,7 @@ class LinkService():
                 self.server_sock.shutdown(socket.SHUT_RDWR)
                 self.server_sock.close()
             except:
-                utils.log_error(f"Closing Server Socket error!")
+                utils.log_error(f"Closing Server Socket!")
         self.is_listening = False
         self.server_sock = None
         self.server_sockets = []
@@ -1544,7 +1544,7 @@ class LinkService():
                     self.client_sock.shutdown(socket.SHUT_RDWR)
                     self.client_sock.close()
                 except Exception as e:
-                    utils.log_error("Stop Client error!", e)
+                    utils.log_error("Closing Client Socket!", e)
             self.is_connected = False
             self.is_connecting = False
             link_props = vars.link_props()
