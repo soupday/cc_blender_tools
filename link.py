@@ -1458,7 +1458,7 @@ class LinkService():
         if self.server_sock:
             utils.log_info(f"Closing Server Socket")
             try:
-                self.server_sock.shutdown()
+                self.server_sock.shutdown(socket.SHUT_RDWR)
                 self.server_sock.close()
             except:
                 utils.log_error(f"Closing Server Socket error!")
@@ -1543,10 +1543,10 @@ class LinkService():
             if self.client_sock:
                 utils.log_info(f"Closing Client Socket")
                 try:
-                    self.client_sock.shutdown()
+                    self.client_sock.shutdown(socket.SHUT_RDWR)
                     self.client_sock.close()
                 except:
-                    pass
+                    utils.log_error(f"Closing Client Socket error!")
             self.is_connected = False
             self.is_connecting = False
             link_props = vars.link_props()
