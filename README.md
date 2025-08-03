@@ -59,6 +59,7 @@ Links
 - Removed Rigify disable IK stretch option as Rigify IK doesn't work correctly without it.
 - Rigify export using CC Base naming aligns bones to original CC rig orientations.
     - In particular the jaw bones and eye bones should have a more compatible alignment. i.e. Unity ConvAI.
+- Exit DataLink shutdown moved from atexit to Unregister.
 
 ### 2.3.0
 - Rigify:
