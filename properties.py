@@ -1581,7 +1581,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("UNKNOWN","Unknown","Unknown"),
                         ("TRA","Traditional",""),
                         ("STD","Standard",""),
-                        ("EXT","Extended","")
+                        ("EXT","Extended",""),
+                        ("MH","Meta-Human","")
                     ], default="NONE")
     viseme_profile: bpy.props.EnumProperty(items=[
                         ("NONE","None","None"),
