@@ -18,8 +18,9 @@ from random import random
 import bpy
 import addon_utils
 import math
-import re
+import re, copy
 from . import utils, vars
+from . import jsonutils
 from . import geom
 from . import meshutils
 from . import properties
@@ -1278,7 +1279,7 @@ def correct_meta_rig(meta_rig):
     utils.log_recess()
 
 
-def store_source_bone_data(cc3_rig, rigify_rig, rigify_data):
+def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
     """Store source bone data from the cc3 rig in the org and def bones of rigify rig.
        This data can be used to reconstruct elements of the source rig for retargetting and exporting.
     """
@@ -1290,13 +1291,16 @@ def store_source_bone_data(cc3_rig, rigify_rig, rigify_data):
             orig_z_axis = (cc3_rig.matrix_world @ cc3_bone.z_axis).normalized()
             source_data[cc3_bone.name] = [orig_dir, orig_z_axis]
 
+    meta_bone_map = {
+        "CC_Base_JawRoot": "jaw_master",
+        "CC_Base_L_Eye": "MCH-eye.L",
+        "CC_Base_R_Eye": "MCH-eye.R",
+    }
+
     if rigutils.edit_rig(rigify_rig):
         for orig_bone_name in source_data:
 
-            if orig_bone_name == "CC_Base_JawRoot":
-                meta_bone_names = ["jaw_master"]
-            else:
-                meta_bone_names = bones.get_rigify_meta_bones(rigify_rig, rigify_data.bone_mapping, orig_bone_name)
+            meta_bone_names = bones.get_rigify_meta_bones(rigify_rig, rigify_data.bone_mapping, orig_bone_name, extra_mapping=meta_bone_map)
 
             for name in meta_bone_names:
                 if name in rigify_rig.data.edit_bones:
@@ -1311,6 +1315,63 @@ def store_source_bone_data(cc3_rig, rigify_rig, rigify_data):
                     drivers.add_custom_string_property(edit_bone, "orig_name", orig_bone_name)
                 else:
                     utils.log_error(f"Unable to find edit_bone: {name}")
+
+    meta_bone_map = {
+        "CC_Base_JawRoot": "jaw_master",
+        "CC_Base_L_Eye": "MCH-eye.L",
+        "CC_Base_R_Eye": "MCH-eye.R",
+        "CC_Base_Head": "head",
+    }
+
+    # convert all the expression bone transforms to rigify ones
+    if rigutils.select_rig(rigify_rig):
+        json_data = chr_cache.get_json_data()
+
+        expression_json, default_expression_json = chr_cache.get_expression_json(json_data)
+
+        # merge missing values from default expression set
+        for expression, default_expression_def in default_expression_json.items():
+            if expression not in expression_json:
+                expression_json[expression] = {}
+            expression_def = expression_json[expression]
+            if "Bones" not in expression_def and "Bones" in default_expression_def:
+                expression_def["Bones"] = copy.deepcopy(default_expression_def["Bones"])
+            if "Bones" in expression_def:
+                for bone_name, default_bone_def in default_expression_def["Bones"].items():
+                    if bone_name not in expression_def["Bones"]:
+                        expression_def["Bones"][bone_name] = copy.deepcopy(default_expression_def["Bones"][bone_name])
+                    else:
+                        default_bone_def = default_expression_def["Bones"][bone_name]
+                        bone_def = expression_def["Bones"][bone_name]
+                        if "Translate" in default_bone_def and "Translate" not in bone_def:
+                            bone_def["Translate"] = default_bone_def["Translate"].copy()
+                        if "Rotation" in default_bone_def and "Rotation" not in bone_def:
+                            bone_def["Rotation"] = default_bone_def["Rotation"].copy()
+
+        utils.clear_prop_collection(chr_cache.expression_set)
+        bone_mapping = rigify_data.bone_mapping
+        if expression_json:
+            for expression_name, expression_def in expression_json.items():
+                if "Bones" in expression_def and expression_def["Bones"]:
+                    expression_def["Rigify Bones"] = {}
+                    for bone_name in expression_def["Bones"]:
+                        rigify_bone_name = bones.get_rigify_control_bone(rigify_rig, bone_mapping, bone_name, extra_mapping=meta_bone_map)
+                        tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
+                        rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
+                        R, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, rigify_bone_name, tra, rot, True)
+                        if R:
+                            rot_euler = rot.to_euler("XYZ")
+                            R_quat = R.to_quaternion().normalized()
+                            R_euler = R_quat.to_euler("XYZ")
+                            R_tra = R.to_translation()
+                            expression_cache = chr_cache.expression_set.add()
+                            expression_cache.key_name = expression_name
+                            expression_cache.bone_name = bone_name
+                            expression_cache.translation = tra_local
+                            expression_cache.rotation = rot_euler
+                            expression_cache.rigify_bone_name = rigify_bone_name
+                            expression_cache.rigify_translation = R_tra
+                            expression_cache.rigify_rotation = R_euler
 
 
 def modify_rigify_controls(cc3_rig, rigify_rig, rigify_data):
@@ -3801,7 +3862,7 @@ class CC3Rigifier(bpy.types.Operator):
                     fix_rigify_bones(chr_cache, self.rigify_rig)
                     add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                     add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
-                    store_source_bone_data(self.cc3_rig, self.rigify_rig, self.rigify_data)
+                    store_source_bone_data(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data)
                     rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                     if self.use_expression_rig(chr_cache):
                         facerig.build_facerig_drivers(chr_cache, self.rigify_rig)

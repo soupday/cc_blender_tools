@@ -2571,7 +2571,7 @@ def cycles_setup(context):
                 mod = obj.modifiers.new(name = "Subdivision", type = "SUBSURF")
             mod = modifiers.get_object_modifier(obj, "SUBSURF")
             if mod:
-                mod.levels = 1
+                mod.levels = 0
                 mod.render_levels = 2
                 if utils.B291():
                     mod.boundary_smooth = 'PRESERVE_CORNERS'

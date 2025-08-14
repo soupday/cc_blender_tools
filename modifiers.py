@@ -334,10 +334,8 @@ def add_subdivision(obj: bpy.types.Object, level, name, max_render=3, max_view=1
     mod = get_object_modifier(obj, "SUBSURF", name)
     if not mod:
         mod = obj.modifiers.new(utils.unique_name(name), "SUBSURF")
-    level = min(max_render, level)
-    max_view = min(max_view, level)
-    mod.render_levels = max(mod.render_levels, level)
-    mod.levels = max(mod.levels, max_view)
+    mod.render_levels = min(max_render, level)
+    mod.levels = min(max_view, level)
     mod.subdivision_type = "CATMULL_CLARK"
     mod.show_only_control_edges = True
     mod.uv_smooth = 'PRESERVE_BOUNDARIES'

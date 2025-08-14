@@ -14,11 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy, os, socket
+import bpy, os, socket, copy
 from mathutils import Vector
 
 from . import (channel_mixer, imageutils, meshutils, sculpting, materials, rigidbody,
-               facerig, springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
+               facerig, facerig_data, springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
 from .meshutils import get_head_body_object_quick
 
@@ -1531,6 +1531,16 @@ class CCICActionStore(bpy.types.PropertyGroup):
     action: bpy.props.PointerProperty(type=bpy.types.Action)
 
 
+class CCICExpressionData(bpy.types.PropertyGroup):
+    key_name: bpy.props.StringProperty()
+    bone_name: bpy.props.StringProperty()
+    translation: bpy.props.FloatVectorProperty()
+    rotation: bpy.props.FloatVectorProperty()
+    rigify_bone_name: bpy.props.StringProperty()
+    rigify_translation: bpy.props.FloatVectorProperty()
+    rigify_rotation: bpy.props.FloatVectorProperty()
+
+
 class CC3CharacterCache(bpy.types.PropertyGroup):
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
     eye_close: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=eye_close_update)
@@ -1550,6 +1560,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     basic_parameters: bpy.props.PointerProperty(type=CC3BasicParameters)
     #
     object_cache: bpy.props.CollectionProperty(type=CC3ObjectCache)
+    expression_set: bpy.props.CollectionProperty(type=CCICExpressionData)
     # import file name without extension
     import_flags: bpy.props.IntProperty(default=0)
     import_embedded: bpy.props.BoolProperty(default=False)
@@ -2486,15 +2497,43 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         errors = []
         return jsonutils.read_json(self.import_file, errors)
 
-    def write_json_data(self, json_data):
-        jsonutils.write_json(json_data, self.import_file, is_fbx_path=True, update_cache=True)
+    def write_json_data(self, json_data, is_local=False):
+        jsonutils.write_json(json_data, self.import_file, is_fbx_path=True, update_cache=True, is_json_local=is_local)
 
     def change_import_file(self, filepath):
         self.import_file = filepath
 
-    def get_character_json(self):
-        json_data = self.get_json_data()
+    def get_character_json(self, json_data=None):
+        if not json_data:
+            json_data = self.get_json_data()
         return jsonutils.get_character_json(json_data, self.get_character_id())
+
+    def get_expression_json(self, json_data=None):
+        if not json_data:
+            json_data = self.get_json_data()
+        chr_json = self.get_character_json(json_data=json_data)
+        if chr_json and "Expression" in chr_json:
+            expression_json = chr_json["Expression"]
+        else:
+            expression_json = {}
+        facial_profile, viseme_profile = self.get_facial_profile()
+        if facial_profile == "MH":
+            default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_MH)
+        elif facial_profile == "STD" or facial_profile == "EXT":
+            default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_EXT)
+        elif facial_profile == "TRA":
+            default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_TRA)
+        else:
+            default_expression_json = {}
+        return expression_json, default_expression_json
+
+    def get_constraint_json(self, json_data=None):
+        if not json_data:
+            json_data = self.get_json_data()
+        chr_json = self.get_character_json(json_data=json_data)
+        if chr_json and "Constraint" in chr_json:
+            return chr_json["Constraint"]
+        return None
 
     def check_ids(self):
         rig = self.get_armature()

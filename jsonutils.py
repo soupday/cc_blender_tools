@@ -25,13 +25,19 @@ from . import utils
 JSON_CACHE = {}
 
 
-def read_json(fbx_path, errors, no_local=False):
-    json_file_exists = False
+def get_json_cache_copy(fbx_path):
     if fbx_path in JSON_CACHE:
         json_data = JSON_CACHE[fbx_path]
         if json_data is not None:
             return copy.deepcopy(json_data)
         return None
+
+
+def read_json(fbx_path, errors, no_local=False):
+    json_file_exists = False
+    json_cache = get_json_cache_copy(fbx_path)
+    if json_cache:
+        return json_cache
     try:
         fbx_file = os.path.basename(fbx_path)
         fbx_folder = os.path.dirname(fbx_path)

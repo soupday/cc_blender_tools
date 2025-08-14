@@ -161,6 +161,7 @@ classes = (
     properties.CC3SkinMaterialCache,
     properties.CC3PBRMaterialCache,
     properties.CC3SSSMaterialCache,
+    properties.CCICExpressionData,
     properties.CC3ObjectCache,
     properties.CCICActionStore,
     properties.CC3CharacterCache,

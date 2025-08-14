@@ -30,6 +30,7 @@ from . import vars
 
 timer = 0
 
+LOG_TIMER = {}
 LOG_INDENT = 0
 
 def log_indent():
@@ -84,24 +85,45 @@ def log_error(msg, e: Exception = None):
         traceback.print_exc()
 
 
+def start_timer(name="NONE"):
+    global LOG_TIMER
+    LOG_TIMER[name] = [time.perf_counter(), 0.0, 0]
 
-def start_timer():
-    global timer
-    timer = time.perf_counter()
+
+def mark_timer(name="NONE"):
+    global LOG_TIMER
+    if name not in LOG_TIMER:
+        start_timer(name)
+    LOG_TIMER[name][0] = time.perf_counter()
 
 
-def log_timer(msg, unit = "s"):
+def update_timer(name="NONE"):
+    global LOG_TIMER
+    if name not in LOG_TIMER:
+        start_timer(name)
+    pc = time.perf_counter()
+    duration = pc - LOG_TIMER[name][0]
+    LOG_TIMER[name][1] += duration
+    LOG_TIMER[name][0] = pc
+    LOG_TIMER[name][2] += 1
+
+
+def log_timer(msg, unit = "s", name="NONE"):
+    global LOG_TIMER
     prefs = vars.prefs()
-    global timer
-    if prefs.log_level == "ALL":
-        duration = time.perf_counter() - timer
+    if name not in LOG_TIMER:
+        start_timer(name)
+    if LOG_TIMER[name][2] == 0:
+        update_timer(name)
+    if prefs.log_level == "ALL" or prefs.log_level == "DETAILS":
+        total_duration = LOG_TIMER[name][1]
         if unit == "ms":
-            duration *= 1000
+            total_duration *= 1000
         elif unit == "us":
-            duration *= 1000000
+            total_duration *= 1000000
         elif unit == "ns":
-            duration *= 1000000000
-        print(msg + ": " + str(duration) + " " + unit)
+            total_duration *= 1000000000
+        print((" " * LOG_INDENT) + msg + ": " + str(total_duration) + " " + unit)
 
 
 def message_box(message = "", title = "Info", icon = 'INFO'):
@@ -2155,6 +2177,13 @@ def clear_prop_collection(col):
     return False
 
 
+def prop_to_list(prop):
+    L = len(prop)
+    result = [0]*L
+    prop.foreach_get(result)
+    return result
+
+
 def B290():
     return is_blender_version("2.90.0")
 
@@ -2610,7 +2639,7 @@ def object_scale(obj):
         return 1.0
 
 
-def make_transform_matrix(loc: Vector, rot: Quaternion, sca: Vector):
+def make_transform_matrix(loc: Vector, rot: Quaternion, sca: Vector=Vector((1,1,1))):
     return Matrix.Translation(loc) @ (rot.to_matrix().to_4x4()) @ Matrix.Diagonal(sca).to_4x4()
 
 
@@ -2871,3 +2900,27 @@ def get_enum_prop_name(obj, prop_name, enum_value=None):
     except:
         return prop_name
 
+
+def largest_index(items: list, use_abs=False):
+    index = 0
+    largest_value = 0
+    for i, value in enumerate(items):
+        if use_abs:
+            if abs(value) > largest_value:
+                largest_value = abs(value)
+                index = i
+        else:
+            if value > largest_value:
+                largest_value = value
+                index = i
+    return index
+
+
+def smallest_index(items: list):
+    index = 0
+    smallest_value = 0
+    for i, value in enumerate(items):
+        if value < smallest_value:
+            smallest_value = value
+            index = i
+    return index

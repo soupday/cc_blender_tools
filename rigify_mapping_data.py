@@ -568,7 +568,7 @@ ADD_DEF_BONES = [
     ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29, "DEF"],
     ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29, "DEF"],
 
-    ["MCH-jaw_master", "MCH-teeth_master", "ORG-face", "LR", 30, "MCH", 0.9, "MCH-jaw_master", 0.8, 1.0],
+    ["MCH-jaw_master", "MCH-teeth_master", "ORG-face", "LR", 30, "MCH", 0.9, "MCH-jaw_master", 0.98, 1.0],
     ["-", "teeth.B", "MCH-teeth_master", "", "", ""],
     ["-", "tongue.003", "MCH-teeth_master", "", "", ""],
 

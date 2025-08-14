@@ -499,8 +499,10 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
         light.data.cutoff_distance = range
         light.data.spot_blend = (falloff*attenuation + attenuation) / 2
         light.data.spot_size = angle
-        if utils.B400():
-            light.data.use_soft_falloff = True
+        if utils.B410():
+            try:
+                light.data.use_soft_falloff = True
+            except: ...
         if is_rectangle:
             light.data.shadow_soft_size = (rect[0] + rect[1]) / 3
         elif is_tube:

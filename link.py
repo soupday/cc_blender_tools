@@ -1457,7 +1457,7 @@ class LinkService():
             if self.server_sock:
                 utils.log_info(f"Closing Server Socket")
                 try:
-                    self.server_sock.shutdown(socket.SHUT_RDWR)
+                    # no shutdown for server sockets, just close.
                     self.server_sock.close()
                 except Exception as e:
                     utils.log_error(f"Closing Server Socket failed!", e)
@@ -2989,6 +2989,9 @@ class LinkService():
                     rlx.apply_camera_pose(actor.object, loc, rot, sca, lens, enable, focus, rng, fb, nb, ft, nt, mbd)
                 offset += 33
 
+            if rig:
+                rig.pose.bones.update()
+
         return actors
 
     def reposition_prop_meshes(self, actors):
@@ -3323,8 +3326,7 @@ class LinkService():
         actors = self.decode_pose_frame_data(data)
 
         # force recalculate all transforms
-        bpy.context.view_layer.update()
-
+        #bpy.context.view_layer.update()
         self.reposition_prop_meshes(actors)
 
         # store frame data
@@ -3411,26 +3413,45 @@ class LinkService():
         set_frame_range(LINK_DATA.sequence_start_frame, LINK_DATA.sequence_end_frame)
         set_frame(LINK_DATA.sequence_start_frame)
 
+        utils.start_timer("FRAME")
+        utils.start_timer("DECODE")
+        utils.start_timer("LAYER_UPDATE")
+        utils.start_timer("REPOSITION")
+        utils.start_timer("SELECT_RIGS")
+        utils.start_timer("STORE_CACHE")
+        utils.start_timer("WRITE")
+
         # start the sequence
         self.start_sequence()
 
     def receive_sequence_frame(self, data):
         global LINK_DATA
 
+        utils.mark_timer("FRAME")
+
         # decode and cache pose
+        utils.mark_timer("DECODE")
         frame = self.decode_pose_frame_header(data)
         utils.log_detail(f"Receive Sequence Frame: {frame}")
         actors = self.decode_pose_frame_data(data)
+        utils.update_timer("DECODE")
+
+        utils.mark_timer("REPOSITION")
+        self.reposition_prop_meshes(actors)
+        utils.update_timer("REPOSITION")
 
         # force recalculate all transforms
+        utils.mark_timer("LAYER_UPDATE")
         bpy.context.view_layer.update()
-
-        self.reposition_prop_meshes(actors)
+        utils.update_timer("LAYER_UPDATE")
 
         # store frame data
+        utils.mark_timer("SELECT_RIGS")
         update_link_status(f"Sequence Frame: {LINK_DATA.sequence_current_frame}")
         self.select_actor_rigs(actors)
+        utils.update_timer("SELECT_RIGS")
 
+        utils.mark_timer("STORE_CACHE")
         actor: LinkActor
         for actor in actors:
             if actor.ready(require_cache=LINK_DATA.set_keyframes):
@@ -3441,9 +3462,12 @@ class LinkService():
                         store_light_cache_keyframes(actor, frame)
                     elif actor.get_type() == "CAMERA":
                         store_camera_cache_keyframes(actor, frame)
+        utils.update_timer("STORE_CACHE")
 
         # send sequence frame ack
         self.send_sequence_ack(frame)
+
+        utils.update_timer("FRAME")
 
     def receive_sequence_end(self, data):
         global LINK_DATA
@@ -3474,6 +3498,7 @@ class LinkService():
             update_link_status(f"Live Sequence Aborted!")
 
         # write actions
+        utils.mark_timer("WRITE")
         for actor in actors:
             if LINK_DATA.set_keyframes:
                 write_sequence_actions(actor, num_frames)
@@ -3483,6 +3508,15 @@ class LinkService():
                 rigutils.update_prop_rig(actor.get_armature())
             elif actor.get_type() == "AVATAR":
                 rigutils.update_avatar_rig(actor.get_armature())
+        utils.update_timer("WRITE")
+
+        utils.log_timer("Frame", name="FRAME")
+        utils.log_timer("Decode", name="DECODE")
+        utils.log_timer("Layer Update", name="LAYER_UPDATE")
+        utils.log_timer("Reposition", name="REPOSITION")
+        utils.log_timer("Select Rigs", name="SELECT_RIGS")
+        utils.log_timer("Store Cache", name="STORE_CACHE")
+        utils.log_timer("Write", name="WRITE")
 
         # stop sequence
         self.stop_sequence()
