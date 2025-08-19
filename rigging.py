@@ -1333,15 +1333,15 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
 
     expression_meta_bone_map = {
         "CC_Base_JawRoot": "MCH-CTRL-jaw",
-        "CC_Base_L_Eye": "MCH-eye.L",
-        "CC_Base_R_Eye": "MCH-eye.R",
+        "CC_Base_L_Eye": "MCH-CTRL-eye.L",
+        "CC_Base_R_Eye": "MCH-CTRL-eye.R",
         "CC_Base_Head": "MCH-CTRL-head",
     }
 
     offset_bone_map = {
         "CC_Base_JawRoot": "jaw_master",
-        "CC_Base_L_Eye": "MCH-TRCK-eye.L",
-        "CC_Base_R_Eye": "MCH-TRCK-eye.R",
+        "CC_Base_L_Eye": "MCH-eye.L",
+        "CC_Base_R_Eye": "MCH-eye.R",
         "CC_Base_Head": "head",
     }
 

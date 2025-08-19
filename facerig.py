@@ -196,10 +196,10 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
         head_ctrl = bones.copy_edit_bone(rigify_rig, "head", "MCH-CTRL-head", "MCH-ROT-head", 0.4)
         head.parent = head_ctrl
         # add MCH bone for eye tracking controls
-        left_eye_trck = bones.copy_edit_bone(rigify_rig, "MCH-eye.L", "MCH-TRCK-eye.L", "master_eye.L", 0.5)
+        left_eye_ctrl = bones.copy_edit_bone(rigify_rig, "MCH-eye.L", "MCH-CTRL-eye.L", "master_eye.L", 0.5)
         left_eye_mch = bones.get_edit_bone(rigify_rig, "MCH-eye.L")
-        left_eye_mch.parent = left_eye_trck
-        right_eye_trck = bones.copy_edit_bone(rigify_rig, "MCH-eye.R", "MCH-TRCK-eye.R", "master_eye.R", 0.5)
+        left_eye_mch.parent = left_eye_ctrl
+        right_eye_trck = bones.copy_edit_bone(rigify_rig, "MCH-eye.R", "MCH-CTRL-eye.R", "master_eye.R", 0.5)
         right_eye_mch = bones.get_edit_bone(rigify_rig, "MCH-eye.R")
         right_eye_mch.parent = right_eye_trck
         # add MCH bone for jaw controls
@@ -297,13 +297,8 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
 
     if rigutils.select_rig(rigify_rig):
 
-        # move eye tracking contraints to MCH-TRCK-eye bones
-        bones.add_damped_track_constraint(rigify_rig, "MCH-TRCK-eye.L", "eye.L", 1)
-        bones.add_damped_track_constraint(rigify_rig, "MCH-TRCK-eye.R", "eye.R", 1)
         bones.set_bone_collection(rigify_rig, "MCH-CTRL-head", "MCH", None, 30)
         bones.set_bone_collection(rigify_rig, "MCH-CTRL-jaw", "MCH", None, 30)
-        bones.set_bone_collection(rigify_rig, "MCH-TRCK-eye.L", "MCH", None, 30)
-        bones.set_bone_collection(rigify_rig, "MCH-TRCK-eye.R", "MCH", None, 30)
         face_rig = bones.get_pose_bone(rigify_rig, "facerig")
         drivers.add_custom_float_property(face_rig, "eyes_track", 0.0, 0.0, 1.0, description="Eye tracking influence from Rigify eye rig")
         #drivers.add_custom_float_property(face_rig, "eyes_track_enable", 1.0, 0.0, 1.0, description="Enable/disable eye tracking from Rigify eye rig")
@@ -592,7 +587,7 @@ def collect_driver_defs(chr_cache, rigify_rig,
                                 }
                                 if driver_id not in bone_driver_defs:
                                     bone_driver_defs[driver_id] = {}
-                                bone_driver_defs[driver_id][(nub_bone_name, value)] = bone_control_def
+                                bone_driver_defs[driver_id][(nub_bone_name, value, var_axis)] = bone_control_def
 
                     if "Rotation" in bone_def:
                         for i, def_axis in enumerate(["x", "y", "z"]):
@@ -614,7 +609,7 @@ def collect_driver_defs(chr_cache, rigify_rig,
                                 }
                                 if driver_id not in bone_driver_defs:
                                     bone_driver_defs[driver_id] = {}
-                                bone_driver_defs[driver_id][(nub_bone_name, value)] = bone_control_def
+                                bone_driver_defs[driver_id][(nub_bone_name, value, var_axis)] = bone_control_def
 
                     if use_offset_rig and bone_def["Offset Bone"] and control_def.get("offset", False):
                         offset_bone = bone_def["Offset Bone"]
@@ -764,7 +759,7 @@ def collect_driver_defs(chr_cache, rigify_rig,
                                     }
                                     if driver_id not in bone_driver_defs:
                                         bone_driver_defs[driver_id] = {}
-                                    bone_driver_defs[driver_id][(nub_bone_name, value)] = bone_control_def
+                                    bone_driver_defs[driver_id][(nub_bone_name, value, var_axis)] = bone_control_def
 
                         if "Rotation" in bone_def:
                             for i, def_axis in enumerate(["x", "y", "z"]):
@@ -784,9 +779,13 @@ def collect_driver_defs(chr_cache, rigify_rig,
                                         "use_negative": use_negative,
                                         "influence": influence,
                                     }
+                                    #if bone_def["bone"] == "MCH-CTRL-eye.L":
+                                    #    print ("MCH-CTRL-eye.L")
+                                    #    print(driver_id)
+                                    #    print(bone_control_def)
                                     if driver_id not in bone_driver_defs:
                                         bone_driver_defs[driver_id] = {}
-                                    bone_driver_defs[driver_id][(nub_bone_name, value)] = bone_control_def
+                                    bone_driver_defs[driver_id][(nub_bone_name, value, var_axis)] = bone_control_def
 
                         if use_offset_rig and bone_def["Offset Bone"] and control_def.get("offset", False):
                             offset_bone = bone_def["Offset Bone"]
@@ -817,7 +816,7 @@ def collect_driver_defs(chr_cache, rigify_rig,
 
 
 def fvar(float_value):
-    return "{0:0.6f}".format(float_value).rstrip('0').rstrip('.')
+    return "{0:0.5f}".format(float_value).rstrip('0').rstrip('.')
 
 
 def build_facerig_drivers(chr_cache, rigify_rig):
@@ -827,7 +826,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
     drivers.add_body_shape_key_drivers(chr_cache, True)
 
     BONE_CLEAR_CONSTRAINTS = [
-            "MCH-eye.L", "MCH-eye.R"
+            #"MCH-eye.L", "MCH-eye.R"
         ]
 
     FACERIG_CONFIG = get_facerig_config(chr_cache)
@@ -903,8 +902,8 @@ def build_facerig_drivers(chr_cache, rigify_rig):
         var_names = [ "trck",
                       #"trck_enable"
                       ]
-        bones.add_constraint_influence_driver(rigify_rig, "MCH-TRCK-eye.L", face_rig, data_paths, var_names, constraint_type="DAMPED_TRACK", expression="trck")
-        bones.add_constraint_influence_driver(rigify_rig, "MCH-TRCK-eye.R", face_rig, data_paths, var_names, constraint_type="DAMPED_TRACK", expression="trck")
+        bones.add_constraint_influence_driver(rigify_rig, "MCH-eye.L", face_rig, data_paths, var_names, constraint_type="DAMPED_TRACK", expression="trck")
+        bones.add_constraint_influence_driver(rigify_rig, "MCH-eye.R", face_rig, data_paths, var_names, constraint_type="DAMPED_TRACK", expression="trck")
         # special control bone offsets for jaw, eyes and head
         #bones.add_copy_location_constraint(rigify_rig, rigify_rig, "MCH-CTRL-head", "MCH-ROT-head", space="LOCAL_OWNER_ORIENT", use_offset=True)
         #bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, "MCH-CTRL-head", "MCH-ROT-head", space="LOCAL_OWNER_ORIENT", use_offset=True)
@@ -973,7 +972,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                 offset_driver_def = offset_driver_defs[shape_key_name]
                 #print("OFFSET:", shape_key_name, offset_driver_def)
                 for (nub_bone_name, nub_value), offset_key_control_def in offset_driver_def.items():
-                    print("NUBS", nub_bone_name, nub_value, offset_key_control_def)
+                    #print("NUBS", nub_bone_name, nub_value, offset_key_control_def)
                     if nub_bone_name in rigify_rig.pose.bones:
                         offset_bone_name = offset_key_control_def["bone"]
                         value = offset_key_control_def["value"]
@@ -992,7 +991,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                             offset_expression += f"({expr})"
                         else:
                             offset_expression += f"max(0,{expr})"
-                print(offset_expression)
+                #print(offset_expression)
 
             if influence:
                 influence_var_name = drivers.find_custom_prop_var_def(var_defs, facerig_bone, "eyes_track")
@@ -1026,12 +1025,15 @@ def build_facerig_drivers(chr_cache, rigify_rig):
         # build bone transform drivers from bone driver defs
         for driver_id, bone_driver_def in bone_driver_defs.items():
             bone_name, prop, index = driver_id
+            #if bone_name == "MCH-CTRL-eye.L":
+            #    print("MCH-CTRL-eye.L")
+            #    print(driver_id, bone_driver_def)
             var_defs = []
             vidx = 0
             var_expression = ""
             use_strength = False
             influence = None
-            for (nub_bone_name, nub_value), bone_control_def in bone_driver_def.items():
+            for (nub_bone_name, nub_value, var_axis_id), bone_control_def in bone_driver_def.items():
                 offset = bone_control_def["offset"]
                 scalar = bone_control_def["scalar"]
                 var_axis = bone_control_def["var_axis"]
@@ -1042,7 +1044,7 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                 influence = bone_control_def["influence"]
                 var_name = drivers.find_bone_transform_var_def(var_defs, rigify_rig, nub_bone_name, var_axis, "TRANSFORM_SPACE")
                 if not var_name:
-                    var_name = f"var{vidx}"
+                    var_name = f"V{vidx}"
                     vidx += 1
                     var_def = drivers.make_bone_transform_var_def(var_name, rigify_rig, nub_bone_name, var_axis, "TRANSFORM_SPACE")
                     var_defs.append(var_def)
@@ -1284,7 +1286,7 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
             shape_key_name = key_def["shape_key"]
             real_shape_key_name = get_objects_shape_key_name(source_objects, shape_key_name)
             if real_shape_key_name:
-                var_name = f"var{vidx}"
+                var_name = f"V{vidx}"
                 var_expr = f"min(1,{var_name})"
                 if count > 0:
                     expression += "," if is_curve else "+"
@@ -1356,7 +1358,7 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
             axis_dir = bone_def["dir"]
             source_name = bone_def["bone"]
             if source_name in source_rig.pose.bones:
-                var_name = f"var{vidx}"
+                var_name = f"V{vidx}"
                 if count > 0:
                     expression += "+"
                 if axis_dir == 0:
@@ -1516,7 +1518,7 @@ def build_expression_constraint_add_driver(chr_cache, rigify_rig, objects, head,
 
     for key in source_keys:
         source_obj = get_expression_shape_key_source_object(objects, head, key)
-        var_name = f"var{vidx}"
+        var_name = f"V{vidx}"
         vidx += 1
         var_def = drivers.make_shape_key_var_def(var_name, source_obj, key)
         var_defs.append(var_def)
