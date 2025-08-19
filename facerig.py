@@ -194,17 +194,21 @@ def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
         # add MCH bone for head controls
         # MCH-ROT-head needs offset loc/rot constraints
         head_ctrl = bones.copy_edit_bone(rigify_rig, "head", "MCH-CTRL-head", "MCH-ROT-head", 0.4)
+        head_ctrl.align_roll(Vector((0,-1,0)))
         head.parent = head_ctrl
         # add MCH bone for eye tracking controls
         left_eye_ctrl = bones.copy_edit_bone(rigify_rig, "MCH-eye.L", "MCH-CTRL-eye.L", "master_eye.L", 0.5)
         left_eye_mch = bones.get_edit_bone(rigify_rig, "MCH-eye.L")
+        left_eye_ctrl.align_roll(Vector((0,0,1)))
         left_eye_mch.parent = left_eye_ctrl
-        right_eye_trck = bones.copy_edit_bone(rigify_rig, "MCH-eye.R", "MCH-CTRL-eye.R", "master_eye.R", 0.5)
+        right_eye_ctrl = bones.copy_edit_bone(rigify_rig, "MCH-eye.R", "MCH-CTRL-eye.R", "master_eye.R", 0.5)
         right_eye_mch = bones.get_edit_bone(rigify_rig, "MCH-eye.R")
-        right_eye_mch.parent = right_eye_trck
+        right_eye_ctrl.align_roll(Vector((0,0,1)))
+        right_eye_mch.parent = right_eye_ctrl
         # add MCH bone for jaw controls
         jaw_ctrl = bones.copy_edit_bone(rigify_rig, "jaw_master", "MCH-CTRL-jaw", "ORG-face", 0.5)
         jaw_master = bones.get_edit_bone(rigify_rig, "jaw_master")
+        jaw_ctrl.align_roll(Vector((0,0,-1)))
         jaw_master.parent = jaw_ctrl
 
         FACERIG_CONFIG = get_facerig_config(chr_cache)
