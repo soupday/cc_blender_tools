@@ -251,6 +251,9 @@ FACERIG_MH_CONFIG = {
         "y_range": [ -1.0, 1.0 ],
         "x_method": "AVERAGE",
         "y_method": "AVERAGE",
+        "strength": False,
+        "influence": "eyes_track",
+        "offset": False,
         "indices": [ 148, 149, 150, 151 ],
         "blendshapes": {
             "x": {
@@ -265,76 +268,6 @@ FACERIG_MH_CONFIG = {
                 "Eye_Look_Up_R": 1.0,
                 "Eye_Look_Down_R": -1.0
             }
-        },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [30.0, -40.0]
-                },
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                },
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [30.0, -40.0]
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
         },
     },
     "CTRL_C_eye_parallelLook": {
@@ -352,6 +285,9 @@ FACERIG_MH_CONFIG = {
         "y_range": [ -1.0, 1.0 ],
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
+        "strength": False,
+        "influence": "eyes_track",
+        "offset": True,
         "indices": [ 163, 160, 161, 162 ],
         "blendshapes": {
             "x": {
@@ -363,50 +299,6 @@ FACERIG_MH_CONFIG = {
                 "Eye_Look_Down_L": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [40.0, -30.0],
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
     },
     "CTRL_R_eye": {
         "widget_type": "rect",
@@ -415,6 +307,9 @@ FACERIG_MH_CONFIG = {
         "y_range": [ -1.0, 1.0 ],
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
+        "strength": False,
+        "influence": "eyes_track",
+        "offset": True,
         "indices": [ 144, 147, 146, 145 ],
         "blendshapes": {
             "x": {
@@ -426,50 +321,6 @@ FACERIG_MH_CONFIG = {
                 "Eye_Look_Down_R": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [30.0, -40.0],
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [30.0, -40.0],
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
     },
     "CTRL_L_eye_pupil": {
         "widget_type": "slider",
@@ -1522,6 +1373,7 @@ FACERIG_MH_CONFIG = {
         "x_range": [ -1.0, 1.0 ],
         "y_range": [ 0.0, -1.0 ],
         "indices": [ 166, 167, 168, 169 ],
+        "offset": True,
         "blendshapes": {
             "x": {
                 "Jaw_Right": -1.0,
@@ -1531,50 +1383,6 @@ FACERIG_MH_CONFIG = {
                 "Jaw_Open": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_JawRoot",
-                    "axis": "z",
-                    "offset": 0,
-                    "translation": 0.658
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_JawRoot",
-                    "axis": "z",
-                    "offset": 0, # 90.0,
-                    "rotation": 30.0
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "jaw_master",
-                    "axis": "x",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": 0.658
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "jaw_master",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0.0,
-                    "rotation": 30.0
-                }
-            ]
-        },
         "limit":{
             "Jaw_Open":["Jaw_Open_Extreme", "Mouth_Lips_Tighten_UL", "Mouth_Lips_Tighten_UR", "Mouth_Lips_Tighten_DL", "Mouth_Lips_Tighten_DR"]
         }
@@ -1583,29 +1391,11 @@ FACERIG_MH_CONFIG = {
         "widget_type": "slider",
         "range": [ -1.0, 1.0 ],
         "indices": [ 206, 207 ],
+        "offset": True,
         "blendshapes": {
             "Jaw_Back": -1.0,
             "Jaw_Fwd": 1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_JawRoot",
-                "axis": "x",
-                "offset": 0, # 1.8288450241088867,
-                "translation": [-0.5, 0.75],
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "MCH-jaw_move",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": [0.5, -0.75],
-            }
-        ]
     },
     "CTRL_C_jaw_openExtreme": {
         "widget_type": "slider",
@@ -1800,50 +1590,6 @@ FACERIG_MH_CONFIG = {
                 "Teeth_Down_D": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_Teeth02",
-                    "axis": "z",
-                    "offset": 0, # -0.04119798541069031,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_Teeth02",
-                    "axis": "y",
-                    "offset": 0, # 1.249316930770874,
-                    "translation": 1.0,
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "teeth.B",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "teeth.B",
-                    "axis": "z",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": -1.0,
-                }
-            ]
-        }
     },
     "CTRL_C_teethU": {
         "widget_type": "rect",
@@ -1862,110 +1608,28 @@ FACERIG_MH_CONFIG = {
                 "Teeth_Up_D": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_Teeth01",
-                    "axis": "z",
-                    "offset": 0, # -0.03492468595504761,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_Teeth01",
-                    "axis": "y",
-                    "offset": 0, # -0.06047694757580757,
-                    "translation": 1.0,
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "teeth.T",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "teeth.T",
-                    "axis": "z",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": -1.0,
-                }
-            ]
-        }
     },
     "CTRL_C_teeth_fwdBackD": {
         "widget_type": "slider",
         "outline": 2,
         "range": [ -1.0, 1.0 ],
-        "indices": [ 43, 42 ],
+        "indices": [ 42, 43 ],
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
             "Teeth_Back_D": -1.0,
             "Teeth_Fwd_D": 1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_Teeth02",
-                "axis": "x",
-                "offset": 0, # 2.879988670349121,
-                "translation": 1.0
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "teeth.B",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": -1.0
-            }
-        ]
     },
     "CTRL_C_teeth_fwdBackU": {
         "widget_type": "slider",
         "outline": 2,
         "range": [ -1.0, 1.0 ],
-        "indices": [ 41, 40 ],
+        "indices": [ 40, 41 ],
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
             "Teeth_Back_U": -1.0,
             "Teeth_Fwd_U": 1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_Teeth01",
-                "axis": "x",
-                "offset": 0, # -0.16094255447387695,
-                "translation": 1.0
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "teeth.T",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": -1.0
-            }
-        ]
     },
     "CTRL_C_neck_swallow": {
         "widget_type": "curve_slider",
@@ -2054,6 +1718,7 @@ FACERIG_MH_CONFIG = {
         "x_range": [ -1.0, 1.0 ],
         "y_range": [ -1.0, 1.0 ],
         "indices": [ 196, 197, 198, 199 ],
+        "offset": True,
         "blendshapes": {
             "x": {
                 "Head_Turn_L": 1.0,
@@ -2069,6 +1734,7 @@ FACERIG_MH_CONFIG = {
         "widget_type": "slider",
         "range": [ -1.0, 1.0 ],
         "indices": [ 200, 201 ],
+        "offset": True,
         "blendshapes": {
             "Head_R": -1.0,
             "Head_L": 1.0
@@ -2078,6 +1744,7 @@ FACERIG_MH_CONFIG = {
         "widget_type": "slider",
         "range": [ -1.0, 1.0 ],
         "indices": [ 202, 203 ],
+        "offset": True,
         "blendshapes": {
             "Head_Tilt_R": -1.0,
             "Head_Tilt_L": 1.0
@@ -2087,6 +1754,7 @@ FACERIG_MH_CONFIG = {
         "widget_type": "slider",
         "range": [ -1.0, 1.0 ],
         "indices": [ 204, 205 ],
+        "offset": True,
         "blendshapes": {
             "Head_Forward": -1.0,
             "Head_Backward": 1.0
@@ -2159,6 +1827,8 @@ FACERIG_EXT_CONFIG = {
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
         "strength": False,
+        "influence": "eyes_track",
+        "offset": True,
         "indices": [188, 189, 190, 191],
         "blendshapes":
         {
@@ -2217,7 +1887,6 @@ FACERIG_EXT_CONFIG = {
                 }
             ]
         }
-
     },
     "CTRL_R_eye":
     {
@@ -2227,6 +1896,8 @@ FACERIG_EXT_CONFIG = {
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
         "strength": False,
+        "influence": "eyes_track",
+        "offset": True,
         "indices": [175, 174, 173, 172],
         "blendshapes":
         {
@@ -2241,50 +1912,6 @@ FACERIG_EXT_CONFIG = {
                 "Eye_R_Look_Down": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [30.0, -40.0],
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [30.0, -40.0],
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
     },
     "CTRL_C_eye":
     {
@@ -2294,6 +1921,8 @@ FACERIG_EXT_CONFIG = {
         "x_method": "AVERAGE",
         "y_method": "AVERAGE",
         "strength": False,
+        "influence": "eyes_track",
+        "offset": False,
         "indices": [176, 177, 178, 179],  #+172
         "blendshapes":
         {
@@ -2312,76 +1941,6 @@ FACERIG_EXT_CONFIG = {
                 "Eye_L_Look_Down": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [30.0, -40.0]
-                },
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                },
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [30.0, -40.0]
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
     },
     "CTRL_C_mouth":
     {
@@ -2410,6 +1969,7 @@ FACERIG_EXT_CONFIG = {
         "x_range": [-1.0, 1.0],
         "y_range": [0.0, -1.0],
         "indices": [202, 203, 204, 205],
+        "offset": True,
         "blendshapes":
         {
             "x":
@@ -2422,50 +1982,6 @@ FACERIG_EXT_CONFIG = {
                 "Jaw_Open": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_JawRoot",
-                    "axis": "z",
-                    "offset": 0,
-                    "translation": 0.658
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_JawRoot",
-                    "axis": "z",
-                    "offset": 0, # 90.0,
-                    "rotation": 30.0
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "jaw_master",
-                    "axis": "x",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": 0.658
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "jaw_master",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0.0,
-                    "rotation": 30.0
-                }
-            ]
-        }
     },
     "CTRL_R_brow_lateral":
     {
@@ -2989,30 +2505,12 @@ FACERIG_EXT_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [144, 145],
+        "offset": True,
         "blendshapes":
         {
             "Jaw_Forward": 1.0,
             "Jaw_Backward": -1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_JawRoot",
-                "axis": "x",
-                "offset": 0, # 1.8288450241088867,
-                "translation": [0.75, -0.5],
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "MCH-jaw_move",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": [-0.75, 0.5],
-            }
-        ]
     },
     "CTRL_L_mouth_suckBlow":
     {
@@ -3414,58 +2912,14 @@ FACERIG_EXT_CONFIG = {
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
             "x": {
-                "Dummy_Teeth_Left_D": 1.0,
-                "Dummy_Teeth_Right_D": -1.0
+                "Teeth_Left_D": 1.0,
+                "Teeth_Right_D": -1.0
             },
             "y": {
-                "Dummy_Teeth_Down_U": 1.0,
-                "Dummy_Teeth_Down_D": -1.0
+                "Teeth_Down_U": 1.0,
+                "Teeth_Down_D": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_Teeth02",
-                    "axis": "z",
-                    "offset": 0, # -0.04119798541069031,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_Teeth02",
-                    "axis": "y",
-                    "offset": 0, # 1.249316930770874,
-                    "translation": 1.0,
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "teeth.B",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "teeth.B",
-                    "axis": "z",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": -1.0,
-                }
-            ]
-        }
     },
     "CTRL_C_teethU":
     {
@@ -3478,58 +2932,14 @@ FACERIG_EXT_CONFIG = {
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
             "x": {
-                "Dummy_Teeth_Left_U": 1.0,
-                "Dummy_Teeth_Right_U": -1.0
+                "Teeth_Left_U": 1.0,
+                "Teeth_Right_U": -1.0
             },
             "y": {
-                "Dummy_Teeth_Up_U": 1.0,
-                "Dummy_Teeth_Up_D": -1.0
+                "Teeth_Up_U": 1.0,
+                "Teeth_Up_D": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_Teeth01",
-                    "axis": "z",
-                    "offset": 0, # -0.03492468595504761,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_Teeth01",
-                    "axis": "y",
-                    "offset": 0, # -0.06047694757580757,
-                    "translation": 1.0,
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "teeth.T",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "teeth.T",
-                    "axis": "z",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": -1.0,
-                }
-            ]
-        }
     },
     "CTRL_C_teeth_fwdBackD":
     {
@@ -3540,28 +2950,9 @@ FACERIG_EXT_CONFIG = {
         "indices": [117, 134],
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
-            "Dummy_Teeth_Back_D": -1.0,
-            "Dummy_Teeth_Fwd_D": 1.0
+            "Teeth_Back_D": -1.0,
+            "Teeth_Fwd_D": 1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_Teeth02",
-                "axis": "x",
-                "offset": 0, # 2.879988670349121,
-                "translation": 1.0
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "teeth.B",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": -1.0
-            }
-        ]
     },
     "CTRL_C_teeth_fwdBackU":
     {
@@ -3571,28 +2962,9 @@ FACERIG_EXT_CONFIG = {
         "indices": [118, 135],
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
-            "Dummy_Teeth_Back_U": -1.0,
-            "Dummy_Teeth_Fwd_U": 1.0
+            "Teeth_Back_U": -1.0,
+            "Teeth_Fwd_U": 1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_Teeth01",
-                "axis": "x",
-                "offset": 0, # -0.16094255447387695,
-                "translation": 1.0
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "teeth.T",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": -1.0
-            }
-        ]
     },
     "CTRL_R_eyelashU":
     {
@@ -3737,6 +3109,8 @@ FACERIG_STD_CONFIG = {
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
         "strength": False,
+        "influence": "eyes_track",
+        "offset": True,
         "indices": [86, 87, 88, 89],
         "blendshapes":
         {
@@ -3751,51 +3125,6 @@ FACERIG_STD_CONFIG = {
                 "Eye_L_Look_Down": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
-
     },
     "CTRL_R_eye":
     {
@@ -3805,6 +3134,8 @@ FACERIG_STD_CONFIG = {
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
         "strength": False,
+        "influence": "eyes_track",
+        "offset": True,
         "indices": [81,80,79,78],
         "blendshapes":
         {
@@ -3819,50 +3150,6 @@ FACERIG_STD_CONFIG = {
                 "Eye_R_Look_Down": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [30.0, -40.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [30.0, -40.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
     },
     "CTRL_C_eye":
     {
@@ -3872,6 +3159,8 @@ FACERIG_STD_CONFIG = {
         "x_method": "AVERAGE",
         "y_method": "AVERAGE",
         "strength": False,
+        "influence": "eyes_track",
+        "offset": False,
         "indices": [83, 84, 85, 82],
         "blendshapes":
         {
@@ -3890,76 +3179,6 @@ FACERIG_STD_CONFIG = {
                 "Eye_L_Look_Down": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [30.0, -40.0]
-                },
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                },
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [30.0, -40.0]
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
     },
     "CTRL_C_mouth_Std":
     {
@@ -3979,6 +3198,7 @@ FACERIG_STD_CONFIG = {
         "x_range": [-1.0, 1.0],
         "y_range": [0.0, -1.0],
         "indices": [99, 100, 101, 98],
+        "offset": True,
         "blendshapes":
         {
             "x":
@@ -3991,50 +3211,6 @@ FACERIG_STD_CONFIG = {
                 "Jaw_Open": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_JawRoot",
-                    "axis": "z",
-                    "offset": 0,
-                    "translation": 0.658
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_JawRoot",
-                    "axis": "z",
-                    "offset": 0, # 90.0,
-                    "rotation": 30.0
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "jaw_master",
-                    "axis": "x",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": 0.658
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "jaw_master",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0.0,
-                    "rotation": 30.0
-                }
-            ]
-        }
     },
     "CTRL_R_brow_down":
     {
@@ -4305,29 +3481,11 @@ FACERIG_STD_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [70, 71],
+        "offset": True,
         "blendshapes":
         {
             "Jaw_Forward": 1.0,
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_JawRoot",
-                "axis": "x",
-                "offset": 0, # 1.8288450241088867,
-                "translation": [0.75, -0.5],
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "MCH-jaw_move",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": [-0.75, 0.5],
-            }
-        ]
     },
     "CTRL_L_mouth_puff_Std":
     {
@@ -4543,58 +3701,14 @@ FACERIG_STD_CONFIG = {
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
             "x": {
-                "Dummy_Teeth_Left_D": 1.0,
-                "Dummy_Teeth_Right_D": -1.0
+                "Teeth_Left_D": 1.0,
+                "Teeth_Right_D": -1.0
             },
             "y": {
-                "Dummy_Teeth_Down_U": 1.0,
-                "Dummy_Teeth_Down_D": -1.0
+                "Teeth_Down_U": 1.0,
+                "Teeth_Down_D": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_Teeth02",
-                    "axis": "z",
-                    "offset": 0, # -0.04119798541069031,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_Teeth02",
-                    "axis": "y",
-                    "offset": 0, # 1.249316930770874,
-                    "translation": 1.0,
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "teeth.B",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "teeth.B",
-                    "axis": "z",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": -1.0,
-                }
-            ]
-        }
     },
     "CTRL_C_teethU":
     {
@@ -4606,58 +3720,14 @@ FACERIG_STD_CONFIG = {
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
             "x": {
-                "Dummy_Teeth_Left_U": 1.0,
-                "Dummy_Teeth_Right_U": -1.0
+                "Teeth_Left_U": 1.0,
+                "Teeth_Right_U": -1.0
             },
             "y": {
-                "Dummy_Teeth_Up_U": 1.0,
-                "Dummy_Teeth_Up_D": -1.0
+                "Teeth_Up_U": 1.0,
+                "Teeth_Up_D": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_Teeth01",
-                    "axis": "z",
-                    "offset": 0, # -0.03492468595504761,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_Teeth01",
-                    "axis": "y",
-                    "offset": 0, # -0.06047694757580757,
-                    "translation": 1.0,
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "teeth.T",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "teeth.T",
-                    "axis": "z",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": -1.0,
-                }
-            ]
-        }
     },
     "CTRL_C_teeth_fwdBackD":
     {
@@ -4667,28 +3737,9 @@ FACERIG_STD_CONFIG = {
         "indices": [53, 68],
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
-            "Dummy_Teeth_Back_D": -1.0,
-            "Dummy_Teeth_Fwd_D": 1.0
+            "Teeth_Back_D": -1.0,
+            "Teeth_Fwd_D": 1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_Teeth02",
-                "axis": "x",
-                "offset": 0, # 2.879988670349121,
-                "translation": 1.0
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "teeth.B",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": -1.0
-            }
-        ]
     },
     "CTRL_C_teeth_fwdBackU":
     {
@@ -4698,28 +3749,9 @@ FACERIG_STD_CONFIG = {
         "indices": [54, 69],
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
-            "Dummy_Teeth_Back_U": -1.0,
-            "Dummy_Teeth_Fwd_U": 1.0
+            "Teeth_Back_U": -1.0,
+            "Teeth_Fwd_U": 1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_Teeth01",
-                "axis": "x",
-                "offset": 0, # -0.16094255447387695,
-                "translation": 1.0
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "teeth.T",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": -1.0
-            }
-        ]
     },
 }
 
@@ -4802,6 +3834,8 @@ FACERIG_TRA_CONFIG = {
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
         "strength": False,
+        "influence": "eyes_track",
+        "offset": True,
         "indices": [86, 87, 88, 89],
         "blendshapes":
         {
@@ -4816,51 +3850,6 @@ FACERIG_TRA_CONFIG = {
                 "A08_Eye_Look_Down_Left": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
-
     },
     "CTRL_R_eye":
     {
@@ -4870,6 +3859,8 @@ FACERIG_TRA_CONFIG = {
         "x_parent": "CTRL_C_eye",
         "y_parent": "CTRL_C_eye",
         "strength": False,
+        "influence": "eyes_track",
+        "offset": True,
         "indices": [81,80,79,78],
         "blendshapes":
         {
@@ -4884,50 +3875,6 @@ FACERIG_TRA_CONFIG = {
                 "A09_Eye_Look_Down_Right": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [30.0, -40.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [30.0, -40.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
     },
     "CTRL_C_eye":
     {
@@ -4937,6 +3884,8 @@ FACERIG_TRA_CONFIG = {
         "x_method": "AVERAGE",
         "y_method": "AVERAGE",
         "strength": False,
+        "influence": "eyes_track",
+        "offset": False,
         "indices": [83, 84, 85, 82],
         "blendshapes":
         {
@@ -4955,76 +3904,6 @@ FACERIG_TRA_CONFIG = {
                 "A08_Eye_Look_Down_Left": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [30.0, -40.0]
-                },
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "z",
-                    "offset": 0, # -90.0,
-                    "rotation": [40.0, -30.0]
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_R_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                },
-                {
-                    "bone": "CC_Base_L_Eye",
-                    "axis": "x",
-                    "offset": 0, # -90.0,
-                    "rotation": [22.0, -20.0],
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [30.0, -40.0],
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "z",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "rotation": [40.0, -30.0],
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "MCH-eye.R",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                },
-                {
-                    "bone": "MCH-eye.L",
-                    "axis": "x",
-                    "cc_axis": "x",
-                    "offset": 0,
-                    "rotation": [-22.0, 20.0],
-                }
-            ]
-        }
     },
     "CTRL_C_mouth":
     {
@@ -5044,6 +3923,7 @@ FACERIG_TRA_CONFIG = {
         "x_range": [-1.0, 1.0],
         "y_range": [0.0, -1.0],
         "indices": [99, 100, 101, 98],
+        "offset": True,
         "blendshapes":
         {
             "x":
@@ -5056,50 +3936,6 @@ FACERIG_TRA_CONFIG = {
                 "A25_Jaw_Open": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_JawRoot",
-                    "axis": "y",
-                    "offset": 0,
-                    "translation": -0.658
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_JawRoot",
-                    "axis": "z",
-                    "offset": 0, # 90.0,
-                    "rotation": 35.0
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "jaw_master",
-                    "axis": "x",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": 0.658
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "jaw_master",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0.0,
-                    "rotation": 30.0
-                }
-            ]
-        }
     },
     "CTRL_R_brow_down":
     {
@@ -5360,29 +4196,11 @@ FACERIG_TRA_CONFIG = {
         "widget_type": "slider",
         "range": [-1.0, 1.0],
         "indices": [70, 71],
+        "offset": True,
         "blendshapes":
         {
             "A26_Jaw_Forward": 1.0,
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_JawRoot",
-                "axis": "x",
-                "offset": 0, # 1.8288450241088867,
-                "translation": [0.75, -0.5],
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "MCH-jaw_move",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": [-0.75, 0.5],
-            }
-        ]
     },
     "CTRL_mouth_puff_Std":
     {
@@ -5589,58 +4407,14 @@ FACERIG_TRA_CONFIG = {
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
             "x": {
-                "Dummy_Teeth_Left_D": 1.0,
-                "Dummy_Teeth_Right_D": -1.0
+                "Teeth_Left_D": 1.0,
+                "Teeth_Right_D": -1.0
             },
             "y": {
-                "Dummy_Teeth_Down_U": 1.0,
-                "Dummy_Teeth_Down_D": -1.0
+                "Teeth_Down_U": 1.0,
+                "Teeth_Down_D": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_Teeth02",
-                    "axis": "z",
-                    "offset": 0, # -0.04119798541069031,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_Teeth02",
-                    "axis": "y",
-                    "offset": 0, # 1.249316930770874,
-                    "translation": 1.0,
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "teeth.B",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "teeth.B",
-                    "axis": "z",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": -1.0,
-                }
-            ]
-        }
     },
     "CTRL_C_teethU":
     {
@@ -5652,58 +4426,14 @@ FACERIG_TRA_CONFIG = {
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
             "x": {
-                "Dummy_Teeth_Left_U": 1.0,
-                "Dummy_Teeth_Right_U": -1.0
+                "Teeth_Left_U": 1.0,
+                "Teeth_Right_U": -1.0
             },
             "y": {
-                "Dummy_Teeth_Up_U": 1.0,
-                "Dummy_Teeth_Up_D": -1.0
+                "Teeth_Up_U": 1.0,
+                "Teeth_Up_D": -1.0
             }
         },
-        "bones":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "CC_Base_Teeth01",
-                    "axis": "z",
-                    "offset": 0, # -0.03492468595504761,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "CC_Base_Teeth01",
-                    "axis": "y",
-                    "offset": 0, # -0.06047694757580757,
-                    "translation": 1.0,
-                }
-            ]
-        },
-        "rigify":
-        {
-            "horizontal":
-            [
-                {
-                    "bone": "teeth.T",
-                    "axis": "x",
-                    "cc_axis": "z",
-                    "offset": 0,
-                    "translation": 1.0,
-                }
-            ],
-            "vertical":
-            [
-                {
-                    "bone": "teeth.T",
-                    "axis": "z",
-                    "cc_axis": "y",
-                    "offset": 0,
-                    "translation": -1.0,
-                }
-            ]
-        }
     },
     "CTRL_C_teeth_fwdBackD":
     {
@@ -5713,28 +4443,9 @@ FACERIG_TRA_CONFIG = {
         "indices": [53, 68],
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
-            "Dummy_Teeth_Back_D": -1.0,
-            "Dummy_Teeth_Fwd_D": 1.0
+            "Teeth_Back_D": -1.0,
+            "Teeth_Fwd_D": 1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_Teeth02",
-                "axis": "x",
-                "offset": 0, # 2.879988670349121,
-                "translation": 1.0
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "teeth.B",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": -1.0
-            }
-        ]
     },
     "CTRL_C_teeth_fwdBackU":
     {
@@ -5744,28 +4455,9 @@ FACERIG_TRA_CONFIG = {
         "indices": [54, 69],
         "retarget_bones": ["CC_Base_Teeth01", "CC_Base_Teeth02"],
         "blendshapes": {
-            "Dummy_Teeth_Back_U": -1.0,
-            "Dummy_Teeth_Fwd_U": 1.0
+            "Teeth_Back_U": -1.0,
+            "Teeth_Fwd_U": 1.0
         },
-        "bones":
-        [
-            {
-                "bone": "CC_Base_Teeth01",
-                "axis": "x",
-                "offset": 0, # -0.16094255447387695,
-                "translation": 1.0
-            }
-        ],
-        "rigify":
-        [
-            {
-                "bone": "teeth.T",
-                "axis": "y",
-                "cc_axis": "x",
-                "offset": 0,
-                "translation": -1.0
-            }
-        ]
     },
 }
 
@@ -7275,7 +5967,7 @@ EXPRESSION_EXT = {
         }
     },
     # dummy shape keys for bone only controls
-    "Dummy_Teeth_Back_D": {
+    "Teeth_Back_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -7305,7 +5997,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Back_U": {
+    "Teeth_Back_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -7322,7 +6014,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Down_D": {
+    "Teeth_Down_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -7352,7 +6044,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Down_U": {
+    "Teeth_Down_U": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -7382,7 +6074,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Fwd_D": {
+    "Teeth_Fwd_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -7412,7 +6104,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Fwd_U": {
+    "Teeth_Fwd_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -7429,7 +6121,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Left_D": {
+    "Teeth_Left_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -7459,7 +6151,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Left_U": {
+    "Teeth_Left_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -7476,7 +6168,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Right_D": {
+    "Teeth_Right_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -7506,7 +6198,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Right_U": {
+    "Teeth_Right_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -7523,7 +6215,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Up_D": {
+    "Teeth_Up_D": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -7540,7 +6232,7 @@ EXPRESSION_EXT = {
             }
         }
     },
-    "Dummy_Teeth_Up_U": {
+    "Teeth_Up_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -7998,7 +6690,7 @@ EXPRESSION_TRA = {
         }
     },
     # dummy shape keys for bone only controls
-    "Dummy_Teeth_Back_D": {
+    "Teeth_Back_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -8028,7 +6720,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Back_U": {
+    "Teeth_Back_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -8045,7 +6737,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Down_D": {
+    "Teeth_Down_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -8075,7 +6767,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Down_U": {
+    "Teeth_Down_U": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -8105,7 +6797,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Fwd_D": {
+    "Teeth_Fwd_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -8135,7 +6827,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Fwd_U": {
+    "Teeth_Fwd_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -8152,7 +6844,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Left_D": {
+    "Teeth_Left_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -8182,7 +6874,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Left_U": {
+    "Teeth_Left_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -8199,7 +6891,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Right_D": {
+    "Teeth_Right_D": {
         "Bones": {
             "CC_Base_Tongue01": {
                 "Translate": [
@@ -8229,7 +6921,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Right_U": {
+    "Teeth_Right_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -8246,7 +6938,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Up_D": {
+    "Teeth_Up_D": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [
@@ -8263,7 +6955,7 @@ EXPRESSION_TRA = {
             }
         }
     },
-    "Dummy_Teeth_Up_U": {
+    "Teeth_Up_U": {
         "Bones": {
             "CC_Base_Teeth01": {
                 "Translate": [

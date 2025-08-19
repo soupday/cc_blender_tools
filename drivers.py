@@ -838,6 +838,17 @@ def make_custom_prop_var_def(var_name, source_obj, prop_name):
     return var_def
 
 
+def find_custom_prop_var_def(var_defs, source_obj, prop_name):
+    data_path = f"{source_obj.path_from_id()}[\"{prop_name}\"]"
+    for var_def in var_defs:
+        if (len(var_def) == 4 and
+            var_def[1] == "SINGLE_PROP" and
+            var_def[2] == source_obj and
+            var_def[3] == data_path):
+            return var_def[0]
+    return None
+
+
 def make_bone_transform_var_def(var_name, source_rig, bone_name, transform_axis, space="LOCAL_SPACE"):
     var_def = [var_name,
                "TRANSFORMS",
@@ -846,6 +857,18 @@ def make_bone_transform_var_def(var_name, source_rig, bone_name, transform_axis,
                transform_axis,
                space]
     return var_def
+
+
+def find_bone_transform_var_def(var_defs, source_rig, bone_name, transform_axis, space="LOCAL_SPACE"):
+    for var_def in var_defs:
+        if (len(var_def) == 6 and
+            var_def[1] == "TRANSFORMS" and
+            var_def[2] == source_rig and
+            var_def[3] == bone_name and
+            var_def[4] == transform_axis and
+            var_def[5] == space):
+            return var_def[0]
+    return None
 
 
 def make_transform_var_def(var_name, source_obj, transform_prop, space="LOCAL_SPACE"):
@@ -858,6 +881,18 @@ def make_transform_var_def(var_name, source_obj, transform_prop, space="LOCAL_SP
     return var_def
 
 
+def find_transform_var_def(var_defs, source_obj, transform_prop, space="LOCAL_SPACE"):
+    for var_def in var_defs:
+        if (len(var_def) == 6 and
+            var_def[1] == "TRANSFORMS" and
+            var_def[2] == source_obj and
+            var_def[3] == None and
+            var_def[4] == transform_prop and
+            var_def[5] == space):
+            return var_def[0]
+    return None
+
+
 def make_shape_key_var_def(var_name, source_obj, key_name):
     key = get_shape_key(source_obj, key_name)
     data_path = "shape_keys." + key.path_from_id("value")
@@ -866,6 +901,18 @@ def make_shape_key_var_def(var_name, source_obj, key_name):
                source_obj.data,
                data_path]
     return var_def
+
+
+def find_shape_key_var_def(var_defs, source_obj, key_name):
+    key = get_shape_key(source_obj, key_name)
+    data_path = "shape_keys." + key.path_from_id("value")
+    for var_def in var_defs:
+        if (len(var_def) == 4 and
+            var_def[1] == "SINGLE_PROP" and
+            var_def[2] == source_obj.data and
+            var_def[4] == data_path):
+            return var_def[0]
+    return None
 
 
 def get_shape_key_driver(obj, shape_key_name, drive_limit=False) -> bpy.types.Driver:

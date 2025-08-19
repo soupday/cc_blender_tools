@@ -138,56 +138,71 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
     utils.log_info("Adding addition control bones to Rigify Control Rig:")
     utils.log_indent()
 
-    for def_copy in rigify_mapping_data.ADD_DEF_BONES:
-        src_bone_name = def_copy[0]
-        dst_bone_name = def_copy[1]
-        dst_bone_parent_name = def_copy[2]
-        relation_flags = def_copy[3]
-        layer = def_copy[4]
-        collection = def_copy[5]
-        deform = dst_bone_name[:3] == "DEF"
-        scale = 1
-        ref = None
-        arg = None
-        arg2 = None
-        if len(def_copy) > 6:
-            scale = def_copy[6]
-        if len(def_copy) > 7:
-            ref = def_copy[7]
-        if len(def_copy) > 8:
-            arg = def_copy[8]
-        if len(def_copy) > 9:
-            arg2 = def_copy[9]
+    for pass_id in ["Add", "Process"]:
 
-        utils.log_info(f"Adding/Processing: {dst_bone_name}")
+        if pass_id == "Add":
+            rigutils.edit_rig(rigify_rig)
+        elif pass_id == "Process":
+            rigutils.select_rig(rigify_rig)
 
-        # reparent an existing deformation bone
-        if src_bone_name == "-":
-            reparented_bone = bones.reparent_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
-            if reparented_bone and relation_flags:
-                bones.set_edit_bone_flags(reparented_bone, relation_flags, deform)
-                bones.set_bone_collection(rigify_rig, reparented_bone, collection, None, layer)
+        for def_copy in rigify_mapping_data.ADD_DEF_BONES:
+            src_bone_name = def_copy[0]
+            dst_bone_name = def_copy[1]
+            dst_bone_parent_name = def_copy[2]
+            relation_flags = def_copy[3]
+            layer = def_copy[4]
+            collection = def_copy[5]
+            deform = dst_bone_name[:3] == "DEF"
+            scale = 1
+            ref = None
+            args = None
+            if len(def_copy) > 6:
+                scale = def_copy[6]
+            if len(def_copy) > 7:
+                ref = def_copy[7]
+            if len(def_copy) > 8:
+                args = def_copy[8]
 
-        # add a custom DEF, ORG or MCH bone
-        elif src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG" or src_bone_name[:3] == "MCH":
-            new_bone = bones.copy_edit_bone(rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
-            if new_bone:
-                bones.set_edit_bone_flags(new_bone, relation_flags, deform)
-                bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
-            # partial rotation copy for share bones
-            if ref and arg is not None:
-                bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, arg)
-                # additional copy location contraint (MCH-teeth_master)
-                if arg2:
-                    bones.add_copy_location_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, arg2)
+            utils.log_info(f"{pass_id} pass: {dst_bone_name}")
 
-        # or make a copy of a bone from the original character rig
-        else:
-            new_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
-            if new_bone:
-                bones.set_edit_bone_flags(new_bone, relation_flags, deform)
-                bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
+            if pass_id == "Add":
 
+                # reparent an existing deformation bone
+                if src_bone_name == "-":
+                    reparented_bone = bones.reparent_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
+                    if reparented_bone and relation_flags:
+                        bones.set_edit_bone_flags(reparented_bone, relation_flags, deform)
+                        bones.set_bone_collection(rigify_rig, reparented_bone, collection, None, layer)
+
+                # add a custom DEF, ORG or MCH bone
+                elif src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG" or src_bone_name[:3] == "MCH":
+                    new_bone = bones.copy_edit_bone(rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
+                    if new_bone:
+                        bones.set_edit_bone_flags(new_bone, relation_flags, deform)
+                        bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
+
+                # or make a copy of a bone from the original character rig
+                else:
+                    new_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
+                    if new_bone:
+                        bones.set_edit_bone_flags(new_bone, relation_flags, deform)
+                        bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
+
+            elif pass_id == "Process":
+
+                if src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG" or src_bone_name[:3] == "MCH":
+                    # partial rotation copy for share bones
+                    if ref and args:
+                        if args[0] and "R" in relation_flags:
+                            bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, args[0])
+                        # additional copy location contraint (MCH-teeth_master)
+                        if args[1] and "L" in relation_flags:
+                            bones.add_copy_location_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, args[1])
+                        if args[2]: # local offset and addition
+                            if "L" in relation_flags:
+                                bones.add_copy_location_constraint(rigify_rig, rigify_rig, dst_bone_name, ref, args[2], space="LOCAL_OWNER_ORIENT", use_offset=True)
+                            if "R" in relation_flags:
+                                bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, dst_bone_name, ref, args[2], space="LOCAL_OWNER_ORIENT", use_offset=True)
     utils.log_recess()
 
 
@@ -1316,10 +1331,17 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
                 else:
                     utils.log_error(f"Unable to find edit_bone: {name}")
 
-    meta_bone_map = {
-        "CC_Base_JawRoot": "jaw_master",
+    expression_meta_bone_map = {
+        "CC_Base_JawRoot": "MCH-CTRL-jaw",
         "CC_Base_L_Eye": "MCH-eye.L",
         "CC_Base_R_Eye": "MCH-eye.R",
+        "CC_Base_Head": "MCH-CTRL-head",
+    }
+
+    offset_bone_map = {
+        "CC_Base_JawRoot": "jaw_master",
+        "CC_Base_L_Eye": "MCH-TRCK-eye.L",
+        "CC_Base_R_Eye": "MCH-TRCK-eye.R",
         "CC_Base_Head": "head",
     }
 
@@ -1355,7 +1377,8 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
                 if "Bones" in expression_def and expression_def["Bones"]:
                     expression_def["Rigify Bones"] = {}
                     for bone_name in expression_def["Bones"]:
-                        rigify_bone_name = bones.get_rigify_control_bone(rigify_rig, bone_mapping, bone_name, extra_mapping=meta_bone_map)
+                        rigify_bone_name = bones.get_rigify_control_bone(rigify_rig, bone_mapping, bone_name, extra_mapping=expression_meta_bone_map)
+                        offset_bone_name = offset_bone_map[bone_name] if bone_name in offset_bone_map else ""
                         tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
                         rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
                         R, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, rigify_bone_name, tra, rot, True)
@@ -1372,6 +1395,14 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
                             expression_cache.rigify_bone_name = rigify_bone_name
                             expression_cache.rigify_translation = R_tra
                             expression_cache.rigify_rotation = R_euler
+                            if offset_bone_name:
+                                OR, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, offset_bone_name, tra, rot, True)
+                                OR_quat = OR.to_quaternion().normalized()
+                                OR_euler = OR_quat.to_euler("XYZ")
+                                OR_tra = OR.to_translation()
+                                expression_cache.offset_bone_name = offset_bone_name
+                                expression_cache.offset_translation = OR_tra
+                                expression_cache.offset_rotation = OR_euler
 
 
 def modify_rigify_controls(cc3_rig, rigify_rig, rigify_data):
@@ -2022,7 +2053,6 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                 if not org_bone_name or org_bone_name in ORG_BONES:
                     # don't process the same ORG bone more than once
                     continue
-
                 org_parent_bone_name = retarget_def[1]
                 utils.log_detail(f"Generating retarget ORG bone: {org_bone_name}")
                 flags = retarget_def[4]
@@ -2577,6 +2607,7 @@ def adv_retarget_remove_pair(op, chr_cache, no_drivers=False):
     if rigutils.is_face_rig(rigify_rig):
         facerig.remove_facerig_retarget_drivers(chr_cache, rigify_rig)
         rigutils.clean_up_shape_key_proxy_objects()
+        #facerig.set_facerig_eye_tracking(rigify_rig, True)
 
         # restore arkit proxy drivers
         if not no_drivers:
@@ -2661,11 +2692,14 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig=None, source_action=None, t
     # (and only the animated bones/keys are present in motion exports)
     rigutils.reset_pose(rigify_rig, exceptions="facerig")
 
+    is_face_rig = rigutils.is_face_rig(rigify_rig)
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_retargeting_rig(chr_cache, source_rig, rigify_rig,
                                             retarget_data, to_original_rig=to_original_rig)
 
-    if rigutils.is_face_rig(rigify_rig):
+    if is_face_rig:
+        # turn off damped tracking influence in the eyes while retargeting with a face rig
+        facerig.set_facerig_eye_tracking(rigify_rig, False)
         shape_key_only = shape_keys is not None
         proxy_objects = rigutils.get_shape_key_action_objects(rigify_rig, source_rig, source_action, shape_keys)
         facerig.build_facerig_retarget_drivers(chr_cache, rigify_rig, source_rig, proxy_objects, shape_key_only)

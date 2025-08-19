@@ -2393,6 +2393,9 @@ class CC3RigifyPanel(bpy.types.Panel):
                             col_row.prop(facerig_bone, "[\"head_follow\"]", slider=True, text="")
                             facerig_locked = facerig_bone.bone.hide_select
                             col_row.operator("ccic.rigutils", icon="LOCKED" if facerig_locked else "UNLOCKED", text="").param = "TOGGLE_EXPRESSION_RIG_LOCK"
+                            col_1.label(text="Eyes Track")
+                            col_row = col_2.row(align=True)
+                            col_row.prop(facerig_bone, "[\"eyes_track\"]", slider=True, text="")
                             layout.label(text="Overall Strength")
                             row = layout.row(align=True)
                             row.prop(facerig_bone, "[\"key_strength\"]", slider=True, text="Key")

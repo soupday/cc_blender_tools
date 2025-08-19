@@ -1539,6 +1539,9 @@ class CCICExpressionData(bpy.types.PropertyGroup):
     rigify_bone_name: bpy.props.StringProperty()
     rigify_translation: bpy.props.FloatVectorProperty()
     rigify_rotation: bpy.props.FloatVectorProperty()
+    offset_bone_name: bpy.props.StringProperty()
+    offset_translation: bpy.props.FloatVectorProperty()
+    offset_rotation: bpy.props.FloatVectorProperty()
 
 
 class CC3CharacterCache(bpy.types.PropertyGroup):

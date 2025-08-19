@@ -2764,6 +2764,13 @@ def set_prop(obj, prop_name, value):
     return False
 
 
+def get_prop(obj, prop_name, default_value = None):
+    try:
+        return obj[prop_name]
+    except: ...
+    return default_value
+
+
 def set_rl_link_id(obj, link_id=None):
     if link_id is None:
         link_id = generate_random_id(20)

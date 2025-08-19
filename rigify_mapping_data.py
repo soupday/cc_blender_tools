@@ -568,7 +568,7 @@ ADD_DEF_BONES = [
     ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29, "DEF"],
     ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29, "DEF"],
 
-    ["MCH-jaw_master", "MCH-teeth_master", "ORG-face", "LR", 30, "MCH", 0.9, "MCH-jaw_master", 0.98, 1.0],
+    ["MCH-jaw_master", "MCH-teeth_master", "ORG-face", "LR", 30, "MCH", 0.9, "MCH-jaw_master", [0.98, 1.0, 0]],
     ["-", "teeth.B", "MCH-teeth_master", "", "", ""],
     ["-", "tongue.003", "MCH-teeth_master", "", "", ""],
 
@@ -578,8 +578,8 @@ ADD_DEF_BONES = [
     ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29, "DEF"],
     ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29, "DEF"],
 
-    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, "DEF", 0.667, "DEF-upper_arm.L.001", 0.5],
-    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, "DEF", 0.667, "DEF-thigh.L.001", 0.5],
+    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, "DEF", 0.667, "DEF-upper_arm.L.001", [0.5, 0, 0]],
+    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, "DEF", 0.667, "DEF-thigh.L.001", [0.5, 0, 0]],
     #["DEF-toe.L", "DEF-toe_share.L", "DEF-toe.L", "LR", 29, 4.0, "DEF-foot.L", 0.5],
 
     ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29, "DEF"],
@@ -588,8 +588,8 @@ ADD_DEF_BONES = [
     ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29, "DEF"],
     ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29, "DEF"],
 
-    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, "DEF", 0.667, "DEF-upper_arm.R.001", 0.5],
-    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, "DEF", 0.667, "DEF-thigh.R.001", 0.5],
+    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, "DEF", 0.667, "DEF-upper_arm.R.001", [0.5, 0, 0]],
+    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, "DEF", 0.667, "DEF-thigh.R.001", [0.5, 0, 0]],
     #["DEF-toe.R", "DEF-toe_share.R", "DEF-toe.R", "LR", 29, 4.0, "DEF-foot.R", 0.5],
 
     ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29, "DEF"],
@@ -597,6 +597,8 @@ ADD_DEF_BONES = [
     ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29, "DEF"],
     ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29, "DEF"],
     ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29, "DEF"],
+
+    #["DEF-spine.006", "MCH-CTRL-head", "neck", "LR", 30, "MCH", 0.4, "MCH-ROT-head", [0, 0, 1]],
 ]
 
 def OODTR(a):

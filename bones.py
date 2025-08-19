@@ -592,9 +592,11 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.invert_x = invert_x
             c.invert_y = invert_y
             c.invert_z = invert_z
-            c.mix_mode = "REPLACE"
+            c.mix_mode = "REPLACE" if not use_offset else "AFTER"
+            try:
+                c.use_offset = use_offset
+            except: ...
             c.target_space = space
-            c.use_offset = use_offset
             if space == "LOCAL_OWNER_ORIENT":
                 space = "LOCAL"
             c.owner_space = space
@@ -627,7 +629,7 @@ def add_copy_scale_constraint(from_rig, to_rig, from_bone, to_bone, influence = 
         return None
 
 
-def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD", axes=None):
+def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD", axes=None, use_offset=False):
     try:
         if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
@@ -641,6 +643,7 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.invert_x = False
             c.invert_y = False
             c.invert_z = False
+            c.use_offset = use_offset
             c.target_space = space
             if space == "LOCAL_OWNER_ORIENT":
                 space = "LOCAL"
@@ -679,7 +682,7 @@ def add_stretch_to_constraint(from_rig, to_rig, from_bone, to_bone, influence = 
         return None
 
 
-def add_damped_track_constraint(rig, bone_name, target_name, influence):
+def add_damped_track_constraint(rig, bone_name, target_name, influence=1):
     try:
         if utils.object_mode():
             pose_bone : bpy.types.PoseBone = rig.pose.bones[bone_name]
@@ -1648,7 +1651,14 @@ def add_constraint_influence_driver(rig, pose_bone_name,
                 else:
                     driver = drivers.make_driver(con, "influence", "SUM")
                 if driver:
-                    var = drivers.make_driver_var(driver, "SINGLE_PROP",
+                    if type(source_var_name) is list:
+                        for i, svn in enumerate(source_var_name):
+                            dp = source_data_path[i]
+                            var = drivers.make_driver_var(driver, "SINGLE_PROP",
+                                                          svn, source_object,
+                                                          target_type="OBJECT", data_path=dp)
+                    else:
+                        var = drivers.make_driver_var(driver, "SINGLE_PROP",
                                                           source_var_name, source_object,
                                                           target_type="OBJECT", data_path=source_data_path)
 
