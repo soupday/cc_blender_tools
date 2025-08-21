@@ -139,7 +139,7 @@ def update_property(self, context, prop_name, update_mode = None):
                 update_shader_property(context_obj, mat_cache, prop_name)
 
         # these properties will cause the eye displacement vertex group to change...
-        if prop_name in ["eye_iris_depth_radius", "eye_iris_scale", "eye_iris_radius"]:
+        if prop_name in ["eye_iris_scale", "eye_iris_radius"]:
             meshutils.rebuild_eye_vertex_groups(chr_cache)
 
 
@@ -784,7 +784,7 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_saturation"))
     eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_iris_brightness"))
     eye_iris_hsv: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hsv"))
-    eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.24, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
+    eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.4, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
     eye_iris_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_color"))
     eye_sclera_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -819,10 +819,9 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
     eye_iris_depth: bpy.props.FloatProperty(default=0.45, min=0, max=1.25, update=lambda s,c: update_property(s,c,"eye_iris_depth"))
-    eye_iris_depth_radius: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_depth_radius"))
     eye_pupil_scale: bpy.props.FloatProperty(default=0.8, min=0.5, max=4.0, update=lambda s,c: update_property(s,c,"eye_pupil_scale"))
     eye_limbus_shading: bpy.props.FloatProperty(default=0.2, min=0.0, max=2.0, update=lambda s,c: update_property(s,c,"eye_limbus_shading"))
-    eye_limbus_definition: bpy.props.FloatProperty(default=0.125, min=0.0, max=0.5, update=lambda s,c: update_property(s,c,"eye_limbus_definition"))
+    eye_limbus_contrast: bpy.props.FloatProperty(default=1.1, min=0.1, max=2, update=lambda s,c: update_property(s,c,"eye_limbus_contrast"))
 
 
 class CC3EyeOcclusionParameters(bpy.types.PropertyGroup):

@@ -189,19 +189,17 @@ def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right
 
             slot = obj.material_slots[poly.material_index]
             if slot.material == mat_left:
-                iris_scale = cache_left.parameters.eye_iris_scale
+                sclera_scale = cache_left.parameters.eye_sclera_scale
                 iris_radius = cache_left.parameters.eye_iris_radius
-                depth_radius = cache_left.parameters.eye_iris_depth_radius
-                radius = iris_scale * iris_radius * depth_radius
+                radius = sclera_scale * (iris_radius / 0.16) * 0.128
                 #weight = 1.0 - utils.saturate(utils.smoothstep(0, radius, radial))
                 weight = utils.saturate(utils.remap(0, radius, 1.0, 0.0, radial))
                 vertex_group_l.add([vertex.index], weight, 'REPLACE')
 
             elif slot.material == mat_right:
-                iris_scale = cache_right.parameters.eye_iris_scale
+                sclera_scale = cache_right.parameters.eye_iris_scale
                 iris_radius = cache_right.parameters.eye_iris_radius
-                depth_radius = cache_right.parameters.eye_iris_depth_radius
-                radius = iris_scale * iris_radius * depth_radius
+                radius = sclera_scale * (iris_radius / 0.16) * 0.128
                 #weight = 1.0 - utils.saturate(utils.smoothstep(0, radius, radial))
                 weight = utils.saturate(utils.remap(0, radius, 1.0, 0.0, radial))
                 vertex_group_r.add([vertex.index], weight, 'REPLACE')

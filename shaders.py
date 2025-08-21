@@ -636,7 +636,7 @@ def func_set_eye_depth(depth):
     return depth * 1.5
 
 def func_set_parallax_iris_depth(depth):
-    return depth * 1.5
+    return depth * 1.5 + 0.1
 
 def func_index_f0(v: list):
     return v[0]

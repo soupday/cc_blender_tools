@@ -1640,8 +1640,12 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                     box.row().label(text = f"Material: {mat.name}", icon="SHADING_TEXTURE")
 
                     split = None
+                    col_1 = None
+                    col_2 = None
 
                     for ui_row in ui_matrix:
+
+                        print(ui_row, split, col_1, col_2)
 
                         if ui_row[0] == "HEADER":
                             column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
@@ -1848,7 +1852,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
                         elif ui_row[0] == "SPACER":
                             if not split:
-                                split = row.split(factor=0.4)
+                                split = column.split(factor=0.4)
                                 col_1 = split.column()
                                 col_2 = split.column()
                             col_1.separator()
