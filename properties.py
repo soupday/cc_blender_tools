@@ -1585,7 +1585,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("TRA","Traditional",""),
                         ("STD","Standard",""),
                         ("EXT","Extended",""),
-                        ("MH","Meta-Human","")
+                        ("MH","CC5 HD","")
                     ], default="NONE")
     viseme_profile: bpy.props.EnumProperty(items=[
                         ("NONE","None","None"),
@@ -2522,7 +2522,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             expression_json = {}
         facial_profile, viseme_profile = self.get_facial_profile()
         if facial_profile == "MH":
-            default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_MH)
+            # MH profile has complete expression json
+            #default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_MH)
+            default_expression_json = {}
         elif facial_profile == "STD" or facial_profile == "EXT":
             default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_EXT)
         elif facial_profile == "TRA":

@@ -601,6 +601,12 @@ ADD_DEF_BONES = [
     #["DEF-spine.006", "MCH-CTRL-head", "neck", "LR", 30, "MCH", 0.4, "MCH-ROT-head", [0, 0, 1]],
 ]
 
+RIGIFY_REPARENTING = {
+    "tongue_master": "tongue.003",
+    "MCH-tongue.001": "tongue.003",
+    "MCH-tongue.002": "tongue.003",
+}
+
 def OODTR(a):
     return 1.0 / (a * math.pi / 180.0)
 

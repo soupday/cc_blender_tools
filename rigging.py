@@ -124,6 +124,11 @@ def fix_rigify_bones(chr_cache, rigify_rig):
                 elif bone_dir == "-Z":
                     edit_bone.align_roll(ZDOWN)
 
+    for bone_name, parent_name in rigify_mapping_data.RIGIFY_REPARENTING.items():
+        edit_bone = bones.get_edit_bone(rigify_rig, bone_name)
+        parent_bone = bones.get_edit_bone(rigify_rig, parent_name)
+        edit_bone.parent = parent_bone
+
 
 def add_def_bones(chr_cache, cc3_rig, rigify_rig):
     """Adds and parents twist deformation bones to the rigify deformation bones.
@@ -1336,6 +1341,7 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
         "CC_Base_L_Eye": "MCH-CTRL-eye.L",
         "CC_Base_R_Eye": "MCH-CTRL-eye.R",
         "CC_Base_Head": "MCH-CTRL-head",
+        "CC_Base_Tongue01": "tongue.003",
     }
 
     offset_bone_map = {
@@ -1352,23 +1358,23 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
         expression_json, default_expression_json = chr_cache.get_expression_json(json_data)
 
         # merge missing values from default expression set
-        for expression, default_expression_def in default_expression_json.items():
-            if expression not in expression_json:
-                expression_json[expression] = {}
-            expression_def = expression_json[expression]
-            if "Bones" not in expression_def and "Bones" in default_expression_def:
-                expression_def["Bones"] = copy.deepcopy(default_expression_def["Bones"])
-            if "Bones" in expression_def:
-                for bone_name, default_bone_def in default_expression_def["Bones"].items():
-                    if bone_name not in expression_def["Bones"]:
-                        expression_def["Bones"][bone_name] = copy.deepcopy(default_expression_def["Bones"][bone_name])
-                    else:
-                        default_bone_def = default_expression_def["Bones"][bone_name]
-                        bone_def = expression_def["Bones"][bone_name]
-                        if "Translate" in default_bone_def and "Translate" not in bone_def:
-                            bone_def["Translate"] = default_bone_def["Translate"].copy()
-                        if "Rotation" in default_bone_def and "Rotation" not in bone_def:
-                            bone_def["Rotation"] = default_bone_def["Rotation"].copy()
+        if default_expression_json:
+            for expression, default_expression_def in default_expression_json.items():
+                if expression not in expression_json:
+                    expression_json[expression] = {}
+                expression_def = expression_json[expression]
+                if "Bones" not in expression_def and "Bones" in default_expression_def:
+                    expression_def["Bones"] = copy.deepcopy(default_expression_def["Bones"])
+                if "Bones" in expression_def:
+                    for bone_name, default_bone_def in default_expression_def["Bones"].items():
+                        if bone_name not in expression_def["Bones"]:
+                            expression_def["Bones"][bone_name] = copy.deepcopy(default_expression_def["Bones"][bone_name])
+                        else:
+                            bone_def = expression_def["Bones"][bone_name]
+                            if "Translate" in default_bone_def and "Translate" not in bone_def:
+                                bone_def["Translate"] = default_bone_def["Translate"].copy()
+                            if "Rotation" in default_bone_def and "Rotation" not in bone_def:
+                                bone_def["Rotation"] = default_bone_def["Rotation"].copy()
 
         utils.clear_prop_collection(chr_cache.expression_set)
         bone_mapping = rigify_data.bone_mapping

@@ -225,7 +225,7 @@ def get_rigify_control_bone(rigify_rig, bone_mapping, cc3_bone_name, extra_mappi
 
 
 def get_rigify_meta_bone(rigify_rig, bone_mapping, cc3_bone_name, extra_mapping=None):
-    if cc3_bone_name in extra_mapping:
+    if extra_mapping and cc3_bone_name in extra_mapping:
         return extra_mapping[cc3_bone_name]
     if cc3_bone_name == "RL_BoneRoot" or cc3_bone_name == "CC_Base_BoneRoot":
         return "root"
@@ -246,7 +246,7 @@ def get_rigify_meta_bones(rigify_rig, bone_mapping, cc3_bone_name, extra_mapping
     meta_bone_names = []
     if cc3_bone_name == "RL_BoneRoot" or cc3_bone_name == "CC_Base_BoneRoot":
         return ["root"]
-    if cc3_bone_name in extra_mapping:
+    if extra_mapping and cc3_bone_name in extra_mapping:
         meta_bone_names.append(extra_mapping[cc3_bone_name])
     for bone_map in bone_mapping:
         if bone_map[1] == cc3_bone_name:
