@@ -533,6 +533,9 @@ def func_divide_10(v):
 def func_divide_200(v):
     return v / 200.0
 
+def func_divide_5(v):
+    return v / 5.0
+
 def func_divide_2(v):
     return v / 2.0
 
@@ -544,6 +547,9 @@ def func_mul_100(v):
 
 def func_mul_10(v):
     return v * 10.0
+
+def func_mul_5(v):
+    return v * 5.0
 
 def func_mul_2(v):
     return v * 2.0

@@ -1,6 +1,7 @@
 import bpy #, bpy_extras
 from bpy.app.handlers import persistent
 #import bpy_extras.view3d_utils as v3d
+import atexit
 from enum import IntEnum
 import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
@@ -1362,6 +1363,13 @@ class Signal():
             func(*args)
 
 
+@atexit.register
+def shutdown():
+    link_service = get_link_service()
+    if link_service:
+        link_service.shutdown()
+
+
 class LinkService():
     timer = None
     server_sock: socket.socket = None
@@ -1835,6 +1843,9 @@ class LinkService():
             self.on_connected()
             self.connected.emit()
             self.changed.emit()
+
+    def shutdown(self):
+        self.send(OpCodes.DISCONNECT)
 
     def service_disconnect(self):
         try:

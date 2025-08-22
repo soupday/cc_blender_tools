@@ -216,7 +216,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
-            ["tearline_alpha", 0.4, "func_mul_10", "Custom/_Opacity"],
+            ["tearline_alpha", 0.2, "func_mul_5", "Custom/_Opacity"],
             ["tearline_specular", 2.0, "DEF"],
             ["tearline_ior", 2.0, "DEF"],
             ["tearline_roughness", 0.15, "", "Custom/_Roughness"],
@@ -232,7 +232,7 @@ SHADER_MATRIX = [
         # export variables to update json file on export that require special functions to convert
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
-            ["Custom/_Opacity", 0.04, "func_divide_10", "tearline_alpha"],
+            ["Custom/_Opacity", 0.04, "func_divide_5", "tearline_alpha"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -606,7 +606,7 @@ SHADER_MATRIX = [
             ["Secondary Specular Ratio", "", "skin_secondary_specular_ratio"],
             ["Roughness Power", "func_roughness_power", "skin_roughness_power"],
             ["Original Roughness", "", "skin_original_roughness"],
-            ["Cavity Strength", "", "skin_cavity_strength"],
+            ["Cavity Strength", "func_sqrt", "skin_cavity_strength"],
             ["Secondary Roughness", "", "skin_secondary_roughness_scale"],
             ["Normal Strength", "func_skin_normal_strength", "skin_normal_strength"],
             ["Micro Normal Strength", "func_micro_normal_strength", "skin_micro_normal_strength"],
@@ -797,7 +797,7 @@ SHADER_MATRIX = [
             ["Secondary Specular Ratio", "", "skin_secondary_specular_ratio"],
             ["Roughness Power", "func_roughness_power", "skin_roughness_power"],
             ["Original Roughness", "", "skin_original_roughness"],
-            ["Cavity Strength", "", "skin_cavity_strength"],
+            ["Cavity Strength", "func_sqrt", "skin_cavity_strength"],
             ["Secondary Roughness", "", "skin_secondary_roughness_scale"],
             ["Normal Strength", "func_skin_normal_strength", "skin_normal_strength"],
             ["Micro Normal Strength", "func_micro_normal_strength", "skin_micro_normal_strength"],
@@ -1437,10 +1437,10 @@ SHADER_MATRIX = [
             ["eye_iris_hue", 0.5, "", "/Diffuse Hue"],
             ["eye_iris_saturation", 1, "func_saturation_mod", "/Diffuse Saturation"],
             ["eye_iris_hsv", 1, "DEF"],
-            ["eye_limbus_shading", 0.2, "DEF"],
+            ["eye_limbus_shading", 0.5, "DEF"],
             ["eye_limbus_contrast", 1.1, "DEF"],
             #["eye_limbus_dark_width", 1.0 - 0.34375, "DEF"],
-            ["eye_limbus_color", (0.25, 0.25, 0.25, 1), "DEF"],
+            ["eye_limbus_color", (0.1, 0.1, 0.1, 1), "DEF"],
             ["eye_sclera_color", (1.0, 1.0, 1.0, 1), "DEF"],
         ],
         # export variables to update json file on export that need special conversion
