@@ -43,6 +43,8 @@ def objects_have_shape_key(objects, shape_key_name):
 
 def get_objects_shape_key_name(objects, shape_key_name, try_substitutes=False):
     """Some older characters an profiles have inconsisent expression names, resolve them here"""
+    if shape_key_name.startswith("Teeth_") or shape_key_name.startswith("Dummy_"):
+        return shape_key_name
     for obj in objects:
         if obj.type == "MESH":
             if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
