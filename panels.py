@@ -1645,8 +1645,6 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
                     for ui_row in ui_matrix:
 
-                        print(ui_row, split, col_1, col_2)
-
                         if ui_row[0] == "HEADER":
                             column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
                             split = None
