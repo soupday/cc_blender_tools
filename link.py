@@ -1543,6 +1543,7 @@ class LinkService():
             "Path": self.local_path,
             "Addon": vars.VERSION_STRING[1:],
             "Local": self.remote_is_local,
+            "FPS": bpy.context.scene.render.fps,
         }
         utils.log_info(f"Send Hello: {self.local_path}")
         self.send(OpCodes.HELLO, encode_from_json(json_data))
