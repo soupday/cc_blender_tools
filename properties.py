@@ -1612,7 +1612,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     rigify_expression_rig: bpy.props.EnumProperty(items=[
                         ("NONE","None","No expression rig, just eye and jaw controls"),
                         ("RIGIFY","Rigify","Rigify full face rig"),
-                        ("META","Meta","Metahuman style expression rig"),
+                        ("META","CC5 HD","HD Face Control expression rig"),
                     ], default="META", name="Expression Rig")
     rig_mode: bpy.props.EnumProperty(items=[
                         ("QUICK","Quick","Rig the character all in one go."),

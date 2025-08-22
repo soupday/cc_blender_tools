@@ -487,7 +487,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     rigify_expression_rig: bpy.props.EnumProperty(items=[
                         ("NONE","None","No expression rig, just eye and jaw controls"),
                         ("RIGIFY","Rigify","Rigify full face rig"),
-                        ("META","Meta","Metahuman style expression rig"),
+                        ("META","CC5 HD","HD Face Control expression rig"),
                     ], default="META", name="Expression Rig")
     rigify_face_control_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                                 default=(1.0, 0.95, 0.4, 1.0),
