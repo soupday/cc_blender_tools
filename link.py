@@ -1570,6 +1570,10 @@ class LinkService():
             self.changed.emit()
         except Exception as e:
             utils.log_error("Stop Client error!", e)
+            self.is_connected = False
+            self.is_connecting = False
+            self.client_sock = None
+            self.client_sockets = []
 
     def has_client_sock(self):
         if self.client_sock and (self.is_connected or self.is_connecting):
