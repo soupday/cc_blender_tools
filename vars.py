@@ -22,7 +22,7 @@ VERSION_STRING = "v2.3.2"
 DEV = False
 #DEV = True
 PLUGIN_COMPATIBLE = [
-    "2.3.0", "2.3.1", "2.3.2",
+    "2.3.2",
 ]
 
 def set_version_string(bl_info):
