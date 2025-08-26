@@ -1,7 +1,6 @@
 import bpy #, bpy_extras
 from bpy.app.handlers import persistent
 #import bpy_extras.view3d_utils as v3d
-import atexit
 from enum import IntEnum
 import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
@@ -1476,6 +1475,9 @@ class LinkService():
             self.changed.emit()
         except Exception as e:
             utils.log_error("Stop Server error!", e)
+            self.is_listening = False
+            self.server_sock = None
+            self.server_sockets = []
 
     def start_timer(self):
         self.time = time.time()
@@ -4303,7 +4305,6 @@ def update_link_status(text):
     utils.update_ui()
 
 
-
 @persistent
 def reconnect(file_path=None):
     global LINK_SERVICE
@@ -4329,9 +4330,6 @@ def reconnect(file_path=None):
 
         elif prefs.datalink_auto_start:
             utils.log_info(" - Auto-starting datalink...")
-
-
-
             bpy.ops.ccic.datalink(param="START")
 
         else:
@@ -4351,7 +4349,6 @@ def disconnect(file_path=None):
         LINK_SERVICE.service_disconnect()
 
     return None
-
 
 
 class CCICDataLink(bpy.types.Operator):
