@@ -242,8 +242,6 @@ classes = (
 
 def register():
 
-    print("REGISTER")
-
     addon_updater_ops.register(bl_info)
 
     for cls in classes:

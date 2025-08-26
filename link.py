@@ -2,6 +2,7 @@ import bpy #, bpy_extras
 from bpy.app.handlers import persistent
 #import bpy_extras.view3d_utils as v3d
 from enum import IntEnum
+import atexit
 import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix, Color, Euler
@@ -1454,10 +1455,10 @@ class LinkService():
                 self.listening.emit()
                 self.changed.emit()
             except Exception as e:
+                utils.log_error(f"Unable to start server on TCP *:{BLENDER_PORT}", e)
                 self.server_sock = None
                 self.server_sockets = []
-                self.is_listening = True
-                utils.log_error(f"Unable to start server on TCP *:{BLENDER_PORT}", e)
+                self.is_listening = False
 
     def stop_server(self):
         try:
@@ -1508,7 +1509,8 @@ class LinkService():
                 sock.connect((host, port))
                 #sock.setblocking(False)
                 self.is_connected = False
-                link_props.connected = False
+                if link_props:
+                    link_props.connected = False
                 self.is_connecting = True
                 self.client_sock = sock
                 self.client_sockets = [sock]
@@ -1522,13 +1524,14 @@ class LinkService():
                 self.connecting.emit()
                 self.changed.emit()
                 return True
-            except:
+            except Exception as e:
+                utils.log_error(f"Client socket connect failed!", e)
                 self.client_sock = None
                 self.client_sockets = []
                 self.is_connected = False
-                link_props.connected = False
                 self.is_connecting = False
-                utils.log_info(f"Client socket connect failed!")
+                if link_props:
+                    link_props.connected = False
                 return False
         else:
             utils.log_info(f"Client already connected!")
@@ -1536,6 +1539,7 @@ class LinkService():
 
     def send_hello(self):
         prefs = vars.prefs()
+
         self.local_app = "Blender"
         self.local_version = bpy.app.version_string
         self.local_path = get_local_data_path()
@@ -1551,6 +1555,8 @@ class LinkService():
         self.send(OpCodes.HELLO, encode_from_json(json_data))
 
     def stop_client(self):
+        link_props = vars.link_props()
+
         try:
             if self.client_sock:
                 utils.log_info(f"Closing Client Socket")
@@ -1561,7 +1567,6 @@ class LinkService():
                     utils.log_error("Closing Client Socket failed!", e)
             self.is_connected = False
             self.is_connecting = False
-            link_props = vars.link_props()
             if link_props:
                 link_props.connected = False
             self.client_sock = None
@@ -1576,6 +1581,8 @@ class LinkService():
             self.is_connecting = False
             self.client_sock = None
             self.client_sockets = []
+            if link_props:
+                link_props.connected = False
 
     def has_client_sock(self):
         if self.client_sock and (self.is_connected or self.is_connecting):
