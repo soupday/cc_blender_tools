@@ -41,13 +41,11 @@ Links
 - Wrinkle map system update for MH facial profile.
     - Wrinkle map displacement update for CC5 head material.
     - Textures packed with compositor for faster wrinkle system setup.
+- Facerig updated to use expression json bone data.
 - MetaHuman profile facial expression rig added.
     - Expression control constraints and limits.
 - Max texture pack size option added.
 - Datalink use automatic lighting option added.
-- TBD:
-    - Use expression bone rotation/translation from json.
-    - ARKit retarget profile for MH.
 
 ### 2.3.1
 - 1:1 Viseme driver fix.
