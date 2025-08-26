@@ -318,6 +318,7 @@ def import_rlx_camera(data: BinaryData, data_folder):
         dof_near_transition = frames.float() / 100
         dof_min_blend_distance = frames.float()
         fov = frames.float()
+        active = frames.bool()
         store_frame(camera, loc_cache, frame, start, loc)
         store_frame(camera, rot_cache, frame, start, rot)
         store_frame(camera, sca_cache, frame, start, sca)
@@ -592,6 +593,7 @@ def decode_rlx_camera(camera_data, camera):
     dof_far_transition = camera_data["dof_far_transition"] / 100
     dof_near_transition = camera_data["dof_near_transition"] / 100
     dof_min_blend_distance = camera_data["dof_min_blend_distance"] # 0.0 - 1.0
+    active = camera_data["active"]
 
     ob_action = utils.safe_get_action(camera) if camera else None
     cam_action = utils.safe_get_action(camera.data) if camera else None
