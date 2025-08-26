@@ -14,11 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy, os, socket
+import bpy, os, socket, copy
 from mathutils import Vector
 
 from . import (channel_mixer, imageutils, meshutils, sculpting, materials, rigidbody,
-               facerig, springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
+               facerig, facerig_data, springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
 from .meshutils import get_head_body_object_quick
 
@@ -139,7 +139,7 @@ def update_property(self, context, prop_name, update_mode = None):
                 update_shader_property(context_obj, mat_cache, prop_name)
 
         # these properties will cause the eye displacement vertex group to change...
-        if prop_name in ["eye_iris_depth_radius", "eye_iris_scale", "eye_iris_radius"]:
+        if prop_name in ["eye_iris_scale", "eye_iris_radius"]:
             meshutils.rebuild_eye_vertex_groups(chr_cache)
 
 
@@ -256,6 +256,9 @@ def update_shader_property(obj, mat_cache, prop_name):
             if "modifiers" in shader_def.keys():
                 update_object_modifier(obj, mat_cache, prop_name, shader_def["modifiers"])
 
+            if "shape_keys" in shader_def.keys():
+                update_object_shape_keys(obj, mat_cache, prop_name, shader_def["shape_keys"])
+
             if "settings" in shader_def.keys():
                 update_material_setting(mat, mat_cache, prop_name, shader_def["settings"])
 
@@ -318,6 +321,24 @@ def update_object_modifier(obj, mat_cache, prop_name, mod_defs):
                         exec(code, None, locals())
                     except:
                         utils.log_error("update_object_modifier(): unable to execute: " + code)
+
+
+def update_object_shape_keys(obj, mat_cache, prop_name, key_defs):
+    if utils.object_has_shape_keys(obj):
+        parameters = mat_cache.parameters
+        for key_def in key_defs:
+            key_name = key_def[0]
+            material_type = key_def[1]
+            parameter = key_def[2]
+            if mat_cache.material_type == material_type:
+                if prop_name == parameter:
+                    if key_name in obj.data.shape_keys.key_blocks:
+                        try:
+                            code = f"parameters.{prop_name}"
+                            value = eval(code, None, locals())
+                            obj.data.shape_keys.key_blocks[key_name].value = value
+                        except:
+                            utils.log_error("update_object_shape_keys(): unable to execute: " + code)
 
 
 def update_material_setting(mat, mat_cache, prop_name, setting_defs):
@@ -450,26 +471,32 @@ def update_all_properties(context, update_mode = None):
                         bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
                         shader_def = params.get_shader_def(shader_name)
 
-                        if not already_processed:
-                            shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
+                        if shader_def:
+                            if not already_processed:
+                                shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
 
-                            if "textures" in shader_def.keys():
-                                for tex_def in shader_def["textures"]:
-                                    tiling_props = tex_def[5:]
-                                    for prop_name in tiling_props:
-                                        update_shader_property(obj, mat_cache, prop_name)
+                                if "textures" in shader_def.keys():
+                                    for tex_def in shader_def["textures"]:
+                                        tiling_props = tex_def[5:]
+                                        for prop_name in tiling_props:
+                                            update_shader_property(obj, mat_cache, prop_name)
 
-                        # modifiers need updating even if material already processed for split objects
-                        if "modifiers" in shader_def.keys():
-                            for mod_def in shader_def["modifiers"]:
-                                prop_name = mod_def[0]
-                                update_shader_property(obj, mat_cache, prop_name)
-
-                        if not already_processed:
-                            if "settings" in shader_def.keys():
-                                for mat_def in shader_def["settings"]:
-                                    prop_name = mat_def[0]
+                            # modifiers need updating even if material already processed for split objects
+                            if "modifiers" in shader_def.keys():
+                                for mod_def in shader_def["modifiers"]:
+                                    prop_name = mod_def[0]
                                     update_shader_property(obj, mat_cache, prop_name)
+
+                            if "shape_keys" in shader_def.keys():
+                                for mod_def in shader_def["shape_keys"]:
+                                    prop_name = mod_def[2]
+                                    update_shader_property(obj, mat_cache, prop_name)
+
+                            if not already_processed:
+                                if "settings" in shader_def.keys():
+                                    for mat_def in shader_def["settings"]:
+                                        prop_name = mat_def[0]
+                                        update_shader_property(obj, mat_cache, prop_name)
 
                     processed.append(mat)
 
@@ -637,14 +664,11 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0.01, max=2, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
     skin_roughness_min: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_min"))
     skin_roughness_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_max"))
+    skin_cavity_strength: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_cavity_strength"))
+    skin_original_roughness: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_original_roughness"))
     # dual specular
-    skin_specular_detail_mask: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_mask"))
-    skin_specular_detail_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_min"))
-    skin_specular_detail_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_max"))
-    skin_specular_detail_power: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular_detail_power"))
-    skin_secondary_specular_scale: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_specular_scale"))
-    skin_secondary_roughness_power: bpy.props.FloatProperty(default=2.0, min=0.0, max=4.0, update=lambda s,c: update_property(s,c,"skin_secondary_roughness_power"))
-    skin_specular_mix: bpy.props.FloatProperty(default=0.4, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_mix"))
+    skin_secondary_specular_ratio: bpy.props.FloatProperty(default=0.2, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_specular_ratio"))
+    skin_secondary_roughness_scale: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_roughness_scale"))
 
     skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
     skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1.0, update=lambda s,c: update_property(s,c,"skin_micro_normal_strength"))
@@ -679,9 +703,15 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_head_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
-    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
-    skin_bump_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_bump_scale"))
-    skin_height_delta_scale: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_height_delta_scale"))
+    skin_height_scale: bpy.props.FloatProperty(default=0.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_bump_scale: bpy.props.FloatProperty(default=0.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_bump_scale"))
+    skin_height_delta_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=5.0, update=lambda s,c: update_property(s,c,"skin_height_delta_scale"))
+    skin_caruncle_blend: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_caruncle_blend"))
+    skin_caruncle_roughness: bpy.props.FloatProperty(default=0.1, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_caruncle_roughness"))
+    skin_caruncle_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                                default=(1, 0.5, 0.5, 1), min = 0.0, max = 1.0,
+                                update=lambda s,c: update_property(s,c,"skin_caruncle_color"))
+
 
 class CC3SkinParameters(bpy.types.PropertyGroup):
     # shader (rl_skin_shader)
@@ -703,14 +733,11 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0.01, max=2, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
     skin_roughness_min: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_min"))
     skin_roughness_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_max"))
+    skin_cavity_strength: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_cavity_strength"))
+    skin_original_roughness: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_original_roughness"))
     # dual specular
-    skin_specular_detail_mask: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_mask"))
-    skin_specular_detail_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_min"))
-    skin_specular_detail_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_max"))
-    skin_specular_detail_power: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular_detail_power"))
-    skin_secondary_specular_scale: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_specular_scale"))
-    skin_secondary_roughness_power: bpy.props.FloatProperty(default=2.0, min=0.0, max=4.0, update=lambda s,c: update_property(s,c,"skin_secondary_roughness_power"))
-    skin_specular_mix: bpy.props.FloatProperty(default=0.4, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_mix"))
+    skin_secondary_specular_ratio: bpy.props.FloatProperty(default=0.2, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_specular_ratio"))
+    skin_secondary_roughness_scale: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_secondary_roughness_scale"))
 
     skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
     skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_micro_normal_strength"))
@@ -732,8 +759,8 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, soft_max=1, max=100, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_skin_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=25, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
-    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
-    skin_bump_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_bump_scale"))
+    skin_height_scale: bpy.props.FloatProperty(default=0.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_bump_scale: bpy.props.FloatProperty(default=0.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_bump_scale"))
 
 
 class CC3EyeParameters(bpy.types.PropertyGroup):
@@ -757,7 +784,7 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_saturation"))
     eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_iris_brightness"))
     eye_iris_hsv: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hsv"))
-    eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.16, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
+    eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.4, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
     eye_iris_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_color"))
     eye_sclera_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -773,7 +800,7 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_limbus_dark_width: bpy.props.FloatProperty(default=0.34375, min=0.01, max=0.99, update=lambda s,c: update_property(s,c,"eye_limbus_dark_width"))
     eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.0, 0.0, 0.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
-    eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0.0, max=0.5, update=lambda s,c: update_property(s,c,"eye_shadow_radius"))
+    eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_shadow_radius"))
     eye_shadow_hardness: bpy.props.FloatProperty(default=0.5, min=0.01, max=0.99, update=lambda s,c: update_property(s,c,"eye_shadow_hardness"))
     eye_corner_shadow_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 0.497, 0.445, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_corner_shadow_color"))
@@ -792,8 +819,9 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
     eye_iris_depth: bpy.props.FloatProperty(default=0.45, min=0, max=1.25, update=lambda s,c: update_property(s,c,"eye_iris_depth"))
-    eye_iris_depth_radius: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_depth_radius"))
     eye_pupil_scale: bpy.props.FloatProperty(default=0.8, min=0.5, max=4.0, update=lambda s,c: update_property(s,c,"eye_pupil_scale"))
+    eye_limbus_shading: bpy.props.FloatProperty(default=0.2, min=0.0, max=2.0, update=lambda s,c: update_property(s,c,"eye_limbus_shading"))
+    eye_limbus_contrast: bpy.props.FloatProperty(default=1.1, min=0.1, max=2, update=lambda s,c: update_property(s,c,"eye_limbus_contrast"))
 
 
 class CC3EyeOcclusionParameters(bpy.types.PropertyGroup):
@@ -801,40 +829,95 @@ class CC3EyeOcclusionParameters(bpy.types.PropertyGroup):
     eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
     eye_occlusion_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.014451, 0.001628, 0.000837, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_occlusion_color"))
+    eye_occlusion_blur_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 0.8, 0.8, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_color"))
     eye_occlusion_hardness: bpy.props.FloatProperty(default=0.5, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_hardness"))
-    # Eye Occlusion Advanced
-    eye_occlusion_strength: bpy.props.FloatProperty(default=0.584, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_strength"))
+    # Old
     eye_occlusion_power: bpy.props.FloatProperty(default=1.75, min=0.1, max=4, update=lambda s,c: update_property(s,c,"eye_occlusion_power"))
-    eye_occlusion_top_min: bpy.props.FloatProperty(default=0.27, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top_min"))
     eye_occlusion_top_range: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top_range"))
     eye_occlusion_top_curve: bpy.props.FloatProperty(default=0.7, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_occlusion_top_curve"))
-    eye_occlusion_bottom_min: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_min"))
     eye_occlusion_bottom_range: bpy.props.FloatProperty(default=0.335, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_range"))
     eye_occlusion_bottom_curve: bpy.props.FloatProperty(default=2.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_curve"))
-    eye_occlusion_inner_min: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_inner_min"))
     eye_occlusion_inner_range: bpy.props.FloatProperty(default=0.625, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_inner_range"))
-    eye_occlusion_outer_min: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_outer_min"))
     eye_occlusion_outer_range: bpy.props.FloatProperty(default=0.6, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_outer_range"))
     eye_occlusion_strength2: bpy.props.FloatProperty(default=0.766, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_strength2"))
     eye_occlusion_top2_min: bpy.props.FloatProperty(default=0.15, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top2_min"))
     eye_occlusion_top2_range: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top2_range"))
     eye_occlusion_tear_duct_position: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_tear_duct_position"))
     eye_occlusion_tear_duct_width: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_tear_duct_width"))
-    eye_occlusion_inner: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_property(s,c,"eye_occlusion_inner"))
-    eye_occlusion_outer: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_property(s,c,"eye_occlusion_outer"))
-    eye_occlusion_top: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_property(s,c,"eye_occlusion_top"))
-    eye_occlusion_bottom: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom"))
-    eye_occlusion_displace: bpy.props.FloatProperty(default=0.02, min=-0.1, max=0.1, update=lambda s,c: update_property(s,c,"eye_occlusion_displace"))
+    eye_occlusion_blur_top_range: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_top_range"))
+    eye_occlusion_blur_top_curve: bpy.props.FloatProperty(default=0.7, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_top_curve"))
+    eye_occlusion_blur_bottom_range: bpy.props.FloatProperty(default=0.335, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_bottom_range"))
+    eye_occlusion_blur_bottom_curve: bpy.props.FloatProperty(default=2.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_bottom_curve"))
+    eye_occlusion_blur_inner_range: bpy.props.FloatProperty(default=0.625, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_inner_range"))
+    eye_occlusion_blur_outer_range: bpy.props.FloatProperty(default=0.6, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_outer_range"))
+    # Eye Occlusion Advanced
+    eye_occlusion_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_strength"))
+    eye_occlusion_top_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top_min"))
+    eye_occlusion_top_max: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top_max"))
+    eye_occlusion_top_in: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top_in"))
+    eye_occlusion_top_out: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top_out"))
+    eye_occlusion_bottom_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_min"))
+    eye_occlusion_bottom_max: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_max"))
+    eye_occlusion_bottom_in: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_in"))
+    eye_occlusion_bottom_out: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_out"))
+    eye_occlusion_inner_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_inner_min"))
+    eye_occlusion_inner_max: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_inner_max"))
+    eye_occlusion_inner_in: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_inner_in"))
+    eye_occlusion_inner_out: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_inner_out"))
+    eye_occlusion_outer_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_outer_min"))
+    eye_occlusion_outer_max: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_outer_max"))
+    eye_occlusion_outer_in: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_outer_in"))
+    eye_occlusion_outer_out: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_outer_out"))
+    # Blur
+    eye_occlusion_blur_ior: bpy.props.FloatProperty(default=0.0, min=0.0, max=2.0, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_ior"))
+    eye_occlusion_blur_show: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_show"))
+    eye_occlusion_blur_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_strength"))
+    eye_occlusion_blur_top_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_top_min"))
+    eye_occlusion_blur_top_max: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_top_max"))
+    eye_occlusion_blur_top_in: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_top_in"))
+    eye_occlusion_blur_top_out: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_top_out"))
+    eye_occlusion_blur_bottom_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_bottom_min"))
+    eye_occlusion_blur_bottom_max: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_bottom_max"))
+    eye_occlusion_blur_bottom_in: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_bottom_in"))
+    eye_occlusion_blur_bottom_out: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_bottom_out"))
+    eye_occlusion_blur_inner_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_inner_min"))
+    eye_occlusion_blur_inner_max: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_inner_max"))
+    eye_occlusion_blur_inner_in: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_inner_in"))
+    eye_occlusion_blur_inner_out: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_inner_out"))
+    eye_occlusion_blur_outer_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_outer_min"))
+    eye_occlusion_blur_outer_max: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_outer_max"))
+    eye_occlusion_blur_outer_in: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_outer_in"))
+    eye_occlusion_blur_outer_out: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_blur_outer_out"))
+    # Shape
+    eye_occlusion_inner: bpy.props.FloatProperty(default=0.0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_inner"))
+    eye_occlusion_outer: bpy.props.FloatProperty(default=0.0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_outer"))
+    eye_occlusion_top: bpy.props.FloatProperty(default=0.0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_top"))
+    eye_occlusion_bottom: bpy.props.FloatProperty(default=0.0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom"))
+    eye_occlusion_displace: bpy.props.FloatProperty(default=0.0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_displace"))
+    eye_occlusion_bulge: bpy.props.FloatProperty(default=0.0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_bulge"))
+    #
+    eye_occlusion_edge_width: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_occlusion_edge_width"))
 
 
 class CC3TearlineParameters(bpy.types.PropertyGroup):
     # Tearline
     tearline_specular: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"tearline_specular"))
     tearline_glossiness: bpy.props.FloatProperty(default=0.85, min=0, max=1.0, update=lambda s,c: update_property(s,c,"tearline_glossiness"))
-    tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"tearline_alpha"))
-    tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"tearline_roughness"))
+    tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=1.0, update=lambda s,c: update_property(s,c,"tearline_alpha"))
+    tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=1.0, update=lambda s,c: update_property(s,c,"tearline_roughness"))
     tearline_inner: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_property(s,c,"tearline_inner"))
     tearline_displace: bpy.props.FloatProperty(default=0.1, min=-0.2, max=0.2, update=lambda s,c: update_property(s,c,"tearline_displace"))
+    # new
+    tearline_ior: bpy.props.FloatProperty(default=1.4, min=1.0, max=3.0, update=lambda s,c: update_property(s,c,"tearline_ior"))
+    tearline_detail: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"tearline_detail"))
+    tearline_tiling_u: bpy.props.FloatProperty(default=1.5, min=-10.0, max=10.0, update=lambda s,c: update_property(s,c,"tearline_tiling_u"))
+    tearline_tiling_v: bpy.props.FloatProperty(default=1.5, min=-10.0, max=10.0, update=lambda s,c: update_property(s,c,"tearline_tiling_v"))
+    tearline_normal_strength: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"tearline_normal_strength"))
+    tearline_normal_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=5.0, update=lambda s,c: update_property(s,c,"tearline_normal_scale"))
+    tearline_edge_fadeout: bpy.props.FloatProperty(default=1.25, min=0.0, max=2.0, update=lambda s,c: update_property(s,c,"tearline_edge_fadeout"))
+
+
 
 class CC3TeethParameters(bpy.types.PropertyGroup):
     # Teeth
@@ -1217,12 +1300,16 @@ class CC3MaterialCache:
                     or self.material_type == "CORNEA_LEFT")
 
     def is_eye_occlusion(self):
-        return (self.material_type == "OCCLUSION_RIGHT"
-                or self.material_type == "OCCLUSION_LEFT")
+        return (self.material_type == "OCCLUSION_RIGHT" or
+                self.material_type == "OCCLUSION_LEFT" or
+                self.material_type == "OCCLUSION_PLUS_RIGHT" or
+                self.material_type == "OCCLUSION_PLUS_LEFT")
 
     def is_tearline(self):
-        return (self.material_type == "TEARLINE_RIGHT"
-                or self.material_type == "TEARLINE_LEFT")
+        return (self.material_type == "TEARLINE_RIGHT" or
+                self.material_type == "TEARLINE_LEFT" or
+                self.material_type == "TEARLINE_PLUS_RIGHT" or
+                self.material_type == "TEARLINE_PLUS_LEFT")
 
     def get_base_name(self):
         return utils.strip_name(self.material.name)
@@ -1354,10 +1441,10 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
         return self.object_type == "EYE"
 
     def is_eye_occlusion(self):
-        return self.object_type == "OCCLUSION"
+        return (self.object_type == "OCCLUSION" or self.object_type == "OCCLUSION_PLUS")
 
     def is_tearline(self):
-        return self.object_type == "TEARLINE"
+        return (self.object_type == "TEARLINE" or self.object_type == "TEARLINE_PLUS")
 
     def is_mesh(self):
         return utils.object_exists_is_mesh(self.object)
@@ -1443,6 +1530,19 @@ class CCICActionStore(bpy.types.PropertyGroup):
     action: bpy.props.PointerProperty(type=bpy.types.Action)
 
 
+class CCICExpressionData(bpy.types.PropertyGroup):
+    key_name: bpy.props.StringProperty()
+    bone_name: bpy.props.StringProperty()
+    translation: bpy.props.FloatVectorProperty()
+    rotation: bpy.props.FloatVectorProperty()
+    rigify_bone_name: bpy.props.StringProperty()
+    rigify_translation: bpy.props.FloatVectorProperty()
+    rigify_rotation: bpy.props.FloatVectorProperty()
+    offset_bone_name: bpy.props.StringProperty()
+    offset_translation: bpy.props.FloatVectorProperty()
+    offset_rotation: bpy.props.FloatVectorProperty()
+
+
 class CC3CharacterCache(bpy.types.PropertyGroup):
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
     eye_close: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=eye_close_update)
@@ -1462,6 +1562,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     basic_parameters: bpy.props.PointerProperty(type=CC3BasicParameters)
     #
     object_cache: bpy.props.CollectionProperty(type=CC3ObjectCache)
+    expression_set: bpy.props.CollectionProperty(type=CCICExpressionData)
     # import file name without extension
     import_flags: bpy.props.IntProperty(default=0)
     import_embedded: bpy.props.BoolProperty(default=False)
@@ -1482,7 +1583,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("UNKNOWN","Unknown","Unknown"),
                         ("TRA","Traditional",""),
                         ("STD","Standard",""),
-                        ("EXT","Extended","")
+                        ("EXT","Extended",""),
+                        ("MH","CC5 HD","")
                     ], default="NONE")
     viseme_profile: bpy.props.EnumProperty(items=[
                         ("NONE","None","None"),
@@ -1510,7 +1612,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     rigify_expression_rig: bpy.props.EnumProperty(items=[
                         ("NONE","None","No expression rig, just eye and jaw controls"),
                         ("RIGIFY","Rigify","Rigify full face rig"),
-                        ("META","Meta","Metahuman style expression rig"),
+                        ("META","CC5 HD","HD Face Control expression rig"),
                     ], default="META", name="Expression Rig")
     rig_mode: bpy.props.EnumProperty(items=[
                         ("QUICK","Quick","Rig the character all in one go."),
@@ -2348,7 +2450,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return self.eye_material_cache
         elif material_type == "OCCLUSION_RIGHT" or material_type == "OCCLUSION_LEFT":
             return self.eye_occlusion_material_cache
+        elif material_type == "OCCLUSION_PLUS_RIGHT" or material_type == "OCCLUSION_PLUS_LEFT":
+            return self.eye_occlusion_material_cache
         elif material_type == "TEARLINE_RIGHT" or material_type == "TEARLINE_LEFT":
+            return self.tearline_material_cache
+        elif material_type == "TEARLINE_PLUS_RIGHT" or material_type == "TEARLINE_PLUS_LEFT":
             return self.tearline_material_cache
         else:
             return self.pbr_material_cache
@@ -2385,19 +2491,54 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             mat_cache.check_id()
         return mat_cache
 
+    def update_all_properties(self, context=None):
+        if not context:
+            context = bpy.context
+        update_all_properties(context)
+
     def get_json_data(self):
         errors = []
         return jsonutils.read_json(self.import_file, errors)
 
-    def write_json_data(self, json_data):
-        jsonutils.write_json(json_data, self.import_file, is_fbx_path=True)
+    def write_json_data(self, json_data, is_local=False):
+        jsonutils.write_json(json_data, self.import_file, is_fbx_path=True, update_cache=True, is_json_local=is_local)
 
     def change_import_file(self, filepath):
         self.import_file = filepath
 
-    def get_character_json(self):
-        json_data = self.get_json_data()
+    def get_character_json(self, json_data=None):
+        if not json_data:
+            json_data = self.get_json_data()
         return jsonutils.get_character_json(json_data, self.get_character_id())
+
+    def get_expression_json(self, json_data=None):
+        if not json_data:
+            json_data = self.get_json_data()
+        chr_json = self.get_character_json(json_data=json_data)
+        if chr_json and "Expression" in chr_json:
+            expression_json = chr_json["Expression"]
+        else:
+            expression_json = {}
+        facial_profile, viseme_profile = self.get_facial_profile()
+        if facial_profile == "MH":
+            # MH profile has complete expression json
+            #default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_MH)
+            default_expression_json = {}
+        elif facial_profile == "STD" or facial_profile == "EXT":
+            default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_EXT)
+        elif facial_profile == "TRA":
+            default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_TRA)
+        else:
+            default_expression_json = {}
+        return expression_json, default_expression_json
+
+    def get_constraint_json(self, json_data=None):
+        if not json_data:
+            json_data = self.get_json_data()
+        chr_json = self.get_character_json(json_data=json_data)
+        if chr_json and "Constraint" in chr_json:
+            return chr_json["Constraint"]
+        return None
 
     def check_ids(self):
         rig = self.get_armature()
@@ -2457,8 +2598,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.check_type(self.teeth_material_cache, recast, chr_json, "TEETH_LOWER", "TEETH_UPPER")
         self.check_type(self.head_material_cache, recast, chr_json, "SKIN_HEAD")
         self.check_type(self.skin_material_cache, recast, chr_json, "SKIN_BODY", "SKIN_ARM", "SKIN_LEG", "NAILS")
-        self.check_type(self.tearline_material_cache, recast, chr_json, "TEARLINE_LEFT", "TEARLINE_RIGHT")
-        self.check_type(self.eye_occlusion_material_cache, recast, chr_json, "OCCLUSION_RIGHT", "OCCLUSION_LEFT")
+        self.check_type(self.tearline_material_cache, recast, chr_json, "TEARLINE_LEFT", "TEARLINE_RIGHT", "TEARLINE_PLUS_LEFT", "TEARLINE_PLUS_RIGHT")
+        self.check_type(self.eye_occlusion_material_cache, recast, chr_json, "OCCLUSION_RIGHT", "OCCLUSION_LEFT", "OCCLUSION_PLUS_RIGHT", "OCCLUSION_PLUS_LEFT")
         self.check_type(self.eye_material_cache, recast, chr_json, "CORNEA_RIGHT", "CORNEA_LEFT", "EYE_RIGHT", "EYE_LEFT")
         self.check_type(self.hair_material_cache, recast, chr_json, "HAIR")
         self.check_type(self.pbr_material_cache, recast, chr_json, "DEFAULT", "SCALP", "EYELASH")
@@ -2581,9 +2722,20 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         len(body.data.polygons) == 13100):
                         return True
                 elif self.generation == "G3Plus":
+                    # level 0
                     if (len(body.data.vertices) == 14164 and
                         len(body.data.edges) == 28202 and
                         len(body.data.polygons) == 14046):
+                        return True
+                    # level 1
+                    if (len(body.data.vertices) == 56412 and
+                        len(body.data.edges) == 112588 and
+                        len(body.data.polygons) == 56184):
+                        return True
+                    # level 2
+                    if (len(body.data.vertices) == 225184 and
+                        len(body.data.edges) == 449912 and
+                        len(body.data.polygons) == 224736):
                         return True
             return False
         else:
@@ -2754,8 +2906,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                                         description="Automatically rigify the character and retarget any animations or poses that came with the character.")
 
     export_options: bpy.props.BoolProperty(default=False)
-    cycles_options: bpy.props.BoolProperty(default=False)
-    eevee_options: bpy.props.BoolProperty(default=False)
+    cycles_options1: bpy.props.BoolProperty(default=False)
+    eevee_options1: bpy.props.BoolProperty(default=False)
+    cycles_options2: bpy.props.BoolProperty(default=False)
+    eevee_options2: bpy.props.BoolProperty(default=False)
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)

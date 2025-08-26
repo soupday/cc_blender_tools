@@ -605,6 +605,10 @@ def clear_facial_shape_key_bone_drivers(chr_cache):
                         pose_bone.driver_remove("scale", 2)
 
 
+def get_head_body_object(chr_cache):
+    return meshutils.get_head_body_object(chr_cache)
+
+
 def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
     """Add drivers for the jaw, eye and head bones (optional) based on the facial
        expression shape keys.
@@ -825,14 +829,24 @@ def get_id_type(obj):
     return "OBJECT"
 
 
-def make_custom_prop_var_def(var_name, obj, prop_name):
-    T = type(obj)
-    data_path = f"{obj.path_from_id()}[\"{prop_name}\"]"
+def make_custom_prop_var_def(var_name, source_obj, prop_name):
+    data_path = f"{source_obj.path_from_id()}[\"{prop_name}\"]"
     var_def = [var_name,
                "SINGLE_PROP",
-               obj,
+               source_obj,
                data_path]
     return var_def
+
+
+def find_custom_prop_var_def(var_defs, source_obj, prop_name):
+    data_path = f"{source_obj.path_from_id()}[\"{prop_name}\"]"
+    for var_def in var_defs:
+        if (len(var_def) == 4 and
+            var_def[1] == "SINGLE_PROP" and
+            var_def[2] == source_obj and
+            var_def[3] == data_path):
+            return var_def[0]
+    return None
 
 
 def make_bone_transform_var_def(var_name, source_rig, bone_name, transform_axis, space="LOCAL_SPACE"):
@@ -845,6 +859,18 @@ def make_bone_transform_var_def(var_name, source_rig, bone_name, transform_axis,
     return var_def
 
 
+def find_bone_transform_var_def(var_defs, source_rig, bone_name, transform_axis, space="LOCAL_SPACE"):
+    for var_def in var_defs:
+        if (len(var_def) == 6 and
+            var_def[1] == "TRANSFORMS" and
+            var_def[2] == source_rig and
+            var_def[3] == bone_name and
+            var_def[4] == transform_axis and
+            var_def[5] == space):
+            return var_def[0]
+    return None
+
+
 def make_transform_var_def(var_name, source_obj, transform_prop, space="LOCAL_SPACE"):
     var_def = [var_name,
                "TRANSFORMS",
@@ -855,7 +881,74 @@ def make_transform_var_def(var_name, source_obj, transform_prop, space="LOCAL_SP
     return var_def
 
 
-def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_defs, scale=1.0):
+def find_transform_var_def(var_defs, source_obj, transform_prop, space="LOCAL_SPACE"):
+    for var_def in var_defs:
+        if (len(var_def) == 6 and
+            var_def[1] == "TRANSFORMS" and
+            var_def[2] == source_obj and
+            var_def[3] == None and
+            var_def[4] == transform_prop and
+            var_def[5] == space):
+            return var_def[0]
+    return None
+
+
+def make_shape_key_var_def(var_name, source_obj, key_name):
+    key = get_shape_key(source_obj, key_name)
+    data_path = "shape_keys." + key.path_from_id("value")
+    var_def = [var_name,
+               "SINGLE_PROP",
+               source_obj.data,
+               data_path]
+    return var_def
+
+
+def find_shape_key_var_def(var_defs, source_obj, key_name):
+    key = get_shape_key(source_obj, key_name)
+    data_path = "shape_keys." + key.path_from_id("value")
+    for var_def in var_defs:
+        if (len(var_def) == 4 and
+            var_def[1] == "SINGLE_PROP" and
+            var_def[2] == source_obj.data and
+            var_def[4] == data_path):
+            return var_def[0]
+    return None
+
+
+def get_shape_key_driver(obj, shape_key_name, drive_limit=False) -> bpy.types.Driver:
+    if utils.object_mode():
+        shape_key = meshutils.find_shape_key(obj, shape_key_name)
+        if shape_key:
+            prop = "value" if not drive_limit else "slider_max"
+            data_path = f"key_blocks[\"{shape_key_name}\"].{prop}"
+            for fcurve in obj.data.shape_keys.animation_data.drivers:
+                if fcurve.data_path == data_path:
+                    return fcurve.driver
+    return None
+
+
+def add_driver_var_defs(driver, var_defs):
+    for var_def in var_defs:
+        var : bpy.types.DriverVariable = driver.variables.new()
+        var.name = var_def[0]
+        var.type = var_def[1]
+        if var_def[1] == "TRANSFORMS":
+            var_obj = var_def[2]
+            bone_name = var_def[3]
+            var.targets[0].id = var_obj.id_data
+            if bone_name:
+                var.targets[0].bone_target = bone_name
+            var.targets[0].rotation_mode = "AUTO"
+            var.targets[0].transform_type = var_def[4]
+            var.targets[0].transform_space = var_def[5]
+        if var_def[1] == "SINGLE_PROP":
+            var_obj = var_def[2]
+            var.targets[0].id_type = get_id_type(var_obj)
+            var.targets[0].id = var_obj.id_data
+            var.targets[0].data_path = var_def[3]
+
+
+def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_defs, scale=1.0, drive_limit=False):
     """driver_def = [driver_type, expression]\n
        var_def = [var_name, "TRANSFORMS", bone_name, transform_prop, space]\n
            driver_type = "SCRIPTED" or "SUM",\n
@@ -865,9 +958,12 @@ def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_defs, scale=1
     if utils.object_mode():
         shape_key = meshutils.find_shape_key(obj, shape_key_name)
         if shape_key:
-            shape_key.driver_remove("value")
+            prop = "value"
+            if drive_limit:
+                prop = "slider_max"
+            shape_key.driver_remove(prop)
             fcurve : bpy.types.FCurve
-            fcurve = shape_key.driver_add("value")
+            fcurve = shape_key.driver_add(prop)
             driver : bpy.types.Driver = fcurve.driver
             driver.type = driver_def[0]
             expression = driver_def[1]
@@ -876,24 +972,7 @@ def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_defs, scale=1
                     driver.expression = f"({expression})*{scale}"
                 else:
                     driver.expression = expression
-            for var_def in var_defs:
-                var : bpy.types.DriverVariable = driver.variables.new()
-                var.name = var_def[0]
-                var.type = var_def[1]
-                if var_def[1] == "TRANSFORMS":
-                    var_obj = var_def[2]
-                    bone_name = var_def[3]
-                    var.targets[0].id = var_obj.id_data
-                    if bone_name:
-                        var.targets[0].bone_target = bone_name
-                    var.targets[0].rotation_mode = "AUTO"
-                    var.targets[0].transform_type = var_def[4]
-                    var.targets[0].transform_space = var_def[5]
-                if var_def[1] == "SINGLE_PROP":
-                    var_obj = var_def[2]
-                    var.targets[0].id = var_obj.id_data
-                    var.targets[0].id_type = get_id_type(var_obj)
-                    var.targets[0].data_path = var_def[3]
+            add_driver_var_defs(driver, var_defs)
             return driver
     return None
 
@@ -914,30 +993,52 @@ def add_bone_driver(rig, bone_name, driver_def, var_defs, scale=1.0):
             expression = driver_def[3]
             pose_bone.driver_remove(prop, index)
             fcurve = pose_bone.driver_add(prop, index)
-            driver : bpy.types.Driver = fcurve.driver
+            driver: bpy.types.Driver = fcurve.driver
             driver.type = driver_def[0]
             if driver.type == "SCRIPTED":
                 if scale != 1.0:
                     driver.expression = f"({expression})*{scale}"
                 else:
                     driver.expression = expression
-            for var_def in var_defs:
-                var : bpy.types.DriverVariable = driver.variables.new()
-                var.name = var_def[0]
-                var.type = var_def[1]
-                if var_def[1] == "TRANSFORMS":
-                    var_obj = var_def[2]
-                    bone_name = var_def[3]
-                    var.targets[0].id = var_obj.id_data
-                    if bone_name:
-                        var.targets[0].bone_target = bone_name
-                    var.targets[0].rotation_mode = "AUTO"
-                    var.targets[0].transform_type = var_def[4]
-                    var.targets[0].transform_space = var_def[5]
-                if var_def[1] == "SINGLE_PROP":
-                    var_obj = var_def[2]
-                    var.targets[0].id = var_obj.id_data
-                    var.targets[0].id_type = get_id_type(var_obj)
-                    var.targets[0].data_path = var_def[3]
+            add_driver_var_defs(driver, var_defs)
             return driver
     return None
+
+
+def add_constraint_prop_driver(rig, pose_bone_name,
+                                    driver_def, var_defs,
+                                    constraint=None, constraint_type=""):
+    """driver_def = [driver_type, prop, index, expression]\n
+       var_def = [var_name, "TRANSFORMS", bone_name, transform_prop, space]\n
+           driver_type = "SCRIPTED" or "SUM",\n
+           expression = "var1 + var2" or ""\n
+           transform_prop = "ROT_X"/"LOC_X"/"SCA_X" ...,\n
+           space = "WORLD_SPACE", "LOCAL_SPACE" ... """
+    if utils.object_mode():
+        if pose_bone_name in rig.pose.bones:
+            driver_type = driver_def[0]
+            prop = driver_def[1]
+            index = driver_def[2]
+            expression = driver_def[3]
+
+            pose_bone = rig.pose.bones[pose_bone_name]
+            cons = []
+            if constraint:
+                cons.append(constraint)
+            elif constraint_type:
+                for con in pose_bone.constraints:
+                    if con.type == constraint_type:
+                        cons.append(con)
+
+            con: bpy.types.Constraint
+            for con in cons:
+                con.driver_remove(prop, index)
+                if driver_type == "SCRIPTED":
+                    driver = make_driver(con, prop, driver_type,
+                                         driver_expression=expression, index=index)
+                elif driver_type == "SUM":
+                    driver = make_driver(con, prop, driver_type,
+                                         index=index)
+                if driver:
+                    add_driver_var_defs(driver, var_defs)
+                    return driver

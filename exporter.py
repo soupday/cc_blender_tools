@@ -266,6 +266,8 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
         if not utils.object_exists_is_mesh(obj):
             continue
 
+        utils.log_info(f"")
+        utils.log_info(f"")
         utils.log_info(f"Object: {obj.name} / {obj.data.name}")
         utils.log_indent()
 
@@ -280,7 +282,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
             obj_expected_source_name = utils.safe_export_name(utils.strip_name(obj_name))
             obj_source_name = obj_cache.source_name
             utils.log_info(f"Object source name: {obj_source_name}")
-            source_changed = obj_expected_source_name != obj_source_name
+            source_changed = obj.name != obj_source_name and obj_expected_source_name != obj_source_name
             if source_changed:
                 obj_safe_name = utils.safe_export_name(obj_name)
                 utils.log_info(f"Object name changed from source, using: {obj_safe_name}")
@@ -347,6 +349,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
             source_changed = False
             new_material = False
 
+            utils.log_info(f"")
             utils.log_info(f"Material: {mat.name}")
             utils.log_indent()
 
@@ -359,7 +362,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
                                             if revert_duplicates else
                                             utils.safe_export_name(mat_name, is_material=True))
                 mat_source_name = mat_cache.source_name
-                source_changed = mat_expected_source_name != mat_source_name
+                source_changed = mat.name != mat_source_name and mat_expected_source_name != mat_source_name
                 if source_changed:
                     mat_safe_name = utils.safe_export_name(mat_name, is_material=True)
                 else:
@@ -837,7 +840,9 @@ def write_back_textures(context, mat_json: dict, mat, mat_cache, base_path, old_
 
                         if tex_type == "DIFFUSE":
                             if bake_values:
-                                bake_value_texture = True
+                                # disable baking diffuse value textures...
+                                # TODO may just need to disable this on Hair materials?
+                                bake_value_texture = False
                                 bake_shader_socket = "Base Color"
 
                         if tex_type == "ROUGHNESS":

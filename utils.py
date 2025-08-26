@@ -30,6 +30,7 @@ from . import vars
 
 timer = 0
 
+LOG_TIMER = {}
 LOG_INDENT = 0
 
 def log_indent():
@@ -84,24 +85,45 @@ def log_error(msg, e: Exception = None):
         traceback.print_exc()
 
 
+def start_timer(name="NONE"):
+    global LOG_TIMER
+    LOG_TIMER[name] = [time.perf_counter(), 0.0, 0]
 
-def start_timer():
-    global timer
-    timer = time.perf_counter()
+
+def mark_timer(name="NONE"):
+    global LOG_TIMER
+    if name not in LOG_TIMER:
+        start_timer(name)
+    LOG_TIMER[name][0] = time.perf_counter()
 
 
-def log_timer(msg, unit = "s"):
+def update_timer(name="NONE"):
+    global LOG_TIMER
+    if name not in LOG_TIMER:
+        start_timer(name)
+    pc = time.perf_counter()
+    duration = pc - LOG_TIMER[name][0]
+    LOG_TIMER[name][1] += duration
+    LOG_TIMER[name][0] = pc
+    LOG_TIMER[name][2] += 1
+
+
+def log_timer(msg, unit = "s", name="NONE"):
+    global LOG_TIMER
     prefs = vars.prefs()
-    global timer
-    if prefs.log_level == "ALL":
-        duration = time.perf_counter() - timer
+    if name not in LOG_TIMER:
+        start_timer(name)
+    if LOG_TIMER[name][2] == 0:
+        update_timer(name)
+    if prefs.log_level == "ALL" or prefs.log_level == "DETAILS":
+        total_duration = LOG_TIMER[name][1]
         if unit == "ms":
-            duration *= 1000
+            total_duration *= 1000
         elif unit == "us":
-            duration *= 1000000
+            total_duration *= 1000000
         elif unit == "ns":
-            duration *= 1000000000
-        print(msg + ": " + str(duration) + " " + unit)
+            total_duration *= 1000000000
+        print((" " * LOG_INDENT) + msg + ": " + str(total_duration) + " " + unit)
 
 
 def message_box(message = "", title = "Info", icon = 'INFO'):
@@ -2155,6 +2177,13 @@ def clear_prop_collection(col):
     return False
 
 
+def prop_to_list(prop):
+    L = len(prop)
+    result = [0]*L
+    prop.foreach_get(result)
+    return result
+
+
 def B290():
     return is_blender_version("2.90.0")
 
@@ -2470,7 +2499,7 @@ def restore_object_state(obj_state):
                 force_material_name(mat, state["name"])
 
 
-def reset_shape_keys(objects):
+def reset_shape_keys(objects, exclude=None):
     """Unlock and reset object shape keys to zero."""
     for obj in objects:
         if obj.type == "MESH":
@@ -2479,6 +2508,7 @@ def reset_shape_keys(objects):
             # reset all shape keys to zero
             if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
                 for key in obj.data.shape_keys.key_blocks:
+                    if exclude and key.name in exclude: continue
                     key.value = 0.0
 
 
@@ -2593,6 +2623,15 @@ def object_has_shape_keys(obj):
         return False
 
 
+def object_has_shape_key(obj, key_name):
+    try:
+        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            return key_name in obj.data.shape_keys.key_blocks
+    except:
+        ...
+    return False
+
+
 def object_scale(obj):
     try:
         return (obj.scale[0] + obj.scale[1] + obj.scale[2]) / 3.0
@@ -2600,7 +2639,7 @@ def object_scale(obj):
         return 1.0
 
 
-def make_transform_matrix(loc: Vector, rot: Quaternion, sca: Vector):
+def make_transform_matrix(loc: Vector, rot: Quaternion, sca: Vector=Vector((1,1,1))):
     return Matrix.Translation(loc) @ (rot.to_matrix().to_4x4()) @ Matrix.Diagonal(sca).to_4x4()
 
 
@@ -2723,6 +2762,13 @@ def set_prop(obj, prop_name, value):
             return True
         except: ...
     return False
+
+
+def get_prop(obj, prop_name, default_value = None):
+    try:
+        return obj[prop_name]
+    except: ...
+    return default_value
 
 
 def set_rl_link_id(obj, link_id=None):
@@ -2861,3 +2907,27 @@ def get_enum_prop_name(obj, prop_name, enum_value=None):
     except:
         return prop_name
 
+
+def largest_index(items: list, use_abs=False):
+    index = 0
+    largest_value = 0
+    for i, value in enumerate(items):
+        if use_abs:
+            if abs(value) > largest_value:
+                largest_value = abs(value)
+                index = i
+        else:
+            if value > largest_value:
+                largest_value = value
+                index = i
+    return index
+
+
+def smallest_index(items: list):
+    index = 0
+    smallest_value = 0
+    for i, value in enumerate(items):
+        if value < smallest_value:
+            smallest_value = value
+            index = i
+    return index

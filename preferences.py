@@ -22,21 +22,54 @@ from mathutils import Vector
 from . import addon_updater_ops, colorspace, vars
 
 
+MAX_TEX_SIZES = [
+        ("1024","1024 x 1024","1024 x 1024 texture size"),
+        ("2048","2048 x 2048","2048 x 2048 texture size"),
+        ("4096","4096 x 4096","4096 x 4096 texture size"),
+        ("8192","8192 x 8192","8192 x 8192 texture size"),
+    ]
+
+
+def reset_eevee():
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
+    prefs.eevee_iris_brightness_b443b = 0.75
+    prefs.eevee_sss_skin_b443b = 1.43
+    prefs.eevee_sss_hair_b443b = 1.0
+    prefs.eevee_sss_teeth_b443b = 1.5
+    prefs.eevee_sss_tongue_b443b = 1.0
+    prefs.eevee_sss_eyes_b443b = 1.0
+    prefs.eevee_sss_default_b443b = 1.0
+    prefs.eevee_normal_b443b = 1.0
+    prefs.eevee_normal_skin_b443b = 1.0
+    prefs.eevee_micro_normal_b443b = 1.0
+    prefs.eevee_roughness_power_b443b = 0.5625
+    #
+    prefs.eevee_sss_skin_b341 = 1.0
+    prefs.eevee_sss_hair_b341 = 1.0
+    prefs.eevee_sss_teeth_b341 = 1.0
+    prefs.eevee_sss_tongue_b341 = 1.0
+    prefs.eevee_sss_eyes_b341 = 1.0
+    prefs.eevee_sss_default_b341 = 1.0
+    prefs.eevee_normal_b341 = 1.0
+    prefs.eevee_normal_skin_b341 = 1.0
+    prefs.eevee_micro_normal_b341 = 1.0
+    prefs.eevee_roughness_power_b341 = 0.75
+
+
 def reset_cycles():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.cycles_ssr_iris_brightness_b410 = 1.5
-    prefs.cycles_sss_skin_b410 = 1.0 # 1.4285
-    prefs.cycles_sss_hair_b410 = 0.25
-    prefs.cycles_sss_teeth_b410 = 1.0
-    prefs.cycles_sss_tongue_b410 = 1.0
-    prefs.cycles_sss_eyes_b410 = 1.0
-    prefs.cycles_sss_default_b410 = 1.0
-    prefs.cycles_normal_b410 = 1.0
-    prefs.cycles_normal_skin_b410 = 1.125
-    prefs.cycles_micro_normal_b410 = 1.25
-    prefs.cycles_roughness_power_b410 = 1.0
+    prefs.cycles_iris_brightness_b443b = 0.75
+    prefs.cycles_sss_skin_b443b = 1.0
+    prefs.cycles_sss_hair_b443b = 0.5
+    prefs.cycles_sss_teeth_b443b = 1.0
+    prefs.cycles_sss_tongue_b443b = 1.0
+    prefs.cycles_sss_eyes_b443b = 1.0
+    prefs.cycles_sss_default_b443b = 1.0
+    prefs.cycles_normal_b443b = 1.0
+    prefs.cycles_normal_skin_b443b = 1.25
+    prefs.cycles_micro_normal_b443b = 1.25
+    prefs.cycles_roughness_power_b443b = 0.75
     #
-    prefs.cycles_ssr_iris_brightness_b341 = 2.5
     prefs.cycles_sss_skin_b341 = 0.264
     prefs.cycles_sss_hair_b341 = 0.05
     prefs.cycles_sss_teeth_b341 = 0.5
@@ -49,33 +82,6 @@ def reset_cycles():
     prefs.cycles_roughness_power_b341 = 1.0
 
 
-def reset_eevee():
-    prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.eevee_ssr_iris_brightness_b420 = 2.5
-    prefs.eevee_sss_skin_b420 = 1.0
-    prefs.eevee_sss_hair_b420 = 1.0
-    prefs.eevee_sss_teeth_b420 = 1.5
-    prefs.eevee_sss_tongue_b420 = 1.0
-    prefs.eevee_sss_eyes_b420 = 1.0
-    prefs.eevee_sss_default_b420 = 1.0
-    prefs.eevee_normal_b420 = 1.0
-    prefs.eevee_normal_skin_b420 = 1.0
-    prefs.eevee_micro_normal_b420 = 1.0
-    prefs.eevee_roughness_power_b420 = 0.85
-    #
-    prefs.eevee_ssr_iris_brightness_b341 = 1.0
-    prefs.eevee_sss_skin_b341 = 1.0
-    prefs.eevee_sss_hair_b341 = 1.0
-    prefs.eevee_sss_teeth_b341 = 1.0
-    prefs.eevee_sss_tongue_b341 = 1.0
-    prefs.eevee_sss_eyes_b341 = 1.0
-    prefs.eevee_sss_default_b341 = 1.0
-    prefs.eevee_normal_b341 = 1.0
-    prefs.eevee_normal_skin_b341 = 1.0
-    prefs.eevee_micro_normal_b341 = 2.0
-    prefs.eevee_roughness_power_b341 = 0.85
-
-
 def reset_rigify():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
     prefs.rigify_export_t_pose = True
@@ -83,6 +89,9 @@ def reset_rigify():
     prefs.rigify_export_naming = "METARIG"
     prefs.rigify_expression_rig = "META"
     prefs.rigify_auto_retarget = True
+    prefs.rigify_preview_shape_keys = True
+    prefs.rigify_limit_control_range = False
+    prefs.rigify_bake_shape_keys = True
     prefs.rigify_preview_retarget_fk_ik = "BOTH"
     prefs.rigify_bake_nla_fk_ik = "BOTH"
     prefs.rigify_align_bones = "METARIG"
@@ -286,7 +295,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("CREATURE","Creature","Export the selected armature and objects as a creature .Fbx file, with generated .json data for import into CC4 (Only)"),
                         ("PROP","Prop","Export the selected objects as a prop .Fbx file, with generated .json data for import into CC4 (Only)"),
                     ], default="HUMANOID", name = "Non-standard Export")
-    export_texture_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Size of procedurally generated textures to bake")
+    export_texture_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048",
+                                                name="Export Texture Size",
+                                                description="Size of procedurally generated textures to bake")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
@@ -377,53 +388,51 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
 
     # Eevee Modifiers
-    eevee_ssr_iris_brightness_b420: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
-    eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_hair_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_teeth_b420: bpy.props.FloatProperty(default=1.5)
-    eevee_sss_tongue_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_eyes_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_default_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_micro_normal_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_normal_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_normal_skin_b420: bpy.props.FloatProperty(default=1.0)
-    eevee_roughness_power_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_iris_brightness_b443b: bpy.props.FloatProperty(default=0.75, min=0, max=2)
+    eevee_sss_skin_b443b: bpy.props.FloatProperty(default=1.43)
+    eevee_sss_hair_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_teeth_b443b: bpy.props.FloatProperty(default=1.5)
+    eevee_sss_tongue_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_eyes_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_default_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_normal_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_normal_skin_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_micro_normal_b443b: bpy.props.FloatProperty(default=1.0)
+    eevee_roughness_power_b443b: bpy.props.FloatProperty(default=0.5625)
     #
-    eevee_ssr_iris_brightness_b341: bpy.props.FloatProperty(default=1.0, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
-    eevee_sss_skin_b341: bpy.props.FloatProperty(default=1.25)
+    eevee_sss_skin_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_hair_b341: bpy.props.FloatProperty(default=1.0)
-    eevee_sss_teeth_b341: bpy.props.FloatProperty(default=1.5)
+    eevee_sss_teeth_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_tongue_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_eyes_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_default_b341: bpy.props.FloatProperty(default=1.0)
-    eevee_micro_normal_b341: bpy.props.FloatProperty(default=2.0)
     eevee_normal_b341: bpy.props.FloatProperty(default=1.0)
     eevee_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
+    eevee_micro_normal_b341: bpy.props.FloatProperty(default=1.0)
     eevee_roughness_power_b341: bpy.props.FloatProperty(default=0.75)
-    # Cycles Modifiers
-    cycles_ssr_iris_brightness_b410: bpy.props.FloatProperty(default=1.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
-    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_hair_b410: bpy.props.FloatProperty(default=0.25)
-    cycles_sss_teeth_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_tongue_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_eyes_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_default_b410: bpy.props.FloatProperty(default=1.0)
-    cycles_micro_normal_b410: bpy.props.FloatProperty(default=2)
-    cycles_normal_b410: bpy.props.FloatProperty(default=1.5)
-    cycles_normal_skin_b410: bpy.props.FloatProperty(default=1.5)
-    cycles_roughness_power_b410: bpy.props.FloatProperty(default=1.125)
     #
-    cycles_ssr_iris_brightness_b341: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
-    cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
+    # Cycles Modifiers
+    cycles_iris_brightness_b443b: bpy.props.FloatProperty(default=0.75, min=0, max=2)
+    cycles_sss_skin_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_hair_b443b: bpy.props.FloatProperty(default=0.5)
+    cycles_sss_teeth_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_tongue_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_eyes_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_default_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_normal_b443b: bpy.props.FloatProperty(default=1.0)
+    cycles_normal_skin_b443b: bpy.props.FloatProperty(default=1.25)
+    cycles_micro_normal_b443b: bpy.props.FloatProperty(default=1.25)
+    cycles_roughness_power_b443b: bpy.props.FloatProperty(default=0.75)
+    #
     cycles_sss_skin_b341: bpy.props.FloatProperty(default=0.264)
     cycles_sss_hair_b341: bpy.props.FloatProperty(default=0.05)
     cycles_sss_teeth_b341: bpy.props.FloatProperty(default=0.5)
     cycles_sss_tongue_b341: bpy.props.FloatProperty(default=0.5)
     cycles_sss_eyes_b341: bpy.props.FloatProperty(default=0.01)
     cycles_sss_default_b341: bpy.props.FloatProperty(default=0.5)
-    cycles_micro_normal_b341: bpy.props.FloatProperty(default=1.25)
     cycles_normal_b341: bpy.props.FloatProperty(default=1.0)
-    cycles_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
+    cycles_normal_skin_b341: bpy.props.FloatProperty(default=1.125)
+    cycles_micro_normal_b341: bpy.props.FloatProperty(default=1.25)
     cycles_roughness_power_b341: bpy.props.FloatProperty(default=1.0)
 
     lighting_presets_all: bpy.props.BoolProperty(default=False,
@@ -440,6 +449,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("SELECTED","Selected","Bake only selected characeter objects"),
                     ], default="ALL", name = "Character object bake mode")
 
+
+    use_max_tex_size: bpy.props.BoolProperty(default=False, name="Limit Texture Size", description="Limit texture sizes by texture category")
+    size_max_tex_default: bpy.props.EnumProperty(items=MAX_TEX_SIZES, default="2048", name="Default", description="Mid level detail textures such as: diffuse, roughness, metallic")
+    size_max_tex_detail: bpy.props.EnumProperty(items=MAX_TEX_SIZES, default="4096", name="Detail", description="Textures that require more details such as normals, displacements & cavity maps")
+    size_max_tex_minimal: bpy.props.EnumProperty(items=MAX_TEX_SIZES, default="1024", name="Minimal", description="Textures that don't need much detail: Subsurface, transmission and masks")
+
     physics_cloth_hair: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the hair objects.", name="Hair Cloth Physics")
     physics_cloth_clothing: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the clothing and accessory objects.", name="Clothing Cloth Physics")
     physics_weightmap_curve: bpy.props.FloatProperty(default=5.0, min=1.0, max=10.0, name="Physics Weightmap Curve",
@@ -455,29 +470,35 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
                         ("MOTION","Motion","Export the animation only, with minimal mesh and no materials. Shapekey animations will also export their requisite mesh objects"),
                         ("BOTH","Both","Export both the character mesh with materials and the animation"),
-                    ], default="MOTION")
+                    ], default="MOTION",
+                    name="Export Mode")
     rigify_export_naming: bpy.props.EnumProperty(items=[
                         ("METARIG","Metarig","Use metarig bone names without a Root bone.\n" \
-                                             "For exporting animations to CC4/iClone, Unity or other applications.\n" \
+                                             "For exporting animations to CC4/iClone, or other applications.\n" \
                                              "Note: CC4 will auto detect a blender meta-rig, but you must use the generated hik (.3dxProfile) profile to import animations back into CC4"),
                         ("RIGIFY","Rigify","Use custom Rigify_Base_ bone names with a Rigify_Base_Root bone. \n" \
-                                           "For exporting animations and characters to Unity and be compatible with the Unity auto-setup.\n" \
                                            "*Warning*: Does not import correctly back into CC4!"),
                         ("CC","CC Base","Use original CC_Base_ bone names with a CC_Base_Root bone. \n" \
-                                        "Note: The bone names are the same but their orientations are different from the original CC bones. \n"
+                                        "Bones are exported in their original CC rig orientations where possible. \n" \
+                                        "For exporting animations and characters to Unity and be compatible with the Unity auto-setup.\n" \
                                         "*Warning*: Does not import correctly back into CC4!"),
-                    ], default="METARIG", name = "Bone names to use when exporting Rigify characters and motions.")
+                    ], default="METARIG", description="Bone names to use when exporting Rigify characters and motions.",
+                                          name="Export Bone Naming")
     rigify_expression_rig: bpy.props.EnumProperty(items=[
                         ("NONE","None","No expression rig, just eye and jaw controls"),
                         ("RIGIFY","Rigify","Rigify full face rig"),
-                        ("META","Meta","Metahuman style expression rig"),
+                        ("META","CC5 HD","HD Face Control expression rig"),
                     ], default="META", name="Expression Rig")
     rigify_face_control_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                                 default=(1.0, 0.95, 0.4, 1.0),
                                                 min = 0.0, max = 1.0,
                                                 name="Rig Color")
     rigify_auto_retarget: bpy.props.BoolProperty(default=True,
+                                                 name="Auto Retarget",
                                                  description="Auto retarget any animation currently on the character armature")
+    rigify_limit_control_range: bpy.props.BoolProperty(default=False,
+                                                       name="Limit Control Range",
+                                                       description="When using limit constraints, hard limit the control range of the constrained control")
     rigify_preview_retarget_fk_ik: bpy.props.EnumProperty(items=[
                         ("FK","FK","Retarget to FK controls only"),
                         ("IK","IK","Retarget to IK controls only"),
@@ -534,6 +555,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("LOCAL","Local Machine","Connect to a DataLink server running on the local machine"),
                         ("REMOTE","Remote Host","Connect to a DataLink server running on a remote machine"),
                     ], default="LOCAL", name = "DataLink Target")
+    datalink_auto_lighting: bpy.props.BoolProperty(default=True,
+                                          description="Use automatic lighting from CC/iC Go-B")
+
 
     # convert
     convert_non_standard_type: bpy.props.EnumProperty(items=[
@@ -541,6 +565,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                     ("CREATURE","Creature","Non standard character is a Creature"),
                     ("PROP","Prop","Non standard character is a Prop"),
                 ], default="PROP", name = "Non-standard Character Type")
+
 
     # addon updater preferences
     auto_check_update: bpy.props.BoolProperty(
@@ -582,20 +607,20 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.use_property_split = True
 
         layout.label(text="Import:")
-        layout.prop(self, "import_deduplicate")
-        layout.prop(self, "import_auto_convert")
-        layout.prop(self, "auto_convert_materials")
-        layout.prop(self, "build_limit_textures")
-        layout.prop(self, "build_pack_texture_channels")
-        layout.prop(self, "build_pack_wrinkle_diffuse_roughness")
-        layout.prop(self, "build_armature_edit_modifier")
-        layout.prop(self, "build_armature_preserve_volume")
-        layout.prop(self, "build_skin_shader_dual_spec")
-        layout.separator()
-        layout.prop(self, "build_shape_key_bone_drivers_jaw")
-        layout.prop(self, "build_shape_key_bone_drivers_eyes")
-        layout.prop(self, "build_shape_key_bone_drivers_head")
-        layout.prop(self, "build_body_key_drivers")
+        grid = layout.grid_flow(row_major=True, columns=2)
+        grid.prop(self, "import_deduplicate")
+        grid.prop(self, "import_auto_convert")
+        grid.prop(self, "auto_convert_materials")
+        grid.prop(self, "build_limit_textures")
+        grid.prop(self, "build_pack_texture_channels")
+        grid.prop(self, "build_pack_wrinkle_diffuse_roughness")
+        grid.prop(self, "build_armature_edit_modifier")
+        grid.prop(self, "build_armature_preserve_volume")
+        grid.prop(self, "build_skin_shader_dual_spec")
+        grid.prop(self, "build_shape_key_bone_drivers_jaw")
+        grid.prop(self, "build_shape_key_bone_drivers_eyes")
+        grid.prop(self, "build_shape_key_bone_drivers_head")
+        grid.prop(self, "build_body_key_drivers")
 
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")
@@ -629,17 +654,32 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "physics_weightmap_curve")
 
         layout.label(text="Rigify:")
-        layout.prop(self, "rigify_align_bones")
+
+        grid = layout.grid_flow(row_major=True, columns=2)
+        grid.prop(self, "rigify_preview_shape_keys")
+        grid.prop(self, "rigify_bake_shape_keys")
+        grid.prop(self, "rigify_export_t_pose")
+        grid.prop(self, "rigify_auto_retarget")
+        grid.prop(self, "rigify_limit_control_range")
+        grid = layout.grid_flow(row_major=True, columns=2)
+        grid.prop(self, "rigify_align_bones")
+        grid.prop(self, "rigify_export_mode")
+        grid.prop(self, "rigify_export_naming")
+        grid.prop(self, "rigify_expression_rig")
+        grid.prop(self, "rigify_face_control_color")
+        grid.prop(self, "rigify_preview_retarget_fk_ik")
+        grid.prop(self, "rigify_bake_nla_fk_ik")
 
         layout.label(text="Export:")
-        layout.prop(self, "export_json_changes")
-        layout.prop(self, "export_texture_changes")
-        layout.prop(self, "export_legacy_bone_roll_fix")
-        layout.prop(self, "export_bake_nodes")
-        layout.prop(self, "export_bake_bump_to_normal")
-        layout.prop(self, "export_unity_remove_objects")
+        grid = layout.grid_flow(row_major=True, columns=2)
+        grid.prop(self, "export_json_changes")
+        grid.prop(self, "export_texture_changes")
+        grid.prop(self, "export_legacy_bone_roll_fix")
+        grid.prop(self, "export_bake_nodes")
+        grid.prop(self, "export_bake_bump_to_normal")
+        grid.prop(self, "export_unity_remove_objects")
+        grid.prop(self, "export_require_key")
         layout.prop(self, "export_texture_size")
-        layout.prop(self, "export_require_key")
 
         layout.label(text="Convert:")
         layout.prop(self, "convert_non_standard_type")

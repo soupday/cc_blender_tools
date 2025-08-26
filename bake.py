@@ -224,28 +224,31 @@ def get_existing_bake_image(mat, channel_id, width, height,
     return None
 
 
-def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir,
-                   name_prefix="", force_srgb=False, channel_pack=False,
-                   exact_name=False, underscores=True, unique_name=False, image_format="PNG"):
-    """Makes an image and image file to bake the shader socket to and returns the image and image name
-    """
-
+def get_export_bake_image_name(mat, channel_id, name_prefix="", exact_name=False, underscores=True):
     global BAKE_INDEX
-
     sep = " "
     if underscores:
         sep = "_"
     prefix_sep = ""
     if name_prefix:
         prefix_sep = sep
-
     # determine image name and color space
-    socket_name = nodeutils.safe_socket_name(socket)
     if exact_name:
         image_name = name_prefix + prefix_sep + mat.name + sep + channel_id
     else:
         image_name = "EXPORT_BAKE" + sep + name_prefix + prefix_sep + mat.name + sep + channel_id + sep + str(BAKE_INDEX)
         BAKE_INDEX += 1
+    return image_name
+
+
+def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir,
+                   name_prefix="", force_srgb=False, channel_pack=False,
+                   exact_name=False, underscores=True, unique_name=False, image_format="PNG"):
+    """Makes an image and image file to bake the shader socket to and returns the image and image name
+    """
+
+    image_name = get_export_bake_image_name(mat, channel_id, name_prefix, exact_name, underscores)
+    socket_name = nodeutils.safe_socket_name(socket)
 
     is_data = True
     alpha = False
@@ -502,11 +505,7 @@ def pack_RGBA(mat, channel_id, pack_mode, bake_dir,
             if img.size[1] > height:
                 height = img.size[1]
 
-    if max_size > 0:
-        if width > max_size:
-            width = max_size
-        if height > max_size:
-            height = max_size
+    width, height = imageutils.get_max_sized_width_height(width, height, max_size)
 
     utils.log_info(f"Packing {mat.name} for {channel_id} ({width}x{height})")
 
@@ -607,6 +606,210 @@ def pack_RGBA(mat, channel_id, pack_mode, bake_dir,
     for img in remove_after:
         bpy.data.images.remove(img)
 
+    return image
+
+
+def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
+                         image_r: bpy.types.Image=None, image_g=None, image_b=None, image_a=None,
+                         value_r=0, value_g=0, value_b=0, value_a=0,
+                         name_prefix="", min_size=64, srgb=False, max_size=0,
+                         reuse_existing=False, image_format="PNG"):
+    """pack_mode = RGB_A, R_G_B_A"""
+
+    context = bpy.context
+    width = min_size
+    height = min_size
+    color_space = "sRGB" if srgb else "Non-Color"
+    color_depth = '16'
+
+    # get the largest dimensions
+    img : bpy.types.Image
+    for img in [ image_r, image_g, image_b, image_a ]:
+        if img:
+            if img.size[0] > width:
+                width = img.size[0]
+            if img.size[1] > height:
+                height = img.size[1]
+
+    width, height = imageutils.get_max_sized_width_height(width, height, max_size)
+
+    utils.log_info(f"Packing {mat.name} for {channel_id} ({width}x{height})")
+
+    # get the bake image
+    image_name = get_export_bake_image_name(mat, channel_id, name_prefix=name_prefix, exact_name=True)
+    # exr is the only format that retains correct channel packing and color space
+    image_path = os.path.join(bake_dir, image_name+".exr")
+
+    # if we are reusing an existing image, return this now
+    if os.path.exists(image_path):
+        utils.log_info(f"Resuing existing texture pack {image_name}, not baking.")
+        return imageutils.load_image(image_path, color_space)
+
+    context.scene.use_nodes = True
+    nodes = context.scene.node_tree.nodes
+    links = context.scene.node_tree.links
+
+    # store nodes state
+    store = {}
+    for node in nodes:
+        store[node] = node.mute
+        node.mute = True
+
+    CNCC_node = nodeutils.make_shader_node(nodes, "CompositorNodeCombineColor")
+    CNC_node = nodeutils.make_shader_node(nodes, "CompositorNodeComposite")
+    #CNOF_node = nodeutils.make_shader_node(nodes, "CompositorNodeOutputFile")
+    CNC_node.use_alpha = True
+    nodeutils.set_node_input_value(CNCC_node, "Red", value_r)
+    nodeutils.set_node_input_value(CNCC_node, "Green", value_g)
+    nodeutils.set_node_input_value(CNCC_node, "Blue", value_b)
+    nodeutils.set_node_input_value(CNCC_node, "Alpha", value_a)
+    nodeutils.link_nodes(links, CNCC_node, "Image", CNC_node, "Image")
+    #nodeutils.link_nodes(links, CNCC_node, "Image", CNOF_node, "Image")
+
+    if pack_mode == "RGB_A":
+
+        if image_r:
+            if image_r.depth > 32: color_depth = '32'
+            CNI_R_node = nodeutils.make_shader_node(nodes, "CompositorNodeImage")
+            CNI_R_node.image = image_r
+            if image_r.size[0] != width or image_r.size[1] != height:
+                CNS_R_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
+                CNS_R_node.space = "ABSOLUTE"
+                nodeutils.set_node_input_value(CNS_R_node, "X", width)
+                nodeutils.set_node_input_value(CNS_R_node, "Y", height)
+                nodeutils.link_nodes(links, CNI_R_node, "Image", CNS_R_node, "Image")
+                nodeutils.link_nodes(links, CNS_R_node, "Image", CNC_node, "Image")
+            else:
+                nodeutils.link_nodes(links, CNI_R_node, "Image", CNC_node, "Image")
+
+        if image_a:
+            if image_a.depth > 32: color_depth = '32'
+            CNI_A_node = nodeutils.make_shader_node(nodes, "CompositorNodeImage")
+            CNI_A_node.image = image_a
+            if image_a.size[0] != width or image_a.size[1] != height:
+                CNS_A_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
+                CNS_A_node.space = "ABSOLUTE"
+                nodeutils.set_node_input_value(CNS_A_node, "X", width)
+                nodeutils.set_node_input_value(CNS_A_node, "Y", height)
+                nodeutils.link_nodes(links, CNI_A_node, "Image", CNS_A_node, "Image")
+                #nodeutils.link_nodes(links, CNS_A_node, "Image", CNC_node, "Alpha")
+            else:
+                nodeutils.link_nodes(links, CNI_A_node, "Image", CNC_node, "Alpha")
+
+    else:
+
+        if image_r:
+            if image_r.depth > 32: color_depth = '32'
+            CNI_R_node = nodeutils.make_shader_node(nodes, "CompositorNodeImage")
+            CNI_R_node.image = image_r
+            if image_r.size[0] != width or image_r.size[1] != height:
+                CNS_R_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
+                CNS_R_node.space = "ABSOLUTE"
+                nodeutils.set_node_input_value(CNS_R_node, "X", width)
+                nodeutils.set_node_input_value(CNS_R_node, "Y", height)
+                nodeutils.link_nodes(links, CNI_R_node, "Image", CNS_R_node, "Image")
+                nodeutils.link_nodes(links, CNS_R_node, "Image", CNCC_node, "Red")
+            else:
+                nodeutils.link_nodes(links, CNI_R_node, "Image", CNCC_node, "Red")
+
+        if image_g:
+            if image_g.depth > 32: color_depth = '32'
+            CNI_G_node = nodeutils.make_shader_node(nodes, "CompositorNodeImage")
+            CNI_G_node.image = image_g
+            if image_g.size[0] != width or image_g.size[1] != height:
+                CNS_G_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
+                CNS_G_node.space = "ABSOLUTE"
+                nodeutils.set_node_input_value(CNS_G_node, "X", width)
+                nodeutils.set_node_input_value(CNS_G_node, "Y", height)
+                nodeutils.link_nodes(links, CNI_G_node, "Image", CNS_G_node, "Image")
+                nodeutils.link_nodes(links, CNS_G_node, "Image", CNCC_node, "Green")
+            else:
+                nodeutils.link_nodes(links, CNI_G_node, "Image", CNCC_node, "Green")
+
+        if image_b:
+            if image_b.depth > 32: color_depth = '32'
+            CNI_B_node = nodeutils.make_shader_node(nodes, "CompositorNodeImage")
+            CNI_B_node.image = image_b
+            if image_b.size[0] != width or image_b.size[1] != height:
+                CNS_B_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
+                CNS_B_node.space = "ABSOLUTE"
+                nodeutils.set_node_input_value(CNS_B_node, "X", width)
+                nodeutils.set_node_input_value(CNS_B_node, "Y", height)
+                nodeutils.link_nodes(links, CNI_B_node, "Image", CNS_B_node, "Image")
+                nodeutils.link_nodes(links, CNS_B_node, "Image", CNCC_node, "Blue")
+            else:
+                nodeutils.link_nodes(links, CNI_B_node, "Image", CNCC_node, "Blue")
+
+        if image_a:
+            if image_a.depth > 32: color_depth = '32'
+            CNI_A_node = nodeutils.make_shader_node(nodes, "CompositorNodeImage")
+            CNI_A_node.image = image_a
+            if image_a.size[0] != width or image_a.size[1] != height:
+                CNS_A_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
+                CNS_A_node.space = "ABSOLUTE"
+                nodeutils.set_node_input_value(CNS_A_node, "X", width)
+                nodeutils.set_node_input_value(CNS_A_node, "Y", height)
+                nodeutils.link_nodes(links, CNI_A_node, "Image", CNS_A_node, "Image")
+                nodeutils.link_nodes(links, CNS_A_node, "Image", CNCC_node, "Alpha")
+                #nodeutils.link_nodes(links, CNS_A_node, "Image", CNC_node, "Alpha")
+            else:
+                nodeutils.link_nodes(links, CNI_A_node, "Image", CNCC_node, "Alpha")
+                nodeutils.link_nodes(links, CNI_A_node, "Image", CNC_node, "Alpha")
+
+    X = context.scene.render.resolution_x
+    Y = context.scene.render.resolution_y
+    FP = context.scene.render.filepath
+    FF = context.scene.render.image_settings.file_format
+    CD = context.scene.render.image_settings.color_depth
+    CM = context.scene.render.image_settings.color_mode
+    VT = context.scene.view_settings.view_transform
+    LK = context.scene.view_settings.look
+    GA = context.scene.view_settings.gamma
+    EX = context.scene.view_settings.exposure
+    context.scene.render.resolution_x = width
+    context.scene.render.resolution_y = height
+    context.scene.render.image_settings.file_format = 'OPEN_EXR'
+    context.scene.render.image_settings.color_depth = color_depth
+    context.scene.render.image_settings.color_mode = 'RGBA'
+    context.scene.render.image_settings.exr_codec = 'ZIP'
+    context.scene.render.image_settings.color_management = 'OVERRIDE'
+    context.scene.render.image_settings.linear_colorspace_settings.name = color_space
+
+    context.scene.render.filepath = image_path
+    context.scene.view_settings.view_transform = 'Standard'
+    context.scene.view_settings.look = 'None'
+    context.scene.view_settings.gamma = 1
+    context.scene.view_settings.exposure = 0
+
+    for node in nodes:
+        node.select = False
+    CNC_node.select = True
+    bpy.context.scene.node_tree.nodes.active = CNC_node
+
+    bpy.ops.render.render(write_still=True)
+
+    context.scene.render.resolution_x = X
+    context.scene.render.resolution_y = Y
+    context.scene.render.filepath = FP
+    context.scene.render.image_settings.file_format = FF
+    context.scene.render.image_settings.color_depth = CD
+    context.scene.render.image_settings.color_mode = CM
+    context.scene.view_settings.view_transform = VT
+    context.scene.view_settings.look = LK
+    context.scene.view_settings.gamma = GA
+    context.scene.view_settings.exposure = EX
+
+    # restore nodes and clean up
+    for node in store:
+        node.mute = store[node]
+    clean_up = []
+    for node in nodes:
+        if node not in store.keys():
+            clean_up.append(node)
+    for node in clean_up:
+        nodes.remove(node)
+
+    image: bpy.types.Image = imageutils.load_image(image_path, color_space)
     return image
 
 
@@ -1012,7 +1215,7 @@ def pack_rgb_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
 
         if not pack_node:
             if rgb_node and a_node:
-                image = pack_RGBA(mat, channel_id, "RGB_A", bake_dir,
+                image = compositor_pack_RGBA(mat, channel_id, "RGB_A", bake_dir,
                                   image_r=rgb_node.image, image_a=a_node.image,
                                   value_r=rgb_default, value_g=rgb_default,
                                   value_b=rgb_default, value_a=a_default,
@@ -1089,7 +1292,7 @@ def pack_r_g_b_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
     if utils.count_maps(r_node, g_node, b_node, a_node) > 1:
 
         if not pack_node:
-            image = pack_RGBA(mat, channel_id, "R_G_B_A", bake_dir,
+            image = compositor_pack_RGBA(mat, channel_id, "R_G_B_A", bake_dir,
                               image_r=r_image, image_g=g_image,
                               image_b=b_image, image_a=a_image,
                               value_r=r_default, value_g=g_default,
@@ -1148,6 +1351,8 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
     if prefs.build_limit_textures:
         unlink_texture_nodes(mat, "BLEND2", "NORMALBLEND", "CFULCMASK", "ENNASK")
 
+    pack_max_tex_size = 8192
+
     if wrinkle_node:
 
         if prefs.build_pack_wrinkle_diffuse_roughness:
@@ -1156,22 +1361,27 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
             pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESS_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESS_ID,
                     "DIFFUSE", "ROUGHNESS",
                     "Diffuse Map", "Roughness Map", 1.0, 0.5, srgb = True,
-                    reuse_existing = reuse)
+                    reuse_existing = reuse,
+                    max_size=pack_max_tex_size)
 
             pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESSBLEND1_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESSBLEND1_ID,
                     "WRINKLEDIFFUSE1", "WRINKLEROUGHNESS1",
                     "Diffuse Blend Map 1", "Roughness Blend Map 1", 1.0, 0.5, srgb = True,
-                    reuse_existing = reuse)
+                    reuse_existing = reuse,
+                    max_size=pack_max_tex_size)
 
             pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESSBLEND2_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESSBLEND2_ID,
                     "WRINKLEDIFFUSE2", "WRINKLEROUGHNESS2",
                     "Diffuse Blend Map 2", "Roughness Blend Map 2", 1.0, 0.5, srgb = True,
-                    reuse_existing = reuse)
+                    reuse_existing = reuse,
+                    max_size=pack_max_tex_size)
 
             pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESSBLEND3_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESSBLEND3_ID,
                     "WRINKLEDIFFUSE3", "WRINKLEROUGHNESS3",
                     "Diffuse Blend Map 3", "Roughness Blend Map 3", 1.0, 0.5, srgb = True,
-                    reuse_existing = reuse)
+                    reuse_existing = reuse,
+                    max_size=pack_max_tex_size)
+
         else:
 
             # otherwise pack the 4 roughness channels into a single RGBA texture
@@ -1179,33 +1389,46 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
                         "WRINKLEROUGHNESS1", "WRINKLEROUGHNESS2", "WRINKLEROUGHNESS3", "ROUGHNESS",
                         "Roughness Blend Map 1", "Roughness Blend Map 2", "Roughness Blend Map 3", "Roughness Map",
                         0.5, 0.5, 0.5, 0.5,
-                        reuse_existing = reuse)
+                        reuse_existing = reuse,
+                        max_size=pack_max_tex_size)
+
+        pack_r_g_b_a(mat, bake_dir, vars.PACK_WRINKLEDISPLACEMENT_NAME, wrinkle_node, vars.PACK_WRINKLEDISPLACEMENT_ID,
+                    "WRINKLEDISPLACEMENT1", "WRINKLEDISPLACEMENT2", "WRINKLEDISPLACEMENT3", "DISPLACE",
+                    "Height Map 1", "Height Map 2", "Height Map 3", "Height Map",
+                    0.5, 0.5, 0.5, 0.5,
+                    reuse_existing = reuse,
+                    max_size=pack_max_tex_size)
+
 
     pack_r_g_b_a(mat, bake_dir, vars.PACK_WRINKLEFLOW_NAME, wrinkle_node, vars.PACK_WRINKLEFLOW_ID,
                         "WRINKLEFLOW1", "WRINKLEFLOW2", "WRINKLEFLOW3", "",
                         "Flow Map 1", "Flow Map 2", "Flow Map 3", "",
                         1.0, 1.0, 1.0, 1.0,
-                        reuse_existing = reuse)
+                        reuse_existing = reuse,
+                        max_size=pack_max_tex_size)
 
     # pack SSS and Transmission
     pack_rgb_a(mat, bake_dir, vars.PACK_SSTM_NAME, shader_node, vars.PACK_SSTM_ID,
                "SSS", "TRANSMISSION",
-               "Subsurface Map", "Transmission Map", 1.0, 0.0, max_size = 1024,
-                reuse_existing = reuse)
+               "Subsurface Map", "Transmission Map", 1.0, 0.0,
+               max_size = 1024,
+               reuse_existing = reuse)
 
     # pack Metallic, Specular Mask, Micro Normal Mask and AO
     pack_r_g_b_a(mat, bake_dir, vars.PACK_MSMNAO_NAME, shader_node, vars.PACK_MSMNAO_ID,
                  "METALLIC", "SPECMASK", "MICRONMASK", "AO",
                  "Metallic Map", "Specular Mask", "Micro Normal Mask", "AO Map",
                  0.0, 1.0, 1.0, 1.0,
-                reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
     if prefs.build_skin_shader_dual_spec:
         # pack SSS and Transmission
         pack_rgb_a(mat, bake_dir, vars.PACK_MICRODETAIL_NAME, shader_node, vars.PACK_MICRODETAIL_ID,
                    "MICRONORMAL", "SKINSPECDETAIL",
                    "Micro Normal Map", "Specular Detail Mask", 1.0, 1.0,
-                   reuse_existing = reuse)
+                   reuse_existing = reuse,
+                   max_size=pack_max_tex_size)
 
 
 def pack_default_shader(chr_cache, mat_cache, shader_node):
@@ -1215,19 +1438,23 @@ def pack_default_shader(chr_cache, mat_cache, shader_node):
     bake_dir = mat_cache.get_tex_dir(chr_cache)
     reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
+    pack_max_tex_size = int(prefs.pack_max_tex_size)
+
     # pack diffuse + alpha
     pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
                "DIFFUSE", "ALPHA",
                "Diffuse Map", "Alpha Map",
                1.0, 1.0, srgb = True,
-               reuse_existing = reuse)
+               reuse_existing = reuse,
+               max_size=pack_max_tex_size)
 
     # pack Metallic, Specular Mask, Micro Normal Mask and AO
     pack_r_g_b_a(mat, bake_dir, vars.PACK_MRSO_NAME, shader_node, vars.PACK_MRSO_ID,
                  "METALLIC", "ROUGHNESS", "SPECULAR", "AO",
                  "Metallic Map", "Roughness Map", "Specular Map", "AO Map",
                  0.0, 0.5, 1.0, 1.0,
-                 reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
 
 def pack_sss_shader(chr_cache, mat_cache, shader_node):
@@ -1237,26 +1464,31 @@ def pack_sss_shader(chr_cache, mat_cache, shader_node):
     bake_dir = mat_cache.get_tex_dir(chr_cache)
     reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
+    pack_max_tex_size = int(prefs.pack_max_tex_size)
+
     # pack diffuse + alpha
     pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
                "DIFFUSE", "ALPHA",
                "Diffuse Map", "Alpha Map",
                1.0, 1.0, srgb = True,
-               reuse_existing = reuse)
+               reuse_existing = reuse,
+               max_size=pack_max_tex_size)
 
     # pack Metallic, Specular Mask, Micro Normal Mask and AO
     pack_r_g_b_a(mat, bake_dir, vars.PACK_MRSO_NAME, shader_node, vars.PACK_MRSO_ID,
                  "METALLIC", "ROUGHNESS", "SPECULAR", "AO",
                  "Metallic Map", "Roughness Map", "Specular Map", "AO Map",
                  0.0, 0.5, 1.0, 1.0,
-                 reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
     # pack SSS, Transmission, Micro Normal Mask
     pack_r_g_b_a(mat, bake_dir, vars.PACK_SSTMMNM_NAME, shader_node, vars.PACK_SSTMMNM_ID,
                  "SSS", "TRANSMISSION", "MICRONMASK", "",
                  "Subsurface Map", "Transmission Map", "Micro Normal Mask", "",
                  0.0, 1.0, 1.0, 1.0,
-                 reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
 
 def pack_hair_shader(chr_cache, mat_cache, shader_node):
@@ -1266,26 +1498,31 @@ def pack_hair_shader(chr_cache, mat_cache, shader_node):
     bake_dir = mat_cache.get_tex_dir(chr_cache)
     reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
+    pack_max_tex_size = int(prefs.pack_max_tex_size)
+
     # pack diffuse + alpha
     pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
                "DIFFUSE", "ALPHA",
                "Diffuse Map", "Alpha Map",
                1.0, 1.0, srgb = True,
-               reuse_existing = reuse)
+               reuse_existing = reuse,
+               max_size=pack_max_tex_size)
 
     # pack Metallic, Roughness, Specular and AO
     pack_r_g_b_a(mat, bake_dir, vars.PACK_MRSO_NAME, shader_node, vars.PACK_MRSO_ID,
                  "METALLIC", "ROUGHNESS", "SPECULAR", "AO",
                  "Metallic Map", "Roughness Map", "Specular Map", "AO Map",
                  0.0, 0.5, 1.0, 1.0,
-                 reuse_existing = reuse)
+                 reuse_existing = reuse,
+                 max_size=pack_max_tex_size)
 
     # pack Root map, ID map
     pack_rgb_a(mat, bake_dir, vars.PACK_ROOTID_NAME, shader_node, vars.PACK_ROOTID_ID,
                "HAIRROOT", "HAIRID",
                "Root Map", "ID Map",
                0.5, 0.5,
-               reuse_existing = reuse)
+               reuse_existing = reuse,
+               max_size=pack_max_tex_size)
 
 
 def pack_shader_channels(chr_cache, mat_cache):
@@ -1472,7 +1709,7 @@ def copy_image_target(image_node, name, width, height, data = True, alpha = Fals
 
 
 def copy_target(source_mat, mat, source_node, map_suffix, data):
-    image_name = get_bake_image_name(mat, map_suffix)
+    image_name = get_target_bake_image_name(mat, map_suffix)
     width, height = nodeutils.get_tex_image_size(source_node)
     width, height = apply_override_size(source_mat, map_suffix, width, height)
     utils.log_info("Copying direct image source: " + source_node.name)
@@ -1480,7 +1717,7 @@ def copy_target(source_mat, mat, source_node, map_suffix, data):
     return image
 
 
-def get_bake_image_name(mat, map_suffix):
+def get_target_bake_image_name(mat, map_suffix):
     target_suffix = get_target_map_suffix(map_suffix)
     mat_name = utils.strip_name(mat.name)
     image_name = f"{mat_name}_{target_suffix}"
@@ -2232,7 +2469,7 @@ def combine_diffuse_tex(nodes, source_mat, source_mat_cache, mat,
 
     utils.log_info("Combining diffuse with alpha...")
 
-    image_name = get_bake_image_name(mat, map_suffix)
+    image_name = get_target_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path, is_data=False, has_alpha=True,
                                      channel_packed=True, format=image_format)
@@ -2293,7 +2530,7 @@ def combine_hdrp_mask_tex(nodes, source_mat, source_mat_cache, mat,
     ao_value = 1
     mask_value = 1
 
-    image_name = get_bake_image_name(mat, map_suffix)
+    image_name = get_target_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path,
                                      is_data=True, has_alpa=True, channel_packed=True,
@@ -2367,7 +2604,7 @@ def combine_hdrp_detail_tex(nodes, source_mat, source_mat_cache, mat,
 
     utils.log_info("Combining Unity HDRP Detail Texture...")
 
-    image_name = get_bake_image_name(mat, map_suffix)
+    image_name = get_target_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path,
                                      is_data=True, has_alpha=True, channel_packed=True,
@@ -2437,7 +2674,7 @@ def make_metallic_smoothness_tex(nodes, source_mat, source_mat_cache, mat,
     metallic_value = nodeutils.get_node_input_value(bsdf_node, metallic_socket, 0)
     roughness_value = nodeutils.get_node_input_value(bsdf_node, roughness_socket, 0.5)
 
-    image_name = get_bake_image_name(mat, map_suffix)
+    image_name = get_target_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path,
                                      is_data=True, has_alpha=True, channel_packed=True,
@@ -2512,7 +2749,7 @@ def combine_gltf(nodes, source_mat, source_mat_cache, mat,
     roughness_value = nodeutils.get_node_input_value(bsdf_node, roughness_socket, 0.0)
     ao_value = 1
 
-    image_name = get_bake_image_name(mat, map_suffix)
+    image_name = get_target_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path,
                                      is_data=True, has_alpha=False, channel_packed=False,

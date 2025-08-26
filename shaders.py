@@ -282,28 +282,22 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
 
 def func_iris_brightness(v):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES" and prefs.refractive_eyes == "SSR":
-        if utils.B410():
-            v = v * prefs.cycles_ssr_iris_brightness_b410
-        else:
-            v = v * prefs.cycles_ssr_iris_brightness_b341
-    elif prefs.render_target == "EEVEE" and prefs.refractive_eyes == "SSR":
-        if utils.B420():
-            v = v * prefs.eevee_ssr_iris_brightness_b420
-        else:
-            v = v * prefs.eevee_ssr_iris_brightness_b341
+    if prefs.render_target == "CYCLES":
+        v = v * prefs.cycles_iris_brightness_b443b
+    elif prefs.render_target == "EEVEE":
+        v = v * prefs.eevee_iris_brightness_b443b
     return v
 
 def func_sss_skin(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_skin_b410
+            s = s * prefs.cycles_sss_skin_b443b
         else:
             s = s * prefs.cycles_sss_skin_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_skin_b420
+            s = s * prefs.eevee_sss_skin_b443b
         else:
             s = s * prefs.eevee_sss_skin_b341
     return s
@@ -312,12 +306,12 @@ def func_sss_hair(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_hair_b410
+            s = s * prefs.cycles_sss_hair_b443b
         else:
             s = s * prefs.cycles_sss_hair_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_hair_b420
+            s = s * prefs.eevee_sss_hair_b443b
         else:
             s = s * prefs.eevee_sss_hair_b341
     return s
@@ -326,12 +320,12 @@ def func_sss_teeth(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_teeth_b410
+            s = s * prefs.cycles_sss_teeth_b443b
         else:
             s = s * prefs.cycles_sss_teeth_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_teeth_b420
+            s = s * prefs.eevee_sss_teeth_b443b
         else:
             s = s * prefs.eevee_sss_teeth_b341
     return s
@@ -340,12 +334,12 @@ def func_sss_tongue(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_tongue_b410
+            s = s * prefs.cycles_sss_tongue_b443b
         else:
             s = s * prefs.cycles_sss_tongue_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_tongue_b420
+            s = s * prefs.eevee_sss_tongue_b443b
         else:
             s = s * prefs.eevee_sss_tongue_b341
     return s
@@ -354,12 +348,12 @@ def func_sss_eyes(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_eyes_b410
+            s = s * prefs.cycles_sss_eyes_b443b
         else:
             s = s * prefs.cycles_sss_eyes_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_eyes_b420
+            s = s * prefs.eevee_sss_eyes_b443b
         else:
             s = s * prefs.eevee_sss_eyes_b341
     return s
@@ -368,12 +362,12 @@ def func_sss_default(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_sss_default_b410
+            s = s * prefs.cycles_sss_default_b443b
         else:
             s = s * prefs.cycles_sss_default_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_sss_default_b420
+            s = s * prefs.eevee_sss_default_b443b
         else:
             s = s * prefs.eevee_sss_default_b341
     return s
@@ -442,12 +436,12 @@ def func_roughness_power(p):
     #    return p
     if prefs.render_target == "CYCLES":
         if utils.B410():
-            return p * prefs.cycles_roughness_power_b410
+            return p * prefs.cycles_roughness_power_b443b
         else:
             return p * prefs.cycles_roughness_power_b341
     else:
         if utils.B420():
-            return p * prefs.eevee_roughness_power_b420
+            return p * prefs.eevee_roughness_power_b443b
         else:
             return p * prefs.eevee_roughness_power_b341
 
@@ -472,6 +466,9 @@ def func_emission_scale(v):
 def func_color_bytes(jc: list):
     return [ jc[0] / 255.0, jc[1] / 255.0, jc[2] / 255.0, 1.0 ]
 
+def func_color_bytes_linear(jc: list):
+    return utils.srgb_to_linear([ jc[0] / 255.0, jc[1] / 255.0, jc[2] / 255.0, 1.0 ])
+
 def func_color_vector(jc: list):
     if type(jc) == list:
         for i in range(0, len(jc)):
@@ -481,11 +478,18 @@ def func_color_vector(jc: list):
 def func_export_byte3(c):
     return [c[0] * 255.0, c[1] * 255.0, c[2] * 255.0]
 
+def func_export_byte3_linear(c):
+    c = utils.linear_to_srgb(c)
+    return [c[0] * 255.0, c[1] * 255.0, c[2] * 255.0]
+
 def func_occlusion_range(r, m):
     return utils.lerp(m, 1.0, r)
 
 def func_occlusion_strength(s):
     return pow(s, 1.0 / 3.0)
+
+def func_occlusion_contrast(v):
+    return min(0.999, max(0.001, v))
 
 def func_occlusion_color(c):
     return utils.lerp_color(c, (0,0,0,1), 0.75)
@@ -505,17 +509,8 @@ def func_sclera_brightness(b):
         b *= 1.0
     return b
 
-def func_iris_scale(i):
-    return i * 1.00
-
-def func_parallax_iris_scale(i, s):
-    return (func_iris_scale(i) * s)
-
-def func_parallax_iris_tiling(i, s):
-    return 1.0 / (func_parallax_iris_scale(i, s))
-
-def func_get_iris_scale(iris_uv_radius):
-    return 0.16 / iris_uv_radius
+def func_eye_tiling(ir, ss):
+    return 0.16 / (ir * ss)
 
 def func_half(s):
     return s * 0.5
@@ -532,8 +527,14 @@ def func_divide_1000(v):
 def func_divide_100(v):
     return v / 100.0
 
+def func_divide_10(v):
+    return v / 10.0
+
 def func_divide_200(v):
     return v / 200.0
+
+def func_divide_5(v):
+    return v / 5.0
 
 def func_divide_2(v):
     return v / 2.0
@@ -543,6 +544,12 @@ def func_mul_1000(v):
 
 def func_mul_100(v):
     return v * 100.0
+
+def func_mul_10(v):
+    return v * 10.0
+
+def func_mul_5(v):
+    return v * 5.0
 
 def func_mul_2(v):
     return v * 2.0
@@ -635,15 +642,24 @@ def func_set_eye_depth(depth):
     return depth * 1.5
 
 def func_set_parallax_iris_depth(depth):
-    return depth * 1.5
+    return depth * 1.5 + 0.1
 
-def func_index_1(values: list):
+def func_index_f0(v: list):
+    return v[0]
+
+def func_index_f1(v: list):
+    return v[1]
+
+def func_index_f2(v: list):
+    return v[2]
+
+def func_index_b0(values: list):
     return values[0] / 255.0
 
-def func_index_2(values: list):
+def func_index_b1(values: list):
     return values[1] / 255.0
 
-def func_index_3(values: list):
+def func_index_b2(values: list):
     return values[2] / 255.0
 
 def func_export_combine_xyz(x, y, z):
@@ -653,12 +669,12 @@ def func_normal_strength(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_normal_b410
+            s = s * prefs.cycles_normal_b443b
         else:
             s = s * prefs.cycles_normal_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_normal_b420
+            s = s * prefs.eevee_normal_b443b
         else:
             s = s * prefs.eevee_normal_b341
     return s
@@ -667,12 +683,12 @@ def func_skin_normal_strength(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_normal_skin_b410
+            s = s * prefs.cycles_normal_skin_b443b
         else:
             s = s * prefs.cycles_normal_skin_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_normal_skin_b420
+            s = s * prefs.eevee_normal_skin_b443b
         else:
             s = s * prefs.eevee_normal_skin_b341
     return s
@@ -681,15 +697,35 @@ def func_micro_normal_strength(s):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
-            s = s * prefs.cycles_micro_normal_b410
+            s = s * prefs.cycles_micro_normal_b443b
         else:
             s = s * prefs.cycles_micro_normal_b341
     else:
         if utils.B420():
-            s = s * prefs.eevee_micro_normal_b420
+            s = s * prefs.eevee_micro_normal_b443b
         else:
             s = s * prefs.eevee_micro_normal_b341
     return s
+
+def func_set_occlusion_inv_contrast(c):
+    c = min(1, max(1-c, 0.01))
+    mc = 0.5/(c*c)
+    return min(100, max(0.01, mc))
+
+def func_get_occlusion_inv_contrast(mc):
+    mc = min(100, max(0.01, mc))
+    c = pow(0.5/mc, 0.5)
+    return min(1, max(0, 1-c))
+
+def func_set_occlusion_contrast(c):
+    c = min(1, max(c, 0.01))
+    mc = 0.5/(c*c)
+    return min(100, max(0.01, mc))
+
+def func_get_occlusion_contrast(mc):
+    mc = min(100, max(0.01, mc))
+    c = pow(0.5/mc, 0.5)
+    return min(1, max(0, c))
 
 #
 # End Prop matrix eval, parameter conversion functions
@@ -1008,12 +1044,13 @@ def connect_tearline_shader(obj_cache, obj, mat, mat_json, processed_images):
     links = mat.node_tree.links
 
     shader_label = "Tearline Shader"
-    shader_name = "rl_tearline_shader"
-    shader_group = "rl_tearline_shader"
+    shader_name = params.get_shader_name(mat_cache)
+    shader_group = shader_name
     mix_shader_group = ""
-    if prefs.render_target == "CYCLES":
+    if prefs.render_target == "CYCLES" and shader_name == "rl_tearline_shader":
         shader_group = "rl_tearline_cycles_shader"
         mix_shader_group = "rl_tearline_cycles_mix_shader"
+    is_plus = (shader_name == "rl_tearline_plus_shader")
 
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
@@ -1021,7 +1058,8 @@ def connect_tearline_shader(obj_cache, obj, mat, mat_json, processed_images):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
-    materials.set_material_alpha(mat, "BLEND", shadows=False)
+    materials.set_material_alpha(mat, "BLEND", refraction=is_plus, shadows=False)
+    obj.visible_shadow = False
 
 
 def connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images):
@@ -1033,12 +1071,10 @@ def connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images
     links = mat.node_tree.links
 
     shader_label = "Eye Occlusion Shader"
-    shader_name = "rl_eye_occlusion_shader"
-    shader_group = "rl_eye_occlusion_shader"
+    shader_name = params.get_shader_name(mat_cache)
+    shader_group = shader_name
     mix_shader_group = ""
-    if prefs.render_target == "CYCLES":
-        mix_shader_group = "rl_eye_occlusion_cycles_mix_shader"
-        shader_group = ""
+    is_plus = (shader_name == "rl_eye_occlusion_plus_shader")
 
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
@@ -1046,8 +1082,13 @@ def connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images
 
     nodeutils.clean_unused_image_nodes(nodes)
 
-    materials.set_material_alpha(mat, "BLEND", shadows=False)
-
+    materials.set_material_alpha(mat, "BLEND", refraction=is_plus, shadows=False)
+    obj.visible_shadow = False
+    obj.visible_glossy = False
+    if bsdf:
+        try:
+            bsdf.inputs['IOR'].default_value = 1.0
+        except: ...
 
 def connect_skin_shader(chr_cache, obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
@@ -1099,15 +1140,12 @@ def connect_skin_shader(chr_cache, obj_cache, obj, mat, mat_json, processed_imag
 
     fix_sss_method(bsdf, is_skin=True)
 
-    if utils.B410():
-        mat.displacement_method = "DISPLACEMENT"
-    else:
-        mat.cycles.displacement_method = "DISPLACEMENT"
-
     if not utils.B420():
         mat.use_sss_translucency = True
 
     materials.set_material_alpha(mat, "OPAQUE")
+
+    add_displacement(obj, mat, mat_json, 2, 0)
 
 
 def connect_tongue_shader(obj_cache, obj, mat, mat_json, processed_images):
@@ -1231,6 +1269,7 @@ def connect_eye_shader(obj_cache, obj, mat, obj_json, mat_json, processed_images
     nodeutils.clean_unused_image_nodes(nodes)
 
     fix_sss_method(bsdf, is_eyes=True)
+    obj.visible_shadow = False
 
     if not utils.B420():
         mat.use_sss_translucency = True
@@ -1313,19 +1352,28 @@ def connect_pbr_shader(obj_cache, obj, mat: bpy.types.Material, mat_json, proces
     else:
         fix_sss_method(bsdf)
 
+    if not mat_cache.is_eyelash():
+        add_displacement(obj, mat, mat_json, 2, 0)
+
+def add_displacement(obj, mat, mat_json, max_render=5, max_view=3):
+    prefs = vars.prefs()
+
+    method = "DISPLACEMENT" if prefs.render_target == "CYCLES" else "BOTH"
     texture_path, strength, level, multiplier, base = jsonutils.get_displacement_data(mat_json)
-    if texture_path and strength > 0 and level > 0:
+    if texture_path:
+        if strength == 0 or multiplier == 0:
+            level = 0
         # add a subdivision modifer but set it to zero.
         # lots of clothing in CC/iC uses tesselation and displacement, but
         # subdividing all of it would significantly slow down blender.
         # so the modifiers are added, but the user must then set their levels.
-        mod = modifiers.add_subdivision(obj, level, "Displacement_Subdiv", max_level=0, view_level=0)
+        mod = modifiers.add_subdivision(obj, level, "Displacement_Subdiv", max_render=max_render, max_view=max_view)
         if mod:
             modifiers.move_mod_first(obj, mod)
         if utils.B410():
-            mat.displacement_method = "BOTH"
+            mat.displacement_method = method
         else:
-            mat.cycles.displacement_method = "BOTH"
+            mat.cycles.displacement_method = method
 
 
 def connect_sss_shader(obj_cache, obj, mat, mat_json, processed_images):
@@ -1352,6 +1400,8 @@ def connect_sss_shader(obj_cache, obj, mat, mat_json, processed_images):
 
     if nodeutils.has_connected_input(group, "Alpha Map"):
         materials.set_material_alpha(mat, "HASHED")
+
+    add_displacement(obj, mat, mat_json, 2, 0)
 
 
 def fix_sss_method(bsdf, is_skin=False, is_hair=False, is_eyes=False, is_scalp=False):

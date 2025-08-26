@@ -748,6 +748,7 @@ def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=No
     obj.name = name
     obj.data.name = name
     obj["key_proxy"] = "WqebNXksi9wLQwco1hyFQMlIYcbqWGZF"
+    obj.data["key_proxy"] = "WqebNXksi9wLQwco1hyFQMlIYcbqWGZF"
     if parent:
         obj.parent = parent
     obj.hide_set(True)
@@ -763,6 +764,8 @@ def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=No
                 key.slider_min = -1.5
 
     elif shape_keys:
+        if "Basis" in shape_keys:
+            shape_keys.remove("Basis")
         for key_name in shape_keys:
             key = obj.shape_key_add(name=key_name)
             key.slider_max = 1.5
@@ -792,7 +795,51 @@ def get_shape_key_action_objects(rigify_rig, source_rig, source_action=None, sha
     return objects
 
 
-def clean_up_shape_key_action_objects():
+def apply_fast_key_proxies(objects=None):
+    store = {}
+    if not objects:
+        objects = list(bpy.data.objects)
+    RBWC = bpy.data.collections["RigidBodyWorld"] if "RigidBodyWorld" in bpy.data.collections else None
+    for obj in objects:
+        if utils.object_exists_is_mesh(obj):
+
+            # don't replace widgets
+            if obj.name.startswith("WGT-"): continue
+            # don't replace rigid body world meshes
+            if RBWC and obj.name in RBWC.objects: continue
+
+            key_action = utils.safe_get_action(obj.data.shape_keys)
+
+            if utils.object_has_shape_keys(obj):
+                keys = [ key.name for key in obj.data.shape_keys.key_blocks ]
+            else:
+                keys = None
+                values = None
+            proxy = create_key_proxy_object(obj.name, shape_keys=keys)
+            proxy_mesh = proxy.data
+            bpy.data.objects.remove(proxy)
+            store[obj.name] = obj.data
+            obj.data = proxy_mesh
+
+            utils.safe_set_action(proxy_mesh.shape_keys, key_action)
+    return store
+
+
+def restore_fast_key_proxies(store):
+    if store:
+        for obj_name in store:
+            if obj_name in bpy.data.objects:
+                obj = bpy.data.objects[obj_name]
+                if utils.prop(obj.data, "key_proxy") == "WqebNXksi9wLQwco1hyFQMlIYcbqWGZF":
+                    proxy_mesh = obj.data
+                    obj.data = store[obj_name]
+                    if obj.data.shape_keys:
+                        action = utils.safe_get_action(proxy_mesh.shape_keys)
+                        utils.safe_set_action(obj.data.shape_keys, action)
+                    bpy.data.meshes.remove(proxy_mesh)
+
+
+def clean_up_shape_key_proxy_objects():
     for obj in bpy.data.objects:
         if utils.prop(obj, "key_proxy") == "WqebNXksi9wLQwco1hyFQMlIYcbqWGZF":
             utils.delete_object(obj)
@@ -1898,6 +1945,8 @@ def get_expression_widgets(chr_cache, collection_name):
         tag = "Std"
     elif facial_profile == "TRA":
         tag = "Tra"
+    elif facial_profile == "MH":
+        tag = "MH"
     else:
         raise Exception("Unknown facial profile!")
     WGT_LINES = lib.get_object(f"WGT-RL_FaceRig_{tag}_Control_Lines", "RL_Custom_Widget")
@@ -1917,6 +1966,23 @@ def get_expression_widgets(chr_cache, collection_name):
     bones.add_widget_to_collection(WGT_NUB, collection_name)
     bones.add_widget_to_collection(WGT_NAME, collection_name)
     return WGT_OUTLINE, WGT_GROUPS, WGT_LABELS, WGT_LINES, WGT_SLIDER, WGT_RECT, WGT_NUB, WGT_NAME
+
+
+def get_expression_widgets_2(chr_cache, collection_name):
+    facial_profile, viseme_profile = chr_cache.get_facial_profile()
+    if facial_profile == "MH":
+        tag = "MH2"
+        WGT_LINES_2 = lib.get_object(f"WGT-RL_FaceRig_{tag}_Control_Lines", "RL_Custom_Widget")
+        WGT_GROUPS_2 = lib.get_object(f"WGT-RL_FaceRig_{tag}_Groups", "RL_Custom_Widget")
+        WGT_LABELS_2 = lib.get_object(f"WGT-RL_FaceRig_{tag}_Labels", "RL_Custom_Widget")
+        WGT_OUTLINE_2 = lib.get_object(f"WGT-RL_FaceRig_{tag}_Outline", "RL_Custom_Widget")
+        bones.add_widget_to_collection(WGT_LINES_2, collection_name)
+        bones.add_widget_to_collection(WGT_GROUPS_2, collection_name)
+        bones.add_widget_to_collection(WGT_LABELS_2, collection_name)
+        bones.add_widget_to_collection(WGT_OUTLINE_2, collection_name)
+        return WGT_OUTLINE_2, WGT_GROUPS_2, WGT_LABELS_2, WGT_LINES_2
+    else:
+        return None, None, None, None
 
 
 def get_custom_widgets():

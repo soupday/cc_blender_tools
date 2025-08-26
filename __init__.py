@@ -114,7 +114,7 @@ from . import rlx
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 3, 1),
+    "version": (2, 3, 2),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -161,6 +161,7 @@ classes = (
     properties.CC3SkinMaterialCache,
     properties.CC3PBRMaterialCache,
     properties.CC3SSSMaterialCache,
+    properties.CCICExpressionData,
     properties.CC3ObjectCache,
     properties.CCICActionStore,
     properties.CC3CharacterCache,
@@ -238,6 +239,7 @@ classes = (
 )
 
 
+
 def register():
 
     print("REGISTER")
@@ -265,8 +267,6 @@ def register():
 
 
 def unregister():
-
-    print("UNREGISTER")
 
     link.disconnect()
 

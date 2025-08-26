@@ -129,30 +129,31 @@ def generate_eye_occlusion_vertex_groups(obj, mat_left, mat_right):
                 vertex_group_all_r.add([vertex.index], 1.0, 'REPLACE')
 
 
-def generate_tearline_vertex_groups(obj, mat_left, mat_right):
+def generate_tearline_vertex_groups(obj, mat, is_left=True, is_plus=False):
 
-    vertex_group_inner_l = add_vertex_group(obj, vars.TEARLINE_GROUP_INNER + "_L")
-    vertex_group_all_l = add_vertex_group(obj, vars.TEARLINE_GROUP_ALL + "_L")
-    vertex_group_inner_r = add_vertex_group(obj, vars.TEARLINE_GROUP_INNER + "_R")
-    vertex_group_all_r = add_vertex_group(obj, vars.TEARLINE_GROUP_ALL + "_R")
+    suffix = "_L" if is_left else "_R"
+    vertex_group_inner = add_vertex_group(obj, vars.TEARLINE_GROUP_INNER + suffix)
+    vertex_group_all = add_vertex_group(obj, vars.TEARLINE_GROUP_ALL + suffix)
 
     mesh = obj.data
     ul = mesh.uv_layers[0]
     for poly in mesh.polygons:
-        for loop_index in poly.loop_indices:
-            loop_entry = mesh.loops[loop_index]
-            vertex = mesh.vertices[loop_entry.vertex_index]
-            uv = ul.data[loop_entry.index].uv
-            weight = 1.0 - utils.smoothstep(0, 0.1, abs(uv.x - 0.5))
+        slot = obj.material_slots[poly.material_index]
+        if slot.material == mat:
+            for loop_index in poly.loop_indices:
+                loop_entry = mesh.loops[loop_index]
+                vertex = mesh.vertices[loop_entry.vertex_index]
+                uv = ul.data[loop_entry.index].uv
+                if is_plus:
+                    if is_left:
+                        weight = utils.smoothstep(0.3, 0.0, uv.x) * (1.0 if uv.y < 0.5 else 0.0)
+                    else:
+                        weight = utils.smoothstep(0.7, 1.0, uv.x) * (1.0 if uv.y > 0.5 else 0.0)
+                else:
+                    weight = 1.0 - utils.smoothstep(0, 0.1, abs(uv.x - 0.5))
 
-            slot = obj.material_slots[poly.material_index]
-            if slot.material == mat_left:
-                vertex_group_inner_l.add([vertex.index], weight, 'REPLACE')
-                vertex_group_all_l.add([vertex.index], 1.0, 'REPLACE')
-
-            elif slot.material == mat_right:
-                vertex_group_inner_r.add([vertex.index], weight, 'REPLACE')
-                vertex_group_all_r.add([vertex.index], 1.0, 'REPLACE')
+                vertex_group_inner.add([vertex.index], weight, 'REPLACE')
+                vertex_group_all.add([vertex.index], 1.0, 'REPLACE')
 
 
 def rebuild_eye_vertex_groups(chr_cache):
@@ -188,19 +189,17 @@ def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right
 
             slot = obj.material_slots[poly.material_index]
             if slot.material == mat_left:
-                iris_scale = cache_left.parameters.eye_iris_scale
+                sclera_scale = cache_left.parameters.eye_sclera_scale
                 iris_radius = cache_left.parameters.eye_iris_radius
-                depth_radius = cache_left.parameters.eye_iris_depth_radius
-                radius = iris_scale * iris_radius * depth_radius
+                radius = sclera_scale * (iris_radius / 0.16) * 0.128
                 #weight = 1.0 - utils.saturate(utils.smoothstep(0, radius, radial))
                 weight = utils.saturate(utils.remap(0, radius, 1.0, 0.0, radial))
                 vertex_group_l.add([vertex.index], weight, 'REPLACE')
 
             elif slot.material == mat_right:
-                iris_scale = cache_right.parameters.eye_iris_scale
+                sclera_scale = cache_right.parameters.eye_iris_scale
                 iris_radius = cache_right.parameters.eye_iris_radius
-                depth_radius = cache_right.parameters.eye_iris_depth_radius
-                radius = iris_scale * iris_radius * depth_radius
+                radius = sclera_scale * (iris_radius / 0.16) * 0.128
                 #weight = 1.0 - utils.saturate(utils.smoothstep(0, radius, radial))
                 weight = utils.saturate(utils.remap(0, radius, 1.0, 0.0, radial))
                 vertex_group_r.add([vertex.index], weight, 'REPLACE')
@@ -279,7 +278,7 @@ def remove_material_verts(obj, mat):
     utils.object_mode_to(obj)
 
 
-def find_shape_key(obj : bpy.types.Object, shape_key_name):
+def find_shape_key(obj : bpy.types.Object, shape_key_name) -> bpy.types.ShapeKey:
     try:
         return obj.data.shape_keys.key_blocks[shape_key_name]
     except:
@@ -314,6 +313,14 @@ def get_facial_profile(objects):
     for obj in objects:
 
         if obj.type != "MESH": continue
+
+        if (find_shape_key(obj, "Mouth_Funnel_UL") or
+            find_shape_key(obj, "Mouth_Funnel_UR") or
+            find_shape_key(obj, "Eye_Look_Up_L") or
+            find_shape_key(obj, "Eye_Look_Up_R") or
+            find_shape_key(obj, "Jaw_Clench_L") or
+            find_shape_key(obj, "Jaw_Clench_R")):
+            expressionProfile = "MH"
 
         if (find_shape_key(obj, "Move_Jaw_Down") or
             find_shape_key(obj, "Turn_Jaw_Down") or

@@ -123,10 +123,10 @@ G3_BONE_MAPPING = [
     ["upper_arm.L", "CC_Base_L_Upperarm", ""],
     ["forearm.L", "CC_Base_L_Forearm", ""],
     ["hand.L", "CC_Base_L_Hand", "CC_Base_L_Hand", 0, 0.75],
-    ["palm.01.L", "CC_Base_L_Hand", "-CC_Base_L_Index1", 0.35, 1, ["CC_Base_L_Mid1", "CC_Base_L_Ring1", "CC_Base_L_Pinky1"]],
-    ["palm.02.L", "CC_Base_L_Hand", "-CC_Base_L_Mid1", 0.35, 1, ["CC_Base_L_Ring1", "CC_Base_L_Pinky1", "CC_Base_L_Index1"]],
-    ["palm.03.L", "CC_Base_L_Hand", "-CC_Base_L_Ring1", 0.35, 1, ["CC_Base_L_Pinky1", "CC_Base_L_Index1", "CC_Base_L_Mid1"]],
-    ["palm.04.L", "CC_Base_L_Hand", "-CC_Base_L_Pinky1", 0.35, 1, ["CC_Base_L_Index1", "CC_Base_L_Mid1", "CC_Base_L_Ring1"]],
+    ["palm.01.L", "CC_Base_L_Hand", "-CC_Base_L_Index1", 0.95, 1, ["CC_Base_L_Mid1", "CC_Base_L_Ring1", "CC_Base_L_Pinky1"]],
+    ["palm.02.L", "CC_Base_L_Hand", "-CC_Base_L_Mid1", 0.95, 1, ["CC_Base_L_Ring1", "CC_Base_L_Pinky1", "CC_Base_L_Index1"]],
+    ["palm.03.L", "CC_Base_L_Hand", "-CC_Base_L_Ring1", 0.95, 1, ["CC_Base_L_Pinky1", "CC_Base_L_Index1", "CC_Base_L_Mid1"]],
+    ["palm.04.L", "CC_Base_L_Hand", "-CC_Base_L_Pinky1", 0.95, 1, ["CC_Base_L_Index1", "CC_Base_L_Mid1", "CC_Base_L_Ring1"]],
     # Left Hand Fingers, chains
     ["thumb.01.L", "CC_Base_L_Thumb1", ""],             # alternative fingers to map to if missing
     ["f_index.01.L", "CC_Base_L_Index1", "", None, None, ["CC_Base_L_Mid1", "CC_Base_L_Ring1", "CC_Base_L_Pinky1"]],
@@ -155,10 +155,10 @@ G3_BONE_MAPPING = [
     ["upper_arm.R", "CC_Base_R_Upperarm", ""],
     ["forearm.R", "CC_Base_R_Forearm", ""],
     ["hand.R", "CC_Base_R_Hand", "CC_Base_R_Hand", 0, 0.75],
-    ["palm.01.R", "CC_Base_R_Hand", "-CC_Base_R_Index1", 0.35, 1, ["CC_Base_R_Mid1", "CC_Base_R_Ring1", "CC_Base_R_Pinky1"]],
-    ["palm.02.R", "CC_Base_R_Hand", "-CC_Base_R_Mid1", 0.35, 1, ["CC_Base_R_Ring1", "CC_Base_R_Pinky1", "CC_Base_R_Index1"]],
-    ["palm.03.R", "CC_Base_R_Hand", "-CC_Base_R_Ring1", 0.35, 1, ["CC_Base_R_Pinky1", "CC_Base_R_Index1", "CC_Base_R_Mid1"]],
-    ["palm.04.R", "CC_Base_R_Hand", "-CC_Base_R_Pinky1", 0.35, 1, ["CC_Base_R_Index1", "CC_Base_R_Mid1", "CC_Base_R_Ring1"]],
+    ["palm.01.R", "CC_Base_R_Hand", "-CC_Base_R_Index1", 0.95, 1, ["CC_Base_R_Mid1", "CC_Base_R_Ring1", "CC_Base_R_Pinky1"]],
+    ["palm.02.R", "CC_Base_R_Hand", "-CC_Base_R_Mid1", 0.95, 1, ["CC_Base_R_Ring1", "CC_Base_R_Pinky1", "CC_Base_R_Index1"]],
+    ["palm.03.R", "CC_Base_R_Hand", "-CC_Base_R_Ring1", 0.95, 1, ["CC_Base_R_Pinky1", "CC_Base_R_Index1", "CC_Base_R_Mid1"]],
+    ["palm.04.R", "CC_Base_R_Hand", "-CC_Base_R_Pinky1", 0.95, 1, ["CC_Base_R_Index1", "CC_Base_R_Mid1", "CC_Base_R_Ring1"]],
     # Left Hand Fingers, chains
     ["thumb.01.R", "CC_Base_R_Thumb1", ""],             # alternative fingers to map to if missing
     ["f_index.01.R", "CC_Base_R_Index1", "", None, None, ["CC_Base_R_Mid1", "CC_Base_R_Ring1", "CC_Base_R_Pinky1"]],
@@ -260,10 +260,10 @@ GAME_BASE_BONE_MAPPING = [
     ["upper_arm.L", "upperarm_l", ""],
     ["forearm.L", "lowerarm_l", ""],
     ["hand.L", "hand_l", "hand_l", 0, 0.75],
-    ["palm.01.L", "hand_l", "-index_01_l", 0.35, 1],
-    ["palm.02.L", "hand_l", "-middle_01_l", 0.35, 1],
-    ["palm.03.L", "hand_l", "-ring_01_l", 0.35, 1],
-    ["palm.04.L", "hand_l", "-pinky_01_l", 0.35, 1],
+    ["palm.01.L", "hand_l", "-index_01_l", 0.95, 1],
+    ["palm.02.L", "hand_l", "-middle_01_l", 0.95, 1],
+    ["palm.03.L", "hand_l", "-ring_01_l", 0.95, 1],
+    ["palm.04.L", "hand_l", "-pinky_01_l", 0.95, 1],
     # Left Hand Fingers, chains
     ["thumb.01.L", "thumb_01_l", ""],
     ["f_index.01.L", "index_01_l", ""],
@@ -292,10 +292,10 @@ GAME_BASE_BONE_MAPPING = [
     ["upper_arm.R", "upperarm_r", ""],
     ["forearm.R", "lowerarm_r", ""],
     ["hand.R", "hand_r", "hand_r", 0, 0.75],
-    ["palm.01.R", "hand_r", "-index_01_r", 0.35, 1],
-    ["palm.02.R", "hand_r", "-middle_01_r", 0.35, 1],
-    ["palm.03.R", "hand_r", "-ring_01_r", 0.35, 1],
-    ["palm.04.R", "hand_r", "-pinky_01_r", 0.35, 1],
+    ["palm.01.R", "hand_r", "-index_01_r", 0.95, 1],
+    ["palm.02.R", "hand_r", "-middle_01_r", 0.95, 1],
+    ["palm.03.R", "hand_r", "-ring_01_r", 0.95, 1],
+    ["palm.04.R", "hand_r", "-pinky_01_r", 0.95, 1],
     # Right Hand Fingers, chains
     ["thumb.01.R", "thumb_01_r", ""],
     ["f_index.01.R", "index_01_r", ""],
@@ -568,7 +568,7 @@ ADD_DEF_BONES = [
     ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29, "DEF"],
     ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29, "DEF"],
 
-    ["MCH-jaw_master", "MCH-teeth_master", "ORG-face", "LR", 30, "MCH", 0.9, "MCH-jaw_master", 0.8, 1.0],
+    ["MCH-jaw_master", "MCH-teeth_master", "ORG-face", "LR", 30, "MCH", 0.9, "MCH-jaw_master", [0.98, 1.0, 0]],
     ["-", "teeth.B", "MCH-teeth_master", "", "", ""],
     ["-", "tongue.003", "MCH-teeth_master", "", "", ""],
 
@@ -578,8 +578,8 @@ ADD_DEF_BONES = [
     ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29, "DEF"],
     ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29, "DEF"],
 
-    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, "DEF", 0.667, "DEF-upper_arm.L.001", 0.5],
-    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, "DEF", 0.667, "DEF-thigh.L.001", 0.5],
+    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, "DEF", 0.667, "DEF-upper_arm.L.001", [0.5, 0, 0]],
+    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, "DEF", 0.667, "DEF-thigh.L.001", [0.5, 0, 0]],
     #["DEF-toe.L", "DEF-toe_share.L", "DEF-toe.L", "LR", 29, 4.0, "DEF-foot.L", 0.5],
 
     ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29, "DEF"],
@@ -588,8 +588,8 @@ ADD_DEF_BONES = [
     ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29, "DEF"],
     ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29, "DEF"],
 
-    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, "DEF", 0.667, "DEF-upper_arm.R.001", 0.5],
-    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, "DEF", 0.667, "DEF-thigh.R.001", 0.5],
+    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, "DEF", 0.667, "DEF-upper_arm.R.001", [0.5, 0, 0]],
+    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, "DEF", 0.667, "DEF-thigh.R.001", [0.5, 0, 0]],
     #["DEF-toe.R", "DEF-toe_share.R", "DEF-toe.R", "LR", 29, 4.0, "DEF-foot.R", 0.5],
 
     ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29, "DEF"],
@@ -597,7 +597,15 @@ ADD_DEF_BONES = [
     ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29, "DEF"],
     ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29, "DEF"],
     ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29, "DEF"],
+
+    #["DEF-spine.006", "MCH-CTRL-head", "neck", "LR", 30, "MCH", 0.4, "MCH-ROT-head", [0, 0, 1]],
 ]
+
+RIGIFY_REPARENTING = {
+    "tongue_master": "tongue.003",
+    "MCH-tongue.001": "tongue.003",
+    "MCH-tongue.002": "tongue.003",
+}
 
 def OODTR(a):
     return 1.0 / (a * math.pi / 180.0)
@@ -1073,6 +1081,12 @@ CONTROL_MODIFY = [
     ["head", [1.25, 1, 1.25], [0, 0.02, 0], [0, 0, 0]],
     ["jaw", [1.25, 1.25, 1.25], [0, 0, 0], [0, 0, 0]],
     ["jaw_master", [1.25, 1.25, 1.25], [0, 0, 0], [0, 0, 0]],
+
+    ["palm.R", [15.0, 15.0, 15.0], [0, -0.05, 0], [0, 0, 0], "METARIG"],
+    ["palm.L", [15.0, 15.0, 15.0], [0, -0.05, 0], [0, 0, 0], "METARIG"],
+
+    ["palm.R", [15.0, 15.0, 15.0], [0, -0.05, 0], [0, 1.5707964, 0], "CC"],
+    ["palm.L", [15.0, 15.0, 15.0], [0, -0.05, 0], [0, 1.5707964, 0], "CC"],
 
     ["shoulder.R", [-1.5, 1.5, 1.5], [0, 0, 0], [0, 0, 0]],
     ["shoulder.L", [1.5, 1.5, 1.5], [0, 0, 0], [0, 0, 0]],

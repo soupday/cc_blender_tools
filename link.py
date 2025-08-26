@@ -1362,6 +1362,11 @@ class Signal():
             func(*args)
 
 
+@atexit.register
+def shutdown():
+    link_service = get_link_service()
+    if link_service:
+        link_service.shutdown()
 
 
 class LinkService():
@@ -1418,7 +1423,7 @@ class LinkService():
     def __enter__(self):
         return self
 
-    def __exit__(self):
+    def __exit__(self, exception_type, excetpion_value, exception_traceback):
         self.service_stop()
 
     def compatible_plugin(self, plugin_version):
@@ -1455,18 +1460,24 @@ class LinkService():
                 utils.log_error(f"Unable to start server on TCP *:{BLENDER_PORT}", e)
 
     def stop_server(self):
-        if self.server_sock:
-            utils.log_info(f"Closing Server Socket")
-            try:
-                self.server_sock.shutdown(socket.SHUT_RDWR)
-                self.server_sock.close()
-            except:
-                utils.log_error(f"Closing Server Socket error!")
-        self.is_listening = False
-        self.server_sock = None
-        self.server_sockets = []
-        self.server_stopped.emit()
-        self.changed.emit()
+        try:
+            if self.server_sock:
+                utils.log_info(f"Closing Server Socket")
+                try:
+                    # no shutdown for server sockets, just close.
+                    self.server_sock.close()
+                except Exception as e:
+                    utils.log_error(f"Closing Server Socket failed!", e)
+            self.is_listening = False
+            self.server_sock = None
+            self.server_sockets = []
+            self.server_stopped.emit()
+            self.changed.emit()
+        except Exception as e:
+            utils.log_error("Stop Server error!", e)
+            self.is_listening = False
+            self.server_sock = None
+            self.server_sockets = []
 
     def start_timer(self):
         self.time = time.time()
@@ -1481,8 +1492,8 @@ class LinkService():
             try:
                 if bpy.app.timers.is_registered(self.loop):
                     bpy.app.timers.unregister(self.loop)
-            except:
-                pass
+            except Exception as e:
+                utils.log_error("Stop Timer error!", e)
             self.timer = False
             utils.log_info(f"Service timer stopped")
 
@@ -1534,6 +1545,7 @@ class LinkService():
             "Path": self.local_path,
             "Addon": vars.VERSION_STRING[1:],
             "Local": self.remote_is_local,
+            "FPS": bpy.context.scene.render.fps,
         }
         utils.log_info(f"Send Hello: {self.local_path}")
         self.send(OpCodes.HELLO, encode_from_json(json_data))
@@ -1545,8 +1557,8 @@ class LinkService():
                 try:
                     self.client_sock.shutdown(socket.SHUT_RDWR)
                     self.client_sock.close()
-                except:
-                    utils.log_error(f"Closing Client Socket error!")
+                except Exception as e:
+                    utils.log_error("Closing Client Socket failed!", e)
             self.is_connected = False
             self.is_connecting = False
             link_props = vars.link_props()
@@ -1560,6 +1572,10 @@ class LinkService():
             self.changed.emit()
         except Exception as e:
             utils.log_error("Stop Client error!", e)
+            self.is_connected = False
+            self.is_connecting = False
+            self.client_sock = None
+            self.client_sockets = []
 
     def has_client_sock(self):
         if self.client_sock and (self.is_connected or self.is_connecting):
@@ -1834,6 +1850,9 @@ class LinkService():
             self.on_connected()
             self.connected.emit()
             self.changed.emit()
+
+    def shutdown(self):
+        self.send(OpCodes.DISCONNECT)
 
     def service_disconnect(self):
         try:
@@ -2415,7 +2434,6 @@ class LinkService():
                     # get all the exportable deformation bones
                     if rigutils.select_rig(export_rig):
                         for pose_bone in export_rig.pose.bones:
-                            print(pose_bone)
                             if (pose_bone.name != "root" and
                                 not pose_bone.name.startswith("DEF-") and
                                 not pose_bone.name.startswith("NDP-") and
@@ -2989,6 +3007,9 @@ class LinkService():
                     rlx.apply_camera_pose(actor.object, loc, rot, sca, lens, enable, focus, rng, fb, nb, ft, nt, mbd)
                 offset += 33
 
+            if rig:
+                rig.pose.bones.update()
+
         return actors
 
     def reposition_prop_meshes(self, actors):
@@ -3017,26 +3038,31 @@ class LinkService():
 
         utils.object_mode()
 
-        use_lights = lights_data.get("use_lights", True)
+        use_lighting = lights_data.get("use_lights", False)
+        auto_lighting = lights_data.get("auto_lights", False)
 
-        if use_lights:
-            container = rlx.add_light_container()
-            # create or modify existing lights
-            for light_data in lights_data["lights"]:
-                light = rlx.find_link_id(light_data["link_id"])
-                light = rlx.decode_rlx_light(light_data, light, container)
-            # clean up lights not found in scene
-            for obj in bpy.data.objects:
-                if obj.type == "LIGHT":
-                    obj_link_id = utils.get_rl_link_id(obj)
-                    if obj_link_id and obj_link_id not in lights_data["scene_lights"]:
-                        utils.delete_light_object(obj)
-        #
+        # don't set up auto lighting (from CC Go-B) if not enabled
+        if auto_lighting and not prefs.datalink_auto_lighting:
+            return
+
+        container = rlx.add_light_container()
+        # create or modify existing lights
+        for light_data in lights_data["lights"]:
+            light = rlx.find_link_id(light_data["link_id"])
+            light = rlx.decode_rlx_light(light_data, light, container)
+        # clean up lights not found in scene
+        for obj in bpy.data.objects:
+            if obj.type == "LIGHT":
+                obj_link_id = utils.get_rl_link_id(obj)
+                if obj_link_id and obj_link_id not in lights_data["scene_lights"]:
+                    utils.delete_light_object(obj)
+
         bpy.context.scene.eevee.use_taa_reprojection = True
         if utils.B420():
             bpy.context.scene.eevee.use_shadows = True
             bpy.context.scene.eevee.use_volumetric_shadows = True
             bpy.context.scene.eevee.use_raytracing = True
+            bpy.context.scene.eevee.ray_tracing_options.resolution_scale = "1"
             bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
             bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             bpy.context.scene.eevee.use_bokeh_jittered = True
@@ -3055,7 +3081,7 @@ class LinkService():
             bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
         view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-        colorspace.set_view_settings(view_transform, "Medium High Contrast", 0, 0.75)
+        colorspace.set_view_settings(view_transform, "Medium Contrast", 0, 0.75)
         if bpy.context.scene.cycles.transparent_max_bounces < 100:
             bpy.context.scene.cycles.transparent_max_bounces = 100
         view_space = utils.get_view_3d_space()
@@ -3318,8 +3344,7 @@ class LinkService():
         actors = self.decode_pose_frame_data(data)
 
         # force recalculate all transforms
-        bpy.context.view_layer.update()
-
+        #bpy.context.view_layer.update()
         self.reposition_prop_meshes(actors)
 
         # store frame data
@@ -3406,26 +3431,45 @@ class LinkService():
         set_frame_range(LINK_DATA.sequence_start_frame, LINK_DATA.sequence_end_frame)
         set_frame(LINK_DATA.sequence_start_frame)
 
+        utils.start_timer("FRAME")
+        utils.start_timer("DECODE")
+        utils.start_timer("LAYER_UPDATE")
+        utils.start_timer("REPOSITION")
+        utils.start_timer("SELECT_RIGS")
+        utils.start_timer("STORE_CACHE")
+        utils.start_timer("WRITE")
+
         # start the sequence
         self.start_sequence()
 
     def receive_sequence_frame(self, data):
         global LINK_DATA
 
+        utils.mark_timer("FRAME")
+
         # decode and cache pose
+        utils.mark_timer("DECODE")
         frame = self.decode_pose_frame_header(data)
         utils.log_detail(f"Receive Sequence Frame: {frame}")
         actors = self.decode_pose_frame_data(data)
+        utils.update_timer("DECODE")
+
+        utils.mark_timer("REPOSITION")
+        self.reposition_prop_meshes(actors)
+        utils.update_timer("REPOSITION")
 
         # force recalculate all transforms
+        utils.mark_timer("LAYER_UPDATE")
         bpy.context.view_layer.update()
-
-        self.reposition_prop_meshes(actors)
+        utils.update_timer("LAYER_UPDATE")
 
         # store frame data
+        utils.mark_timer("SELECT_RIGS")
         update_link_status(f"Sequence Frame: {LINK_DATA.sequence_current_frame}")
         self.select_actor_rigs(actors)
+        utils.update_timer("SELECT_RIGS")
 
+        utils.mark_timer("STORE_CACHE")
         actor: LinkActor
         for actor in actors:
             if actor.ready(require_cache=LINK_DATA.set_keyframes):
@@ -3436,9 +3480,12 @@ class LinkService():
                         store_light_cache_keyframes(actor, frame)
                     elif actor.get_type() == "CAMERA":
                         store_camera_cache_keyframes(actor, frame)
+        utils.update_timer("STORE_CACHE")
 
         # send sequence frame ack
         self.send_sequence_ack(frame)
+
+        utils.update_timer("FRAME")
 
     def receive_sequence_end(self, data):
         global LINK_DATA
@@ -3469,6 +3516,7 @@ class LinkService():
             update_link_status(f"Live Sequence Aborted!")
 
         # write actions
+        utils.mark_timer("WRITE")
         for actor in actors:
             if LINK_DATA.set_keyframes:
                 write_sequence_actions(actor, num_frames)
@@ -3478,6 +3526,15 @@ class LinkService():
                 rigutils.update_prop_rig(actor.get_armature())
             elif actor.get_type() == "AVATAR":
                 rigutils.update_avatar_rig(actor.get_armature())
+        utils.update_timer("WRITE")
+
+        utils.log_timer("Frame", name="FRAME")
+        utils.log_timer("Decode", name="DECODE")
+        utils.log_timer("Layer Update", name="LAYER_UPDATE")
+        utils.log_timer("Reposition", name="REPOSITION")
+        utils.log_timer("Select Rigs", name="SELECT_RIGS")
+        utils.log_timer("Store Cache", name="STORE_CACHE")
+        utils.log_timer("Write", name="WRITE")
 
         # stop sequence
         self.stop_sequence()
@@ -4116,7 +4173,7 @@ class LinkService():
                         chr_colliders[bone_name] = copy.deepcopy(tmp_colliders[bone_name])
 
                 # write the changes to a .json_local
-                jsonutils.write_json(chr_json, chr_cache.import_file, is_fbx_path=True, is_json_local=True)
+                jsonutils.write_json(chr_json, chr_cache.import_file, is_fbx_path=True, is_json_local=True, update_cache=True)
 
                 # remove unused images/folders from the update import files
                 tmp_images = jsonutils.get_meshes_images(tmp_meshes)

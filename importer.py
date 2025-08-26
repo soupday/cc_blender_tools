@@ -88,6 +88,7 @@ def process_material(chr_cache, obj_cache, obj, mat, obj_json, processed_images)
             bake.pack_shader_channels(chr_cache, mat_cache)
         elif props.wrinkle_mode and mat_json and "Wrinkle" in mat_json.keys():
             bake.pack_shader_channels(chr_cache, mat_cache)
+            ...
 
     else:
 
@@ -1285,6 +1286,8 @@ class CC3Import(bpy.types.Operator):
                 obj.update_tag()
             for mat in processed_materials:
                 mat.update_tag()
+
+            chr_cache.update_all_properties(context)
 
         bpy.context.view_layer.update()
 

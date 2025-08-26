@@ -580,7 +580,7 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
             layout.row().label(text=obj_text)
 
 
-def render_prefs_ui(layout: bpy.types.UILayout):
+def render_prefs_ui(layout: bpy.types.UILayout, index=1):
     prefs = vars.prefs()
     props = vars.props()
 
@@ -590,38 +590,38 @@ def render_prefs_ui(layout: bpy.types.UILayout):
         box = layout.box()
         if fake_drop_down(box.row(),
                 f"Cycles Prefs ({suffix})",
-                "cycles_options",
-                props.cycles_options):
+                f"cycles_options{index}",
+                props.cycles_options1 if index==1 else props.cycles_options2):
             column = box.column()
             split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
             if utils.B400():
-                col_1.label(text = "SSR Iris Brightness")
-                col_2.prop(prefs, "cycles_ssr_iris_brightness_b410", text = "")
+                col_1.label(text = "Iris Brightness")
+                col_2.prop(prefs, "cycles_iris_brightness_b443b", text = "")
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "cycles_sss_skin_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_skin_b443b", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "cycles_sss_hair_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_hair_b443b", text = "")
                 col_1.label(text = "Teeth SSS")
-                col_2.prop(prefs, "cycles_sss_teeth_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_teeth_b443b", text = "")
                 col_1.label(text = "Tongue SSS")
-                col_2.prop(prefs, "cycles_sss_tongue_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_tongue_b443b", text = "")
                 col_1.label(text = "Eyes SSS")
-                col_2.prop(prefs, "cycles_sss_eyes_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_eyes_b443b", text = "")
                 col_1.label(text = "Default SSS")
-                col_2.prop(prefs, "cycles_sss_default_b410", text = "")
+                col_2.prop(prefs, "cycles_sss_default_b443b", text = "")
                 col_1.label(text = "Roughness Power")
-                col_2.prop(prefs, "cycles_roughness_power_b410", text = "")
+                col_2.prop(prefs, "cycles_roughness_power_b443b", text = "")
                 col_1.label(text = "Normal Strength")
-                col_2.prop(prefs, "cycles_normal_b410", text = "")
+                col_2.prop(prefs, "cycles_normal_b443b", text = "")
                 col_1.label(text = "Skin Normal Strength")
-                col_2.prop(prefs, "cycles_normal_skin_b410", text = "")
+                col_2.prop(prefs, "cycles_normal_skin_b443b", text = "")
                 col_1.label(text = "Micro Normal Strength")
-                col_2.prop(prefs, "cycles_micro_normal_b410", text = "")
+                col_2.prop(prefs, "cycles_micro_normal_b443b", text = "")
             else:
-                col_1.label(text = "SSR Iris Brightness")
-                col_2.prop(prefs, "cycles_ssr_iris_brightness_b341", text = "")
+                col_1.label(text = "Iris Brightness")
+                col_2.prop(prefs, "cycles_iris_brightness_b443b", text = "")
                 col_1.label(text = "Skin SSS")
                 col_2.prop(prefs, "cycles_sss_skin_b341", text = "")
                 col_1.label(text = "Hair SSS")
@@ -651,38 +651,38 @@ def render_prefs_ui(layout: bpy.types.UILayout):
         box = layout.box()
         if fake_drop_down(box.row(),
                 f"Eevee Prefs ({suffix})",
-                "eevee_options",
-                props.eevee_options):
+                f"eevee_options{index}",
+                props.eevee_options1 if index==1 else props.eevee_options2):
             column = box.column()
             split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
             if utils.B420():
-                col_1.label(text = "SSR Iris Brightness")
-                col_2.prop(prefs, "eevee_ssr_iris_brightness_b420", text = "")
+                col_1.label(text = "Iris Brightness")
+                col_2.prop(prefs, "eevee_iris_brightness_b443b", text = "")
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "eevee_sss_skin_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_skin_b443b", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "eevee_sss_hair_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_hair_b443b", text = "")
                 col_1.label(text = "Teeth SSS")
-                col_2.prop(prefs, "eevee_sss_teeth_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_teeth_b443b", text = "")
                 col_1.label(text = "Tongue SSS")
-                col_2.prop(prefs, "eevee_sss_tongue_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_tongue_b443b", text = "")
                 col_1.label(text = "Eyes SSS")
-                col_2.prop(prefs, "eevee_sss_eyes_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_eyes_b443b", text = "")
                 col_1.label(text = "Default SSS")
-                col_2.prop(prefs, "eevee_sss_default_b420", text = "")
+                col_2.prop(prefs, "eevee_sss_default_b443b", text = "")
                 col_1.label(text = "Roughness Power")
-                col_2.prop(prefs, "eevee_roughness_power_b420", text = "")
+                col_2.prop(prefs, "eevee_roughness_power_b443b", text = "")
                 col_1.label(text = "Normal Strength")
-                col_2.prop(prefs, "eevee_normal_b420", text = "")
+                col_2.prop(prefs, "eevee_normal_b443b", text = "")
                 col_1.label(text = "Skin Normal Strength")
-                col_2.prop(prefs, "eevee_normal_skin_b420", text = "")
+                col_2.prop(prefs, "eevee_normal_skin_b443b", text = "")
                 col_1.label(text = "Micro Normal Strength")
-                col_2.prop(prefs, "eevee_micro_normal_b420", text = "")
+                col_2.prop(prefs, "eevee_micro_normal_b443b", text = "")
             else:
-                col_1.label(text = "SSR Iris Brightness")
-                col_2.prop(prefs, "eevee_ssr_iris_brightness_b341", text = "")
+                col_1.label(text = "Iris Brightness")
+                col_2.prop(prefs, "eevee_iris_brightness_b443b", text = "")
                 col_1.label(text = "Skin SSS")
                 col_2.prop(prefs, "eevee_sss_skin_b341", text = "")
                 col_1.label(text = "Hair SSS")
@@ -950,8 +950,12 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             column.prop(PREFS, "build_shape_key_bone_drivers_head")
             column.prop(PREFS, "build_body_key_drivers")
             column.separator()
-            column.label(text="Experimental:")
-            column.prop(PREFS, "build_skin_shader_dual_spec")
+            column.label(text="Max Texture Sizes:")
+            column.prop(PREFS, "use_max_tex_size")
+            if PREFS.use_max_tex_size:
+                column.prop(PREFS, "size_max_tex_default")
+                column.prop(PREFS, "size_max_tex_detail")
+                column.prop(PREFS, "size_max_tex_minimal")
 
         column = layout.column(align=True)
         row = column.row(align=True)
@@ -977,7 +981,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1.label(text="Data Override")
             col_2.prop(PREFS, "aces_data_override", text="")
 
-        render_prefs_ui(layout)
+        render_prefs_ui(layout, 1)
 
         # Build Button
         if chr_cache:
@@ -1595,7 +1599,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         if mat_cache:
             parameters = mat_cache.parameters
 
-        render_prefs_ui(layout)
+        render_prefs_ui(layout, 2)
 
         # Parameters
 
@@ -1635,14 +1639,15 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                     box.row().label(text = matrix["label"] + " Parameters", icon="MOD_HUE_SATURATION")
                     box.row().label(text = f"Material: {mat.name}", icon="SHADING_TEXTURE")
 
-                    for ui_row in ui_matrix:
+                    split = None
+                    col_1 = None
+                    col_2 = None
 
-                        split = False
-                        col_1 = None
-                        col_2 = None
+                    for ui_row in ui_matrix:
 
                         if ui_row[0] == "HEADER":
                             column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
+                            split = None
 
                         elif ui_row[0] == "WRINKLE_CONTROLS":
                             body_object = get_head_body_object_quick(chr_cache)
@@ -1654,7 +1659,6 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     row.template_icon(icon_value=iconutils.ICON_WRINKLE_REGIONS.icon_id, scale=8)
                                 if "wrinkle_source" in body_object:
                                     row = column.row()
-                                    split = row.split(factor=0.5)
                                     row.column().label(text="Region")
                                     row.column().prop(props, "wrinkle_regions", text="")
                                 else:
@@ -1662,7 +1666,6 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     row.alert = True
                                     row.operator("cc3.importer", icon="DRIVER", text="Rebuild Drivers").param ="BUILD_DRIVERS"
                                 row = column.row()
-                                split = row.split(factor=0.5)
                                 col_1 = row.column()
                                 col_2 = row.column()
                                 region = props.wrinkle_regions
@@ -1687,12 +1690,10 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                 column.separator()
                                 if "wrinkle_strength" in body_object:
                                     row = column.row()
-                                    split = row.split(factor=0.5)
                                     row.column().label(text="Overall")
                                     row.column().prop(body_object, "[\"wrinkle_strength\"]", text="", slider=True)
                                 if "wrinkle_curve" in body_object:
                                     row = column.row()
-                                    split = row.split(factor=0.5)
                                     row.column().label(text="Curve")
                                     row.column().prop(body_object, "[\"wrinkle_curve\"]", text="", slider=True)
 
@@ -1728,15 +1729,99 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
                             if show_prop:
                                 if not split:
-                                    row = column.row()
-                                    split = row.split(factor=0.5)
-                                    col_1 = row.column()
-                                    col_2 = row.column()
-                                    split = True
+                                    split = column.split(factor=0.4)
+                                    col_1 = split.column()
+                                    col_2 = split.column()
                                 col_1.alert = alert
                                 col_1.label(text=label)
-                                #col_2.alert = alert
-                                col_2.prop(parameters, prop, text="", slider=is_slider)
+                                row = col_2.row(align=True)
+                                row.prop(parameters, prop, text="", slider=is_slider)
+
+                        elif ui_row[0] == "PAIR":
+
+                            show_prop = True
+                            label = ui_row[1]
+                            prop_left = ui_row[2]
+                            prop_right = ui_row[3]
+                            is_slider = ui_row[4]
+                            conditions = ui_row[5:]
+                            alert = False
+                            if len(label) > 0 and label.startswith("*"):
+                                if has_key:
+                                    alert = True
+                                label = label[1:]
+
+                            if shader:
+                                for condition in conditions:
+                                    if condition == "HAS_VERTEX_COLORS":
+                                        cond_res = len(obj.data.vertex_colors) > 0
+                                    elif condition[0] == '#':
+                                        cond_res = chr_cache.render_target == condition[1:]
+                                    elif condition[0] == '>':
+                                        cond_res = nodeutils.has_connected_output(shader_node, condition[1:])
+                                    elif condition[0] == '!':
+                                        condition = condition[1:]
+                                        cond_res = not nodeutils.has_connected_input(shader_node, condition)
+                                    else:
+                                        cond_res = nodeutils.has_connected_input(shader_node, condition)
+
+                                    if not cond_res:
+                                        show_prop = False
+
+                            if show_prop:
+                                if not split:
+                                    split = column.split(factor=0.4)
+                                    col_1 = split.column()
+                                    col_2 = split.column()
+                                col_1.alert = alert
+                                col_1.label(text=label)
+                                row = col_2.row(align=True)
+                                row.prop(parameters, prop_left, text="", slider=is_slider)
+                                row.prop(parameters, prop_right, text="", slider=is_slider)
+
+                        elif ui_row[0] == "TRIPLET":
+
+                            show_prop = True
+                            label = ui_row[1]
+                            prop_left = ui_row[2]
+                            prop_mid = ui_row[3]
+                            prop_right = ui_row[4]
+                            is_slider = ui_row[5]
+                            conditions = ui_row[6:]
+                            alert = False
+                            if len(label) > 0 and label.startswith("*"):
+                                if has_key:
+                                    alert = True
+                                label = label[1:]
+
+                            if shader:
+                                for condition in conditions:
+                                    if condition == "HAS_VERTEX_COLORS":
+                                        cond_res = len(obj.data.vertex_colors) > 0
+                                    elif condition[0] == '#':
+                                        cond_res = chr_cache.render_target == condition[1:]
+                                    elif condition[0] == '>':
+                                        cond_res = nodeutils.has_connected_output(shader_node, condition[1:])
+                                    elif condition[0] == '!':
+                                        condition = condition[1:]
+                                        cond_res = not nodeutils.has_connected_input(shader_node, condition)
+                                    else:
+                                        cond_res = nodeutils.has_connected_input(shader_node, condition)
+
+                                    if not cond_res:
+                                        show_prop = False
+
+                            if show_prop:
+                                if not split:
+                                    split = column.split(factor=0.4)
+                                    col_1 = split.column()
+                                    col_2 = split.column()
+                                col_1.alert = alert
+                                col_1.label(text=label)
+                                row = col_2.row(align=True)
+                                row.prop(parameters, prop_left, text="", slider=is_slider)
+                                row.prop(parameters, prop_mid, text="", slider=is_slider)
+                                row.prop(parameters, prop_right, text="", slider=is_slider)
 
                         elif ui_row[0] == "OP":
 
@@ -1761,15 +1846,13 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                             if show_op:
                                 row = column.row()
                                 row.operator(op_id, icon=icon, text=label).param = param
-                                split = False
+                                split = None
 
                         elif ui_row[0] == "SPACER":
                             if not split:
-                                row = column.row()
-                                split = row.split(factor=0.5)
-                                col_1 = row.column()
-                                col_2 = row.column()
-                                split = True
+                                split = column.split(factor=0.4)
+                                col_1 = split.column()
+                                col_2 = split.column()
                             col_1.separator()
                             col_2.separator()
 
@@ -2077,7 +2160,14 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if obj == chr_cache.rig_meta_rig:
 
                             layout.row().label(text="Re-rigify", icon="INFO")
-                            row = layout.row()
+                            col = layout.column(align=True)
+                            col.label(text="Expression Rig:")
+                            col.row(align=True).prop(prefs, "rigify_expression_rig", expand=True)
+                            col = layout.column()
+                            if prefs.rigify_expression_rig == "META":
+                                col.row().prop(prefs, "rigify_face_control_color")
+                            row = col.row()
+                            row.scale_y = 1.5
                             row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Regenerate Rigify").param = "RE_RIGIFY_META"
 
                             layout.separator()
@@ -2305,6 +2395,9 @@ class CC3RigifyPanel(bpy.types.Panel):
                             col_row.prop(facerig_bone, "[\"head_follow\"]", slider=True, text="")
                             facerig_locked = facerig_bone.bone.hide_select
                             col_row.operator("ccic.rigutils", icon="LOCKED" if facerig_locked else "UNLOCKED", text="").param = "TOGGLE_EXPRESSION_RIG_LOCK"
+                            col_1.label(text="Eyes Track")
+                            col_row = col_2.row(align=True)
+                            col_row.prop(facerig_bone, "[\"eyes_track\"]", slider=True, text="")
                             layout.label(text="Overall Strength")
                             row = layout.row(align=True)
                             row.prop(facerig_bone, "[\"key_strength\"]", slider=True, text="Key")
@@ -2828,11 +2921,17 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
 
     #layout.operator("cc3.scene", icon="OUTLINER_OB_SURFACE", text="Add Backdrop").param = "BACKDROP"
 
+    world_nodes = bpy.context.scene.world.node_tree.nodes
+    ambient_node = nodeutils.find_node_by_type_and_keywords(world_nodes, "RGB", "rl_ambient_node")
     row = layout.row(align=True)
     if utils.B400():
         row.prop(prefs, "lighting_use_look", expand=True)
+    row = layout.row(align=False)
     view = context.scene.view_settings
+    if ambient_node:
+        row.prop(ambient_node.outputs[0], "default_value", text="")
     row.prop(view, "look", text="")
+
     col = layout.column(align=True)
     row = col.row(align=True)
     row.prop(props, "lighting_brightness", slider=True)
@@ -3677,6 +3776,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2 = split.column()
             col_1.label(text="Auto-Start Connection")
             col_2.prop(prefs, "datalink_auto_start", text="")
+            col_1.label(text="Use Automatic Lighting")
+            col_2.prop(prefs, "datalink_auto_lighting", text="")
             col_1.label(text="Sequence Frame Sync")
             col_2.prop(prefs, "datalink_frame_sync", text="")
             col_1.label(text="Preview Shape Keys")
@@ -3935,8 +4036,12 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
             column.prop(PREFS, "build_shape_key_bone_drivers_head")
             column.prop(PREFS, "build_body_key_drivers")
             column.separator()
-            column.label(text="Experimental:")
-            column.prop(PREFS, "build_skin_shader_dual_spec")
+            column.label(text="Max Texture Sizes:")
+            column.prop(PREFS, "use_max_tex_size")
+            if PREFS.use_max_tex_size:
+                column.prop(PREFS, "size_max_tex_default")
+                column.prop(PREFS, "size_max_tex_detail")
+                column.prop(PREFS, "size_max_tex_minimal")
 
         row = layout.row()
         row.scale_y = 2

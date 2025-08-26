@@ -33,6 +33,20 @@ Links
 
 ## Changelog
 
+### 2.3.2
+- Shaders updated for CC5:
+    - Skin shaders updated to use cavity maps and dual specular blending.
+    - Eye & Hair shaders updated.
+    - *Tearline Plus* and *Eye Occlusion Plus* shaders added.
+- Wrinkle map system update for MH facial profile.
+    - Wrinkle map displacement update for CC5 head material.
+    - Textures packed with compositor for faster wrinkle system setup.
+- Facerig updated to use expression json bone data.
+- MetaHuman profile facial expression rig added.
+    - Expression control constraints and limits.
+- Max texture pack size option added.
+- Datalink use automatic lighting option added.
+
 ### 2.3.1
 - 1:1 Viseme driver fix.
 - Fix to Rigify bone locks being cleared by pose reset.

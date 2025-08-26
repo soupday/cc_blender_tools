@@ -22,8 +22,22 @@ import copy
 from . import utils
 
 
+JSON_CACHE = {}
+
+
+def get_json_cache_copy(fbx_path):
+    if fbx_path in JSON_CACHE:
+        json_data = JSON_CACHE[fbx_path]
+        if json_data is not None:
+            return copy.deepcopy(json_data)
+        return None
+
+
 def read_json(fbx_path, errors, no_local=False):
     json_file_exists = False
+    json_cache = get_json_cache_copy(fbx_path)
+    if json_cache:
+        return json_cache
     try:
         fbx_file = os.path.basename(fbx_path)
         fbx_folder = os.path.dirname(fbx_path)
@@ -56,10 +70,12 @@ def read_json(fbx_path, errors, no_local=False):
             text_data = file.read()
             json_data = json.loads(text_data)
             file.close()
+            JSON_CACHE[fbx_path] = json_data
             utils.log_info("Json data successfully parsed: " + json_path)
             return json_data
 
         utils.log_info("No Json data to parse, using defaults...")
+        JSON_CACHE[fbx_path] = None
         if errors:
             errors.append("NO_JSON")
         return None
@@ -73,8 +89,10 @@ def read_json(fbx_path, errors, no_local=False):
         return None
 
 
-def write_json(json_data, path, is_fbx_path=False, is_json_local=False):
+def write_json(json_data, path, is_fbx_path=False, is_json_local=False, update_cache=False):
     if is_fbx_path:
+        if update_cache:
+            JSON_CACHE[path] = json_data
         file = os.path.basename(path)
         folder = os.path.dirname(path)
         name = os.path.splitext(file)[0]
@@ -360,8 +378,11 @@ def get_wrinkle_texture_info(mat_json, texture_id):
         return None
     try:
         return mat_json["Wrinkle"]["Textures"][texture_id]
-    except:
-        return None
+    except: ...
+    try:
+        return mat_json["Resource Textures"][texture_id]
+    except: ...
+    return None
 
 def get_material_json_var(mat_json, var_path: str):
     paths = var_path.split('/')
@@ -401,10 +422,14 @@ def get_pbr_var(mat_json, var_name, paths):
     if not mat_json:
         return None
     try:
-        if len(paths) == 3:
-            return mat_json["Textures"][var_name][paths[2]]
+        tex_json = mat_json["Textures"][var_name]
+        if len(paths) == 2 and var_name == "Displacement":
+            return (tex_json.get("Multiplier", 1.0) *
+                    tex_json.get("Strength", 100.0) / 100.0)
+        elif len(paths) == 3:
+            return tex_json.get(paths[2], 1.0)
         else:
-            return mat_json["Textures"][var_name]["Strength"] / 100.0
+            return tex_json.get("Strength", 100.0) / 100.0
     except:
         return None
 
@@ -658,7 +683,7 @@ def get_meshes_images(meshes_json, filter=None):
 
 def get_displacement_data(mat_json):
     texture_path = get_json(mat_json, "Textures/Displacement/Texture Path", "")
-    strength = get_json(mat_json, "Textures/Displacement/Strength", 0.0)
+    strength = get_json(mat_json, "Textures/Displacement/Strength", 0.0) / 100.0
     level = int(get_json(mat_json, "Textures/Displacement/Tessellation Level", 0))
     multiplier = get_json(mat_json, "Textures/Displacement/Multiplier", 1.0)
     base = get_json(mat_json, "Textures/Displacement/Gray-scale Base Value", 0.0)

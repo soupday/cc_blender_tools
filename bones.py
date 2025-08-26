@@ -16,6 +16,7 @@
 
 import bpy
 import mathutils
+from mathutils import Color, Vector, Matrix, Quaternion
 from math import pi, atan
 
 from . import drivers, utils, vars
@@ -201,7 +202,31 @@ def find_pivot_bone(rig, bone_name):
     return None
 
 
-def get_rigify_meta_bone(rigify_rig, bone_mapping, cc3_bone_name):
+def get_rigify_control_bone(rigify_rig, bone_mapping, cc3_bone_name, extra_mapping=None):
+    if cc3_bone_name in extra_mapping:
+        return extra_mapping[cc3_bone_name]
+    if cc3_bone_name == "RL_BoneRoot" or cc3_bone_name == "CC_Base_BoneRoot":
+        return "root"
+    for bone_map in bone_mapping:
+        if bone_map[1] == cc3_bone_name:
+            # try the name directly
+            bone_name = bone_map[0]
+            if bone_name in rigify_rig.data.bones:
+                return bone_name
+            # try to find the parent in the ORG bones
+            org_bone_name = f"ORG-{bone_map[0]}"
+            if org_bone_name in rigify_rig.data.bones:
+                return org_bone_name
+            # then try the DEF bones
+            def_bone_name = f"DEF-{bone_map[0]}"
+            if def_bone_name in rigify_rig.data.bones:
+                return def_bone_name
+    return None
+
+
+def get_rigify_meta_bone(rigify_rig, bone_mapping, cc3_bone_name, extra_mapping=None):
+    if extra_mapping and cc3_bone_name in extra_mapping:
+        return extra_mapping[cc3_bone_name]
     if cc3_bone_name == "RL_BoneRoot" or cc3_bone_name == "CC_Base_BoneRoot":
         return "root"
     for bone_map in bone_mapping:
@@ -217,10 +242,12 @@ def get_rigify_meta_bone(rigify_rig, bone_mapping, cc3_bone_name):
     return None
 
 
-def get_rigify_meta_bones(rigify_rig, bone_mapping, cc3_bone_name):
+def get_rigify_meta_bones(rigify_rig, bone_mapping, cc3_bone_name, extra_mapping=None):
     meta_bone_names = []
     if cc3_bone_name == "RL_BoneRoot" or cc3_bone_name == "CC_Base_BoneRoot":
         return ["root"]
+    if extra_mapping and cc3_bone_name in extra_mapping:
+        meta_bone_names.append(extra_mapping[cc3_bone_name])
     for bone_map in bone_mapping:
         if bone_map[1] == cc3_bone_name:
             # try to find the parent in the ORG bones
@@ -236,17 +263,17 @@ def get_rigify_meta_bones(rigify_rig, bone_mapping, cc3_bone_name):
 
 def get_align_vector(axis):
     if axis == "X":
-        return mathutils.Vector((1,0,0))
+        return Vector((1,0,0))
     if axis == "Y":
-        return mathutils.Vector((0,1,0))
+        return Vector((0,1,0))
     if axis == "Z":
-        return mathutils.Vector((0,0,1))
+        return Vector((0,0,1))
     if axis == "-X":
-        return mathutils.Vector((-1,0,0))
+        return Vector((-1,0,0))
     if axis == "-Y":
-        return mathutils.Vector((0,-1,0))
+        return Vector((0,-1,0))
     if axis == "-Z":
-        return mathutils.Vector((0,0,-1))
+        return Vector((0,0,-1))
     return None
 
 
@@ -254,6 +281,47 @@ def align_edit_bone_roll(edit_bone : bpy.types.EditBone, axis):
     align_vector = get_align_vector(axis)
     if align_vector:
         edit_bone.align_roll(align_vector)
+
+
+def convert_relative_transform(rig_a, bone_a, rig_b, bone_b, tra: Vector, rot: Quaternion, M_is_RL_local=True) -> (Matrix, Vector):
+    if rig_a and rig_b and bone_a and bone_b:
+        if bone_a in rig_a.pose.bones and bone_b in rig_b.pose.bones:
+            pba: bpy.types.PoseBone = rig_a.pose.bones[bone_a]
+            pbb: bpy.types.PoseBone = rig_b.pose.bones[bone_b]
+            AM: Matrix = rig_a.matrix_world @ pba.bone.matrix_local
+            BM: Matrix = rig_b.matrix_world @ pbb.bone.matrix_local
+            I: Matrix = Matrix.Identity(4)
+            R0 = BM.inverted() @ AM @ I @ AM.inverted() @ BM
+            if M_is_RL_local:
+                # translation in the expression json seems to operate on the parent of the named bone...
+                # from: https://blender.stackexchange.com/questions/229927/bpy-types-bone-matrix-vs-matrix-local#229940
+                # "bone.matrix is the transform from bone space to its parent bone's space (or armature space if no parent)"
+                # thus: pba.bone.matrix.inverted() @ tra converts the translation from parent space to this (pba) bone space
+                tra_local = pba.bone.matrix.inverted() @ tra
+                M = utils.make_transform_matrix(tra_local, rot)
+
+                # Note: rotations would seem to operate on this bone directly and don't need to be modified
+            else:
+                M = utils.make_transform_matrix(tra, rot)
+            R = BM.inverted() @ AM @ M @ AM.inverted() @ BM
+            TI0 = Matrix.Translation(-R0.to_translation())
+            RI0 = R0.to_quaternion().to_matrix().to_4x4()
+            return TI0 @ RI0 @ R, tra_local
+    return None, None
+
+
+def matrix_to_json(M: Matrix):
+    tra = M.to_translation()
+    rot = M.to_quaternion()
+    rot_euler = rot.to_euler("XYZ")
+    sca = M.to_scale()
+    json = {
+        "translate": [ tra.x, tra.y, tra.z ],
+        "rotate": [ rot.x, rot.y, rot.z, rot.w ],
+        "euler": [ rot_euler[0], rot_euler[1], rot_euler[2] ],
+        "scale": [ sca.x, sca.y, sca.z ],
+    }
+    return json
 
 
 def rename_bone(rig, from_name, to_name):
@@ -294,8 +362,8 @@ def new_edit_bone(rig, bone_name, parent_name, allow_existing = True) -> bpy.typ
         can_add = allow_existing or bone_name not in rig.data.edit_bones
         if can_add:
             bone = rig.data.edit_bones.new(bone_name)
-            bone.head = mathutils.Vector((0,0,0))
-            bone.tail = bone.head + mathutils.Vector((0,0,0.05))
+            bone.head = Vector((0,0,0))
+            bone.tail = bone.head + Vector((0,0,0.05))
             bone.roll = 0
             if parent_name != "":
                 if parent_name in rig.data.edit_bones:
@@ -524,9 +592,11 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.invert_x = invert_x
             c.invert_y = invert_y
             c.invert_z = invert_z
-            c.mix_mode = "REPLACE"
+            c.mix_mode = "REPLACE" if not use_offset else "AFTER"
+            try:
+                c.use_offset = use_offset
+            except: ...
             c.target_space = space
-            c.use_offset = use_offset
             if space == "LOCAL_OWNER_ORIENT":
                 space = "LOCAL"
             c.owner_space = space
@@ -559,7 +629,7 @@ def add_copy_scale_constraint(from_rig, to_rig, from_bone, to_bone, influence = 
         return None
 
 
-def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD", axes=None):
+def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD", axes=None, use_offset=False):
     try:
         if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
@@ -573,6 +643,7 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.invert_x = False
             c.invert_y = False
             c.invert_z = False
+            c.use_offset = use_offset
             c.target_space = space
             if space == "LOCAL_OWNER_ORIENT":
                 space = "LOCAL"
@@ -611,7 +682,7 @@ def add_stretch_to_constraint(from_rig, to_rig, from_bone, to_bone, influence = 
         return None
 
 
-def add_damped_track_constraint(rig, bone_name, target_name, influence):
+def add_damped_track_constraint(rig, bone_name, target_name, influence=1):
     try:
         if utils.object_mode():
             pose_bone : bpy.types.PoseBone = rig.pose.bones[bone_name]
@@ -915,8 +986,8 @@ def copy_position(rig, bone, copy_bones, offset):
     if utils.edit_mode_to(rig):
         if bone in rig.data.edit_bones:
             edit_bone = rig.data.edit_bones[bone]
-            head_position = mathutils.Vector((0,0,0))
-            tail_position = mathutils.Vector((0,0,0))
+            head_position = Vector((0,0,0))
+            tail_position = Vector((0,0,0))
             num = 0
             for copy_name in copy_bones:
                 if copy_name in rig.data.edit_bones:
@@ -1011,21 +1082,35 @@ CUSTOM_COLORS = {
 }
 
 
-def get_custom_color(code, chr_cache=None):
+def to_color(rgba: list, hue_shift=0.0) -> Color:
+    if len(rgba) > 3:
+        color = Color(rgba[:3])
+    else:
+        color = Color(rgba)
+    h,s,v = color.hsv
+    if hue_shift != 0.0:
+        h = (h + hue_shift) % 1.0
+        color.hsv = (h,s,v)
+    return color
+
+
+def get_custom_color(code, chr_cache=None, hue_shift=0.0):
     prefs = vars.prefs()
     if code == "FACERIG":
         rgba = chr_cache.rigify_face_control_color if chr_cache else prefs.rigify_face_control_color
-        return utils.linear_to_srgb((rgba[0], rgba[1], rgba[2]))
+        color = to_color(utils.linear_to_srgb(rgba), hue_shift)
+        return color
     elif code == "FACERIG_DARK":
         rgba = chr_cache.rigify_face_control_color if chr_cache else prefs.rigify_face_control_color
-        return utils.linear_to_srgb((rgba[0] * 0.4, rgba[1] * 0.4, rgba[2] * 0.4))
+        color = to_color(utils.linear_to_srgb((rgba[0] * 0.4, rgba[1] * 0.4, rgba[2] * 0.4)), hue_shift)
+        return color
     elif code in CUSTOM_COLORS:
         return CUSTOM_COLORS[code]
     else:
         return (1,1,1)
 
 
-def set_bone_color(rig, pose_bone: bpy.types.PoseBone, color_code, active_code=None, selected_code=None, chr_cache=None):
+def set_bone_color(rig, pose_bone: bpy.types.PoseBone, color_code, active_code=None, selected_code=None, chr_cache=None, hue_shift=0.0):
     pose_bone = get_pose_bone(rig, pose_bone)
     if pose_bone:
         if not active_code:
@@ -1033,9 +1118,9 @@ def set_bone_color(rig, pose_bone: bpy.types.PoseBone, color_code, active_code=N
         if not selected_code:
             selected_code = "Select"
         if utils.B400():
-            normal_color = get_custom_color(color_code, chr_cache=chr_cache)
-            active_color = get_custom_color(active_code, chr_cache=chr_cache)
-            select_color = get_custom_color(selected_code, chr_cache=chr_cache)
+            normal_color = get_custom_color(color_code, chr_cache=chr_cache, hue_shift=hue_shift)
+            active_color = get_custom_color(active_code, chr_cache=chr_cache, hue_shift=hue_shift)
+            select_color = get_custom_color(selected_code, chr_cache=chr_cache, hue_shift=hue_shift)
             pose_bone.color.palette = "CUSTOM"
             pose_bone.color.custom.normal = normal_color
             pose_bone.color.custom.active = active_color
@@ -1168,7 +1253,7 @@ def get_distance_between(rig, bone_a_name, bone_b_name):
         if bone_a_name in rig.data.edit_bones and bone_b_name in rig.data.edit_bones:
             bone_a = rig.data.edit_bones[bone_a_name]
             bone_b = rig.data.edit_bones[bone_b_name]
-            delta : mathutils.Vector = bone_b.head - bone_a.head
+            delta : Vector = bone_b.head - bone_a.head
             return delta.length
         else:
             utils.log_error(f"Could not find all bones: {bone_a_name} and {bone_b_name} in Rig!")
@@ -1566,7 +1651,14 @@ def add_constraint_influence_driver(rig, pose_bone_name,
                 else:
                     driver = drivers.make_driver(con, "influence", "SUM")
                 if driver:
-                    var = drivers.make_driver_var(driver, "SINGLE_PROP",
+                    if type(source_var_name) is list:
+                        for i, svn in enumerate(source_var_name):
+                            dp = source_data_path[i]
+                            var = drivers.make_driver_var(driver, "SINGLE_PROP",
+                                                          svn, source_object,
+                                                          target_type="OBJECT", data_path=dp)
+                    else:
+                        var = drivers.make_driver_var(driver, "SINGLE_PROP",
                                                           source_var_name, source_object,
                                                           target_type="OBJECT", data_path=source_data_path)
 
@@ -1783,9 +1875,9 @@ def reset_root_bone(arm):
         if "root" in root_bone.name.lower():
             head = root_bone.head
             length = root_bone.length
-            tail = head + mathutils.Vector((0,-1,0)) * length
+            tail = head + Vector((0,-1,0)) * length
             root_bone.tail = tail
-            root_bone.align_roll(mathutils.Vector((0,0,1)))
+            root_bone.align_roll(Vector((0,0,1)))
     utils.object_mode()
 
 
