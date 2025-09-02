@@ -1591,6 +1591,7 @@ class CC3Import(bpy.types.Operator):
                     for chr_cache in imported_characters:
                         if chr_cache.can_be_rigged():
                             cc3_rig = chr_cache.get_armature()
+                            chr_cache.select(only=True)
                             bpy.ops.cc3.rigifier(param="ALL")
                             rigging.full_retarget_source_rig_action(self, chr_cache, cc3_rig,
                                                                     use_ui_options=True)
