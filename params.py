@@ -2020,7 +2020,6 @@ SHADER_MATRIX = [
             ["hair_bump_strength", 1.0, "", "Pbr/Normal"],
             ["hair_emission_strength", 0, "", "Pbr/Glow"],
             ["hair_displacement_strength", 1, "", "Pbr/Displacement"],
-            ["hair_alpha_strength", 1.0, "func_mul", "Pbr/Opacity", "Base/Opacity"],
             # non json properties (just defaults)
             ["hair_ao_power", 1, "DEF"],
             ["hair_diffuse_hue", 0.5, "", "/Diffuse Hue"],
