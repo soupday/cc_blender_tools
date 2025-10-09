@@ -344,7 +344,7 @@ SHADER_MATRIX = [
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
             ["Custom/Shadow Color", [255.0, 255.0, 255.0], "func_export_byte3_linear", "eye_occlusion_color"],
-            ["Custom/Depth Offset", 0.02, "func_mul_100", "eye_occlusion_displace"],
+            ["Custom/Depth Offset", 0.02, "", "eye_occlusion_displace"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -529,7 +529,7 @@ SHADER_MATRIX = [
         "export": [
             ["Custom/Shadow Color", [255.0, 255.0, 255.0], "func_export_byte3_linear", "eye_occlusion_color"],
             ["Custom/Blur Color", [255.0, 255.0, 255.0], "func_export_byte3_linear", "eye_occlusion_blur_color"],
-            ["Custom/Depth Offset", 0.02, "func_mul_100", "eye_occlusion_displace"],
+            ["Custom/Depth Offset", 0.02, "", "eye_occlusion_displace"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -2405,4 +2405,5 @@ JSON_PHYSICS_MATERIAL = {
     "Self Collision": False,
     "Self Collision Margin": 0.0,
     "Stiffness Frequency": 10.0
+
 }
