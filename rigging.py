@@ -1336,6 +1336,14 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
                 else:
                     utils.log_error(f"Unable to find edit_bone: {name}")
 
+    store_expression_set(chr_cache, cc3_rig, rigify_rig, rigify_data)
+
+
+def store_expression_set(chr_cache, cc3_rig, rigify_rig=None, rigify_data=None):
+    """Store source bone data from the cc3 rig in the org and def bones of rigify rig.
+       This data can be used to reconstruct elements of the source rig for retargetting and exporting.
+    """
+
     expression_meta_bone_map = {
         "CC_Base_JawRoot": "MCH-CTRL-jaw",
         "CC_Base_L_Eye": "MCH-CTRL-eye.L",
@@ -1352,63 +1360,56 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
     }
 
     # convert all the expression bone transforms to rigify ones
-    if rigutils.select_rig(rigify_rig):
+    if rigutils.select_rig(rigify_rig if rigify_rig else cc3_rig):
         json_data = chr_cache.get_json_data()
 
-        expression_json, default_expression_json = chr_cache.get_expression_json(json_data)
-
-        # merge missing values from default expression set
-        if default_expression_json:
-            for expression, default_expression_def in default_expression_json.items():
-                if expression not in expression_json:
-                    expression_json[expression] = {}
-                expression_def = expression_json[expression]
-                if "Bones" not in expression_def and "Bones" in default_expression_def:
-                    expression_def["Bones"] = copy.deepcopy(default_expression_def["Bones"])
-                if "Bones" in expression_def:
-                    for bone_name, default_bone_def in default_expression_def["Bones"].items():
-                        if bone_name not in expression_def["Bones"]:
-                            expression_def["Bones"][bone_name] = copy.deepcopy(default_expression_def["Bones"][bone_name])
-                        else:
-                            bone_def = expression_def["Bones"][bone_name]
-                            if "Translate" in default_bone_def and "Translate" not in bone_def:
-                                bone_def["Translate"] = default_bone_def["Translate"].copy()
-                            if "Rotation" in default_bone_def and "Rotation" not in bone_def:
-                                bone_def["Rotation"] = default_bone_def["Rotation"].copy()
+        expression_json = chr_cache.get_expression_json(json_data)
 
         utils.clear_prop_collection(chr_cache.expression_set)
-        bone_mapping = rigify_data.bone_mapping
         if expression_json:
             for expression_name, expression_def in expression_json.items():
                 if "Bones" in expression_def and expression_def["Bones"]:
                     expression_def["Rigify Bones"] = {}
                     for bone_name in expression_def["Bones"]:
-                        rigify_bone_name = bones.get_rigify_control_bone(rigify_rig, bone_mapping, bone_name, extra_mapping=expression_meta_bone_map)
-                        offset_bone_name = offset_bone_map[bone_name] if bone_name in offset_bone_map else ""
-                        tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
-                        rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
-                        R, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, rigify_bone_name, tra, rot, True)
-                        if R:
+
+                        if rigify_rig and cc3_rig and rigify_data:
+                            rigify_bone_name = bones.get_rigify_control_bone(rigify_rig, rigify_data.bone_mapping, bone_name, extra_mapping=expression_meta_bone_map)
+                            offset_bone_name = offset_bone_map[bone_name] if bone_name in offset_bone_map else ""
+                            tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
+                            rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
+                            R, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, rigify_bone_name, tra, rot, True)
+                            if R:
+                                rot_euler = rot.to_euler("XYZ")
+                                R_quat = R.to_quaternion().normalized()
+                                R_euler = R_quat.to_euler("XYZ")
+                                R_tra = R.to_translation()
+                                expression_cache = chr_cache.expression_set.add()
+                                expression_cache.key_name = expression_name
+                                expression_cache.bone_name = bone_name
+                                expression_cache.translation = tra_local
+                                expression_cache.rotation = rot_euler
+                                expression_cache.rigify_bone_name = rigify_bone_name
+                                expression_cache.rigify_translation = R_tra
+                                expression_cache.rigify_rotation = R_euler
+                                if offset_bone_name:
+                                    OR, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, offset_bone_name, tra, rot, True)
+                                    OR_quat = OR.to_quaternion().normalized()
+                                    OR_euler = OR_quat.to_euler("XYZ")
+                                    OR_tra = OR.to_translation()
+                                    expression_cache.offset_bone_name = offset_bone_name
+                                    expression_cache.offset_translation = OR_tra
+                                    expression_cache.offset_rotation = OR_euler
+                        else:
+                            tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
+                            rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
+                            pba: bpy.types.PoseBone = cc3_rig.pose.bones[bone_name]
+                            tra_local = pba.bone.matrix.inverted() @ tra
                             rot_euler = rot.to_euler("XYZ")
-                            R_quat = R.to_quaternion().normalized()
-                            R_euler = R_quat.to_euler("XYZ")
-                            R_tra = R.to_translation()
                             expression_cache = chr_cache.expression_set.add()
                             expression_cache.key_name = expression_name
                             expression_cache.bone_name = bone_name
                             expression_cache.translation = tra_local
                             expression_cache.rotation = rot_euler
-                            expression_cache.rigify_bone_name = rigify_bone_name
-                            expression_cache.rigify_translation = R_tra
-                            expression_cache.rigify_rotation = R_euler
-                            if offset_bone_name:
-                                OR, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, offset_bone_name, tra, rot, True)
-                                OR_quat = OR.to_quaternion().normalized()
-                                OR_euler = OR_quat.to_euler("XYZ")
-                                OR_tra = OR.to_translation()
-                                expression_cache.offset_bone_name = offset_bone_name
-                                expression_cache.offset_translation = OR_tra
-                                expression_cache.offset_rotation = OR_euler
 
 
 def modify_rigify_controls(cc3_rig, rigify_rig, rigify_data):

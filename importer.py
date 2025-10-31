@@ -1348,6 +1348,7 @@ class CC3Import(bpy.types.Operator):
                 facial_name, viseme_name = chr_cache.get_facial_profile_names()
                 utils.log_info(f"Facial Profile: {facial_name}")
                 utils.log_info(f"Viseme Profile: {viseme_name}")
+                rigging.store_expression_set(chr_cache, chr_cache.get_armature())
                 if facial_profile == "STD" or facial_profile == "EXT" or facial_profile == "TRA":
                     drivers.add_facial_shape_key_bone_drivers(chr_cache,
                                                prefs.build_shape_key_bone_drivers_jaw,

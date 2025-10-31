@@ -578,31 +578,32 @@ def clear_facial_shape_key_bone_drivers(chr_cache):
     if "facerig" in arm.pose.bones:
         ...
     else:
-        for key_name in SHAPE_KEY_DRIVERS.keys():
-            bone_names = SHAPE_KEY_DRIVERS[key_name]["bone"]
-            for bone_name in bone_names:
-                if bone_name in arm.pose.bones:
-                    if bone_name not in bone_names_done:
-                        bone_names_done.append(bone_name)
-                        pose_bone = arm.pose.bones[bone_name]
-                        utils.log_info(f"Removing drivers for: {bone_name}")
-                        pose_bone.driver_remove("location", 0)
-                        pose_bone.driver_remove("location", 1)
-                        pose_bone.driver_remove("location", 2)
-                        pose_bone.driver_remove("rotation_euler", 0)
-                        pose_bone.driver_remove("rotation_euler", 1)
-                        pose_bone.driver_remove("rotation_euler", 2)
-                        pose_bone.driver_remove("rotation_quaternion", 0)
-                        pose_bone.driver_remove("rotation_quaternion", 1)
-                        pose_bone.driver_remove("rotation_quaternion", 2)
-                        pose_bone.driver_remove("rotation_quaternion", 3)
-                        pose_bone.driver_remove("rotation_axis_angle", 0)
-                        pose_bone.driver_remove("rotation_axis_angle", 1)
-                        pose_bone.driver_remove("rotation_axis_angle", 2)
-                        pose_bone.driver_remove("rotation_axis_angle", 3)
-                        pose_bone.driver_remove("scale", 0)
-                        pose_bone.driver_remove("scale", 1)
-                        pose_bone.driver_remove("scale", 2)
+        # remove existing drivers
+        for expression_cache in chr_cache.expression_set:
+            bone_name = expression_cache.bone_name
+            key_name = expression_cache.key_name
+            if bone_name in arm.pose.bones and bone_name not in bone_names_done:
+                bone_names_done.append(bone_name)
+                pose_bone = arm.pose.bones[bone_name]
+                pose_bone.rotation_mode = "QUATERNION"
+                utils.log_info(f"Removing drivers for: {bone_name}")
+                pose_bone.driver_remove("location", 0)
+                pose_bone.driver_remove("location", 1)
+                pose_bone.driver_remove("location", 2)
+                pose_bone.driver_remove("rotation_euler", 0)
+                pose_bone.driver_remove("rotation_euler", 1)
+                pose_bone.driver_remove("rotation_euler", 2)
+                pose_bone.driver_remove("rotation_quaternion", 0)
+                pose_bone.driver_remove("rotation_quaternion", 1)
+                pose_bone.driver_remove("rotation_quaternion", 2)
+                pose_bone.driver_remove("rotation_quaternion", 3)
+                pose_bone.driver_remove("rotation_axis_angle", 0)
+                pose_bone.driver_remove("rotation_axis_angle", 1)
+                pose_bone.driver_remove("rotation_axis_angle", 2)
+                pose_bone.driver_remove("rotation_axis_angle", 3)
+                pose_bone.driver_remove("scale", 0)
+                pose_bone.driver_remove("scale", 1)
+                pose_bone.driver_remove("scale", 2)
 
 
 def get_head_body_object(chr_cache):
@@ -626,39 +627,41 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
     utils.object_mode_to(arm)
 
     # remove existing drivers
-    for key_name in SHAPE_KEY_DRIVERS.keys():
-        bone_names = SHAPE_KEY_DRIVERS[key_name]["bone"]
-        for bone_name in bone_names:
-            if bone_name in arm.pose.bones:
-                if bone_name not in bone_names_done:
-                    bone_names_done.append(bone_name)
-                    pose_bone = arm.pose.bones[bone_name]
-                    utils.log_info(f"Removing drivers for: {bone_name}")
-                    pose_bone.driver_remove("location", 0)
-                    pose_bone.driver_remove("location", 1)
-                    pose_bone.driver_remove("location", 2)
-                    pose_bone.driver_remove("rotation_euler", 0)
-                    pose_bone.driver_remove("rotation_euler", 1)
-                    pose_bone.driver_remove("rotation_euler", 2)
-                    pose_bone.driver_remove("rotation_quaternion", 0)
-                    pose_bone.driver_remove("rotation_quaternion", 1)
-                    pose_bone.driver_remove("rotation_quaternion", 2)
-                    pose_bone.driver_remove("rotation_quaternion", 3)
-                    pose_bone.driver_remove("rotation_axis_angle", 0)
-                    pose_bone.driver_remove("rotation_axis_angle", 1)
-                    pose_bone.driver_remove("rotation_axis_angle", 2)
-                    pose_bone.driver_remove("rotation_axis_angle", 3)
-                    pose_bone.driver_remove("scale", 0)
-                    pose_bone.driver_remove("scale", 1)
-                    pose_bone.driver_remove("scale", 2)
+    for expression_cache in chr_cache.expression_set:
+        bone_name = expression_cache.bone_name
+        key_name = expression_cache.key_name
+        if bone_name in arm.pose.bones and bone_name not in bone_names_done:
+            bone_names_done.append(bone_name)
+            pose_bone = arm.pose.bones[bone_name]
+            utils.log_info(f"Removing drivers for: {bone_name}")
+            pose_bone.rotation_mode = "QUATERNION"
+            pose_bone.driver_remove("location", 0)
+            pose_bone.driver_remove("location", 1)
+            pose_bone.driver_remove("location", 2)
+            pose_bone.driver_remove("rotation_euler", 0)
+            pose_bone.driver_remove("rotation_euler", 1)
+            pose_bone.driver_remove("rotation_euler", 2)
+            pose_bone.driver_remove("rotation_quaternion", 0)
+            pose_bone.driver_remove("rotation_quaternion", 1)
+            pose_bone.driver_remove("rotation_quaternion", 2)
+            pose_bone.driver_remove("rotation_quaternion", 3)
+            pose_bone.driver_remove("rotation_axis_angle", 0)
+            pose_bone.driver_remove("rotation_axis_angle", 1)
+            pose_bone.driver_remove("rotation_axis_angle", 2)
+            pose_bone.driver_remove("rotation_axis_angle", 3)
+            pose_bone.driver_remove("scale", 0)
+            pose_bone.driver_remove("scale", 1)
+            pose_bone.driver_remove("scale", 2)
 
     # refactor shape key driver list by bone_name, property and array property index
-    for key_name in SHAPE_KEY_DRIVERS.keys():
-        bone_names = SHAPE_KEY_DRIVERS[key_name]["bone"]
-        range = SHAPE_KEY_DRIVERS[key_name]["range"]
-        translate = SHAPE_KEY_DRIVERS[key_name]["translate"]
-        rotate = SHAPE_KEY_DRIVERS[key_name]["rotate"]
-        key_name = utils.strip_name(key_name)
+    for expression_cache in chr_cache.expression_set:
+        bone_name = expression_cache.bone_name
+        key_name = expression_cache.key_name
+        translate = expression_cache.translation
+        rotate = expression_cache.rotation
+
+        if bone_name not in arm.pose.bones:
+            continue
 
         if not meshutils.find_shape_key(body, key_name):
             utils.log_info(f"Shape-key: {key_name} not found, skipping.")
@@ -673,45 +676,37 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
             continue
 
         # find the bone specified from the list of possible bones in the shape_key driver def
-        pose_bone_name = None
-        for bone_name in bone_names:
-            if bone_name in arm.pose.bones:
-                pose_bone_name = bone_name
-
-        if pose_bone_name:
-
-            for i,v in enumerate(translate):
-                if v != 0:
-                    driver_id = pose_bone_name, "location", i
-                    if driver_id not in bone_drivers.keys():
-                        bone_drivers[driver_id] = { "bone_name": pose_bone_name,
-                                                    "prop": "location",
-                                                    "index": i,
-                                                    "shape_keys": [] }
-                    bone_drivers[driver_id]["shape_keys"].append({ "shape_key": key_name,
-                                                                   "value": v,
-                                                                   "range": range })
-
-            for i,v in enumerate(rotate):
-                if v != 0:
-                    driver_id = pose_bone_name, "rotation_euler", i
-                    if driver_id not in bone_drivers.keys():
-                        bone_drivers[driver_id] = { "bone_name": pose_bone_name,
-                                                    "prop": "rotation_euler",
-                                                    "index": i,
-                                                    "shape_keys": [] }
-                    shape_key_def = { "shape_key": key_name,
-                                      "value": v,
-                                      "range": range }
-                    bone_drivers[driver_id]["shape_keys"].append(shape_key_def)
+        for i,v in enumerate(translate):
+            #if i == 1 and (bone_name == "CC_Base_JawRoot" or bone_name == "CC_Base_Teeth02"):
+            #    v *= 1.185
+            if abs(v) > 0.0001: # 1/10 of a mm
+                driver_id = bone_name, "location", i
+                if driver_id not in bone_drivers.keys():
+                    bone_drivers[driver_id] = { "bone_name": bone_name,
+                                                "prop": "location",
+                                                "index": i,
+                                                "shape_keys": [] }
+                bone_drivers[driver_id]["shape_keys"].append({ "shape_key": key_name,
+                                                                "value": v })
+        for i,v in enumerate(rotate):
+            if abs(v) > 0.001: # 1/10 of a degree
+                driver_id = bone_name, "rotation_euler", i
+                if driver_id not in bone_drivers.keys():
+                    bone_drivers[driver_id] = { "bone_name": bone_name,
+                                                "prop": "rotation_euler",
+                                                "index": i,
+                                                "shape_keys": [] }
+                bone_drivers[driver_id]["shape_keys"].append({ "shape_key": key_name,
+                                                               "value": v })
 
     # create drivers for each (bone, property, index) driven by shape keys
     for driver_id in bone_drivers.keys():
         bone_driver_def = bone_drivers[driver_id]
-        pose_bone_name = bone_driver_def["bone_name"]
+        bone_name = bone_driver_def["bone_name"]
         pose_bone : bpy.types.PoseBone
-        pose_bone = arm.pose.bones[pose_bone_name]
-        pose_bone.rotation_mode = "XYZ"
+        pose_bone = arm.pose.bones[bone_name]
+        if driver_id[1] == "rotation_euler":
+            pose_bone.rotation_mode = "XYZ"
         prop = bone_driver_def["prop"]
         index = bone_driver_def["index"]
         shape_key_defs = bone_driver_def["shape_keys"]
@@ -721,10 +716,7 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
         for i, key_def in enumerate(shape_key_defs):
             var_name = f"var{i}"
             shape_key_name = key_def["shape_key"]
-            fac_value = 100.0 * key_def["value"] / key_def["range"]
-            if prop == "rotation_euler":
-                fac_value *= 0.01745329
-            fac = "{:.6f}".format(fac_value)
+            fac = "{:.6f}".format(key_def["value"])
             if i > 0:
                 expr += "+"
             expr += f"{var_name}*{fac}"

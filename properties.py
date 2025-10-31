@@ -2517,8 +2517,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         chr_json = self.get_character_json(json_data=json_data)
         if chr_json and "Expression" in chr_json:
             expression_json = chr_json["Expression"]
-        else:
-            expression_json = {}
+            return expression_json
+
         facial_profile, viseme_profile = self.get_facial_profile()
         if facial_profile == "MH":
             # MH profile has complete expression json
@@ -2530,7 +2530,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_TRA)
         else:
             default_expression_json = {}
-        return expression_json, default_expression_json
+        return default_expression_json
 
     def get_constraint_json(self, json_data=None):
         if not json_data:
