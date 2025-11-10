@@ -1212,6 +1212,11 @@ class CC3MaterialCache:
     alpha_mode: bpy.props.StringProperty(default="NONE") # NONE, BLEND, HASHED, OPAQUE
     culling_sides: bpy.props.IntProperty(default=0) # 0 - default, 1 - single sided, 2 - double sided
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
+    render_target: bpy.props.EnumProperty(items=[
+                        ("NONE","None","Not Set."),
+                        ("EEVEE","Eevee","Build shaders for Eevee rendering."),
+                        ("CYCLES","Cycles","Build shaders for Cycles rendering."),
+                    ], default="NONE", name = "Target Renderer")
     disabled: bpy.props.BoolProperty(default=False)
 
     def set_texture_mapping(self, texture_type, texture_path, embedded, image, location, rotation, scale):
@@ -1321,6 +1326,13 @@ class CC3MaterialCache:
         if not self.material_id:
             self.material_id = utils.generate_random_id(20)
         return self.material_id
+
+    def get_render_target(self):
+        # return render target if set
+        if self.render_target != "NONE":
+            return self.render_target
+        # fall back to scene render engine
+        return "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
 
     def check_id(self):
         material_id = self.get_material_id()
@@ -1600,9 +1612,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="ADVANCED")
 
     render_target: bpy.props.EnumProperty(items=[
+                        ("NONE","None","Not Set."),
                         ("EEVEE","Eevee","Build shaders for Eevee rendering."),
                         ("CYCLES","Cycles","Build shaders for Cycles rendering."),
-                    ], default="EEVEE", name = "Target Renderer")
+                    ], default="NONE", name = "Target Renderer")
 
     physics_disabled: bpy.props.BoolProperty(default=False)
     physics_applied: bpy.props.BoolProperty(default=False)
@@ -1841,7 +1854,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return "AVATAR"
         else:
             return "PROP"
-        return "NONE"
+
+    def get_render_target(self):
+        # return render target if set
+        if self.render_target != "NONE":
+            return self.render_target
+        # fall back to scene render engine
+        return "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
 
     def is_actor_core(self):
         if (self.generation == "ActorCore"
@@ -2557,7 +2576,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     self.rigify_expression_rig = "RIGIFY"
                 else:
                     self.rigify_expression_rig = "NONE"
-                utils.set_prop(rig, self.rigify_expression_rig)
+                utils.set_prop(rig, "rl_face_rig", self.rigify_expression_rig)
         # ensure the facial profile & viseme profile types are in the character data
         self.get_facial_profile()
 

@@ -74,6 +74,7 @@ def wrapped_text_box(layout, info_text, width, alert = False, icon = None):
         else:
             box.label(text=text)
         first = False
+    return box
 
 
 def warn_icon(row, icon = "ERROR"):
@@ -525,6 +526,8 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
         box.label(text=f"{chr_name}", icon="TOOL_SETTINGS")
     col = layout.column(align=True)
 
+    render_rebuild_ui(col, chr_cache)
+
     grid = col.grid_flow(row_major=True, columns=2, align=True)
     grid.scale_y = 1.5
     grid.operator("cc3.character", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_ACTOR_ALL"
@@ -580,12 +583,27 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
             layout.row().label(text=obj_text)
 
 
+def render_rebuild_ui(layout: bpy.types.UILayout, chr_cache):
+    if chr_cache.setup_mode == "ADVANCED":
+        width = get_layout_width(None, "UI")
+        # Cycles Prefs
+        engine_render_target = "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
+        if chr_cache.get_render_target() != engine_render_target:
+            box = layout.box()
+            box.alert = True
+            row = box.row(align=True)
+            row.scale_y = 2
+            text = "Rebuild for " + engine_render_target
+            row.operator("cc3.importer", icon="SHADING_TEXTURE", text=text).param ="BUILD_REBUILD"
+
+
+
 def render_prefs_ui(layout: bpy.types.UILayout, index=1):
     prefs = vars.prefs()
     props = vars.props()
 
     # Cycles Prefs
-    if prefs.render_target == "CYCLES":
+    if bpy.context.scene.render.engine == "CYCLES":
         suffix = "B4.1" if utils.B410() else "B3.4"
         box = layout.box()
         if fake_drop_down(box.row(),
@@ -966,8 +984,6 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         row.prop(var, "setup_mode", expand=True)
         if var.setup_mode == "ADVANCED":
             row = column.row(align=True)
-            row.prop(PREFS, "render_target", expand=True)
-            row = column.row(align=True)
             row.prop(PREFS, "refractive_eyes", expand=True)
 
         # ACES Prefs
@@ -992,7 +1008,12 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             row = col.row()
             row.scale_y = 2
             if chr_cache.setup_mode == "ADVANCED":
-                op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials").param ="BUILD"
+                engine_render_target = "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
+                if chr_cache.get_render_target() != engine_render_target:
+                    row.alert = True
+                    op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials").param ="BUILD_REBUILD"
+                else:
+                    op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials").param ="BUILD"
             else:
                 op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials").param ="BUILD"
 
@@ -1599,6 +1620,8 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         if mat_cache:
             parameters = mat_cache.parameters
 
+        render_rebuild_ui(layout, chr_cache)
+
         render_prefs_ui(layout, 2)
 
         # Parameters
@@ -1715,7 +1738,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     if condition == "HAS_VERTEX_COLORS":
                                         cond_res = len(obj.data.vertex_colors) > 0
                                     elif condition[0] == '#':
-                                        cond_res = chr_cache.render_target == condition[1:]
+                                        cond_res = chr_cache.get_render_target() == condition[1:]
                                     elif condition[0] == '>':
                                         cond_res = nodeutils.has_connected_output(shader_node, condition[1:])
                                     elif condition[0] == '!':
@@ -1756,7 +1779,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     if condition == "HAS_VERTEX_COLORS":
                                         cond_res = len(obj.data.vertex_colors) > 0
                                     elif condition[0] == '#':
-                                        cond_res = chr_cache.render_target == condition[1:]
+                                        cond_res = chr_cache.get_render_target() == condition[1:]
                                     elif condition[0] == '>':
                                         cond_res = nodeutils.has_connected_output(shader_node, condition[1:])
                                     elif condition[0] == '!':
@@ -1799,7 +1822,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     if condition == "HAS_VERTEX_COLORS":
                                         cond_res = len(obj.data.vertex_colors) > 0
                                     elif condition[0] == '#':
-                                        cond_res = chr_cache.render_target == condition[1:]
+                                        cond_res = chr_cache.get_render_target() == condition[1:]
                                     elif condition[0] == '>':
                                         cond_res = nodeutils.has_connected_output(shader_node, condition[1:])
                                     elif condition[0] == '!':
@@ -4245,7 +4268,7 @@ class CCICBakePanel(bpy.types.Panel):
         chr_cache = props.get_character_cache(obj, mat)
         bake_cache = bake.get_export_bake_cache(mat)
 
-        if chr_cache and (chr_cache.render_target != "EEVEE" or
+        if chr_cache and (chr_cache.get_render_target() != "EEVEE" or
                           chr_cache.is_wrinkle_active()):
             box = layout.box()
             box.alert = True
@@ -4358,7 +4381,7 @@ class CCICBakePanel(bpy.types.Panel):
         row.prop(prefs, "bake_objects_mode", expand=True)
         row = col.row(align=True)
         row.scale_y = 2
-        if chr_cache and chr_cache.render_target != "EEVEE":
+        if chr_cache and chr_cache.get_render_target() != "EEVEE":
             row.alert = True
 
         # Bake Button

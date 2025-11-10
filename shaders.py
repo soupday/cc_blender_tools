@@ -22,14 +22,6 @@ from mathutils import Vector, Color
 from . import imageutils, jsonutils, meshutils, materials, modifiers, wrinkle, nodeutils, params, lib, utils, vars
 
 
-def get_prop_value(mat_cache, prop_name):
-    parameters = mat_cache.parameters
-    try:
-        return eval("parameters." + prop_name, None, locals())
-    except:
-        return None
-
-
 def eval_texture_rules(tex_type):
     prefs = vars.prefs()
 
@@ -74,7 +66,7 @@ def exec_var_param(var_def, mat_cache, mat_json):
 
             elif func != "DEF" and args:
                 # construct eval function code
-                func_expression = func + "("
+                func_expression = func + "(mat_cache, "
                 first = True
                 missing_args = False
                 for arg in args:
@@ -111,7 +103,7 @@ def eval_input_param(input_def, mat_cache):
 
         else:
             # construct eval function code
-            exec_expression = func + "("
+            exec_expression = func + "(mat_cache,"
             first = True
             for arg in args:
                 if not first:
@@ -139,7 +131,7 @@ def eval_tiling_param(texture_def, mat_cache, start_index = 4):
 
         else:
             # construct eval function code
-            exec_expression = func + "("
+            exec_expression = func + "(mat_cache, "
             first = True
             for arg in args:
                 if not first:
@@ -154,10 +146,11 @@ def eval_tiling_param(texture_def, mat_cache, start_index = 4):
         return None
 
 
-def eval_parameters_func(parameters, func, args, default = None):
+def eval_parameters_func(mat_cache, func, args, default = None):
     try:
+        parameters = mat_cache.parameters
         # construct eval function code
-        exec_expression = func + "("
+        exec_expression = func + "(mat_cache, "
         first = True
         for arg in args:
             if not first:
@@ -280,17 +273,17 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
 # Prop matrix eval, parameter conversion functions
 #
 
-def func_iris_brightness(v):
+def func_iris_brightness(cc, v):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         v = v * prefs.cycles_iris_brightness_b443b
-    elif prefs.render_target == "EEVEE":
+    elif cc.get_render_target() == "EEVEE":
         v = v * prefs.eevee_iris_brightness_b443b
     return v
 
-def func_sss_skin(s):
+def func_sss_skin(cc, s):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_skin_b443b
         else:
@@ -302,9 +295,9 @@ def func_sss_skin(s):
             s = s * prefs.eevee_sss_skin_b341
     return s
 
-def func_sss_hair(s):
+def func_sss_hair(cc, s):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_hair_b443b
         else:
@@ -316,9 +309,9 @@ def func_sss_hair(s):
             s = s * prefs.eevee_sss_hair_b341
     return s
 
-def func_sss_teeth(s):
+def func_sss_teeth(cc, s):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_teeth_b443b
         else:
@@ -330,9 +323,9 @@ def func_sss_teeth(s):
             s = s * prefs.eevee_sss_teeth_b341
     return s
 
-def func_sss_tongue(s):
+def func_sss_tongue(cc, s):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_tongue_b443b
         else:
@@ -344,9 +337,9 @@ def func_sss_tongue(s):
             s = s * prefs.eevee_sss_tongue_b341
     return s
 
-def func_sss_eyes(s):
+def func_sss_eyes(cc, s):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_eyes_b443b
         else:
@@ -358,9 +351,9 @@ def func_sss_eyes(s):
             s = s * prefs.eevee_sss_eyes_b341
     return s
 
-def func_sss_default(s):
+def func_sss_default(cc, s):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_default_b443b
         else:
@@ -372,69 +365,69 @@ def func_sss_default(s):
             s = s * prefs.eevee_sss_default_b341
     return s
 
-def func_sss_falloff_saturated(f, s):
+def func_sss_falloff_saturated(cc, f, s):
     falloff = Color((f[0], f[1], f[2]))
     falloff.s *= s
     return [falloff.r, falloff.g, falloff.b, 1.0]
 
-def func_sss_radius_eyes_cycles(r):
+def func_sss_radius_eyes_cycles(cc, r):
     prefs = vars.prefs()
     r = r * vars.EYES_SSS_RADIUS_SCALE
     return r
 
-def func_sss_radius_eyes_eevee(r, f):
+def func_sss_radius_eyes_eevee(cc, r, f):
     prefs = vars.prefs()
     r = r * vars.EYES_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_hair_cycles(r):
+def func_sss_radius_hair_cycles(cc, r):
     prefs = vars.prefs()
     r = r * vars.HAIR_SSS_RADIUS_SCALE
     return r
 
-def func_sss_radius_hair_eevee(r, f, s):
+def func_sss_radius_hair_eevee(cc, r, f, s):
     prefs = vars.prefs()
     r = r * vars.HAIR_SSS_RADIUS_SCALE
     falloff = Color((f[0], f[1], f[2]))
     falloff.s *= s
     return [falloff.r * r, falloff.g * r, falloff.b * r]
 
-def func_sss_radius_teeth_eevee(r, f):
+def func_sss_radius_teeth_eevee(cc, r, f):
     prefs = vars.prefs()
     r = r * vars.TEETH_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_tongue_eevee(r, f):
+def func_sss_radius_tongue_eevee(cc, r, f):
     prefs = vars.prefs()
     r = r * vars.TONGUE_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_default_eevee(r, f):
+def func_sss_radius_default_eevee(cc, r, f):
     prefs = vars.prefs()
     r = r * vars.DEFAULT_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_skin_cycles(r):
+def func_sss_radius_skin_cycles(cc, r):
     prefs = vars.prefs()
     r = r * vars.SKIN_SSS_RADIUS_SCALE
     #if utils.B400():
     #    r *= 2/3
     return r
 
-def func_sss_radius_skin_eevee(r, f, s):
+def func_sss_radius_skin_eevee(cc, r, f, s):
     prefs = vars.prefs()
     r = r * vars.SKIN_SSS_RADIUS_SCALE
     falloff = Color((f[0], f[1], f[2]))
     falloff.s *= s
     return [falloff.r * r, falloff.g * r, falloff.b * r]
 
-def func_roughness_power(p):
+def func_roughness_power(cc, p):
     prefs = vars.prefs()
     #if prefs.build_skin_shader_dual_spec:
     #    return p * 1.0
     #else:
     #    return p
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B410():
             return p * prefs.cycles_roughness_power_b443b
         else:
@@ -445,116 +438,116 @@ def func_roughness_power(p):
         else:
             return p * prefs.eevee_roughness_power_b341
 
-def func_a(a, b, c):
+def func_a(cc, a, b, c):
     return a
 
-def func_b(a, b, c):
+def func_b(cc, a, b, c):
     return b
 
-def func_b(a, b, c):
+def func_b(cc, a, b, c):
     return c
 
-def func_mul(a, b):
+def func_mul(cc, a, b):
     return a * b
 
-def func_tiling(scale):
+def func_tiling(cc, scale):
     return 1.0 / scale
 
-def func_emission_scale(v):
+def func_emission_scale(cc, v):
     return v * vars.EMISSION_SCALE
 
-def func_color_bytes(jc: list):
+def func_color_bytes(cc, jc: list):
     return [ jc[0] / 255.0, jc[1] / 255.0, jc[2] / 255.0, 1.0 ]
 
-def func_color_bytes_linear(jc: list):
+def func_color_bytes_linear(cc, jc: list):
     return utils.srgb_to_linear([ jc[0] / 255.0, jc[1] / 255.0, jc[2] / 255.0, 1.0 ])
 
-def func_color_vector(jc: list):
+def func_color_vector(cc, jc: list):
     if type(jc) == list:
         for i in range(0, len(jc)):
             jc[i] /= 255.0
     return jc
 
-def func_export_byte3(c):
+def func_export_byte3(cc, c):
     return [c[0] * 255.0, c[1] * 255.0, c[2] * 255.0]
 
-def func_export_byte3_linear(c):
+def func_export_byte3_linear(cc, c):
     c = utils.linear_to_srgb(c)
     return [c[0] * 255.0, c[1] * 255.0, c[2] * 255.0]
 
-def func_occlusion_range(r, m):
+def func_occlusion_range(cc, r, m):
     return utils.lerp(m, 1.0, r)
 
-def func_occlusion_strength(s):
+def func_occlusion_strength(cc, s):
     return pow(s, 1.0 / 3.0)
 
-def func_occlusion_contrast(v):
+def func_occlusion_contrast(cc, v):
     return min(0.999, max(0.001, v))
 
-def func_occlusion_color(c):
+def func_occlusion_color(cc, c):
     return utils.lerp_color(c, (0,0,0,1), 0.75)
 
-def func_one_minus(v):
+def func_one_minus(cc, v):
     return 1.0 - v
 
-def func_sqrt(v):
+def func_sqrt(cc, v):
     return math.sqrt(v)
 
-def func_pow_2(v):
+def func_pow_2(cc, v):
     return math.pow(v, 2.0)
 
-def func_sclera_brightness(b):
+def func_sclera_brightness(cc, b):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         b *= 1.0
     return b
 
-def func_eye_tiling(ir, ss):
+def func_eye_tiling(cc, ir, ss):
     return 0.16 / (ir * ss)
 
-def func_half(s):
+def func_half(cc, s):
     return s * 0.5
 
-def func_third(s):
+def func_third(cc, s):
     return s * 0.3333
 
-def func_two_third(s):
+def func_two_third(cc, s):
     return s * 0.6666
 
-def func_divide_1000(v):
+def func_divide_1000(cc, v):
     return v / 1000.0
 
-def func_divide_100(v):
+def func_divide_100(cc, v):
     return v / 100.0
 
-def func_divide_10(v):
+def func_divide_10(cc, v):
     return v / 10.0
 
-def func_divide_200(v):
+def func_divide_200(cc, v):
     return v / 200.0
 
-def func_divide_5(v):
+def func_divide_5(cc, v):
     return v / 5.0
 
-def func_divide_2(v):
+def func_divide_2(cc, v):
     return v / 2.0
 
-def func_mul_1000(v):
+def func_mul_1000(cc, v):
     return v * 1000.0
 
-def func_mul_100(v):
+def func_mul_100(cc, v):
     return v * 100.0
 
-def func_mul_10(v):
+def func_mul_10(cc, v):
     return v * 10.0
 
-def func_mul_5(v):
+def func_mul_5(cc, v):
     return v * 5.0
 
-def func_mul_2(v):
+def func_mul_2(cc, v):
     return v * 2.0
 
-def func_limbus_dark_radius(limbus_dark_scale):
+def func_limbus_dark_radius(cc, limbus_dark_scale):
     #return 1 / limbus_dark_scale
     #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
     #return utils.lerp(0.155, 0.08, t) + 0.025
@@ -564,7 +557,7 @@ def func_limbus_dark_radius(limbus_dark_scale):
     de = dm + (dm - ds)
     return de
 
-def func_limbus_dark_width(limbus_dark_scale):
+def func_limbus_dark_width(cc, limbus_dark_scale):
     #return 1 / limbus_dark_scale
     #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
     #return utils.lerp(0.155, 0.08, t) + 0.025
@@ -574,7 +567,7 @@ def func_limbus_dark_width(limbus_dark_scale):
     de = dm + (dm - ds)
     return ds / de
 
-def func_export_limbus_dark_scale(ldr):
+def func_export_limbus_dark_scale(cc, ldr):
     #return 1 / limbus_dark_radius
     #t = utils.inverse_lerp(0.155, 0.08, limbus_dark_radius - 0.025)
     #return utils.clamp(utils.lerp(0.0, 10.0, t), 0, 10)
@@ -583,91 +576,91 @@ def func_export_limbus_dark_scale(ldr):
     lds = (2 * M - S) / ldr
     return lds
 
-def func_brightness(b):
+def func_brightness(cc, b):
     """Shader brightness adjust"""
     if b <= 1.0:
         return b
     B = (b - 1)*4 + 1
     return B
 
-def func_export_brightness(B):
+def func_export_brightness(cc, B):
     """Shader brightness adjust"""
     if B <= 1.0:
         return B
     b = (B - 1)/4 + 1
     return b
 
-def func_saturation(s):
+def func_saturation(cc, s):
     """Shader saturation adjust"""
     if s <= 1.0:
         return s
     S = (s - 1)*3 + 1
     return S
 
-def func_export_saturation(S):
+def func_export_saturation(cc, S):
     """Shader saturation adjust"""
     if S <= 1.0:
         return S
     s = (S - 1)/3 + 1
     return s
 
-def func_brightness_mod(b):
+def func_brightness_mod(cc, b):
     """Brightness adjust to be used directly in modify color BCHS"""
     B = (b - 1)*5 + 1
     return B
 
-def func_export_brightness_mod(B):
+def func_export_brightness_mod(cc, B):
     """Brightness adjust to be used directly in modify color BCHS"""
     b = (B - 1)/5 + 1
     return b
 
-def func_saturation_mod(s):
+def func_saturation_mod(cc, s):
     """Saturation adjust to be used directly in modify color BCHS"""
     S = (s - 1)*3 + 1
     return S
 
-def func_export_saturation_mod(S):
+def func_export_saturation_mod(cc, S):
     """Saturation adjust to be used directly in modify color BCHS"""
     s = (S - 1)/3 + 1
 
     return s
 
-def func_get_eye_depth(depth):
+def func_get_eye_depth(cc, depth):
     return (depth / 3.0)
 
-def func_export_eye_depth(depth):
+def func_export_eye_depth(cc, depth):
     return (depth) * 3.0
 
-def func_set_eye_depth(depth):
+def func_set_eye_depth(cc, depth):
     return depth * 1.5
 
-def func_set_parallax_iris_depth(depth):
+def func_set_parallax_iris_depth(cc, depth):
     return depth * 1.5 + 0.1
 
-def func_index_f0(v: list):
+def func_index_f0(cc, v: list):
     return v[0]
 
-def func_index_f1(v: list):
+def func_index_f1(cc, v: list):
     return v[1]
 
-def func_index_f2(v: list):
+def func_index_f2(cc, v: list):
     return v[2]
 
-def func_index_b0(values: list):
+def func_index_b0(cc, values: list):
     return values[0] / 255.0
 
-def func_index_b1(values: list):
+def func_index_b1(cc, values: list):
     return values[1] / 255.0
 
-def func_index_b2(values: list):
+def func_index_b2(cc, values: list):
     return values[2] / 255.0
 
-def func_export_combine_xyz(x, y, z):
+def func_export_combine_xyz(cc, x, y, z):
     return [x * 255.0, y * 255.0, z * 255.0]
 
-def func_normal_strength(s):
+def func_normal_strength(cc, s):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_normal_b443b
         else:
@@ -679,9 +672,9 @@ def func_normal_strength(s):
             s = s * prefs.eevee_normal_b341
     return s
 
-def func_skin_normal_strength(s):
+def func_skin_normal_strength(cc, s):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_normal_skin_b443b
         else:
@@ -693,9 +686,9 @@ def func_skin_normal_strength(s):
             s = s * prefs.eevee_normal_skin_b341
     return s
 
-def func_micro_normal_strength(s):
+def func_micro_normal_strength(cc, s):
     prefs = vars.prefs()
-    if prefs.render_target == "CYCLES":
+    if cc.get_render_target() == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_micro_normal_b443b
         else:
@@ -707,22 +700,22 @@ def func_micro_normal_strength(s):
             s = s * prefs.eevee_micro_normal_b341
     return s
 
-def func_set_occlusion_inv_contrast(c):
+def func_set_occlusion_inv_contrast(cc, c):
     c = min(1, max(1-c, 0.01))
     mc = 0.5/(c*c)
     return min(100, max(0.01, mc))
 
-def func_get_occlusion_inv_contrast(mc):
+def func_get_occlusion_inv_contrast(cc, mc):
     mc = min(100, max(0.01, mc))
     c = pow(0.5/mc, 0.5)
     return min(1, max(0, 1-c))
 
-def func_set_occlusion_contrast(c):
+def func_set_occlusion_contrast(cc, c):
     c = min(1, max(c, 0.01))
     mc = 0.5/(c*c)
     return min(100, max(0.01, mc))
 
-def func_get_occlusion_contrast(mc):
+def func_get_occlusion_contrast(cc, mc):
     mc = min(100, max(0.01, mc))
     c = pow(0.5/mc, 0.5)
     return min(1, max(0, c))
@@ -864,7 +857,7 @@ def init_character_property_defaults(chr_cache, chr_json, only:list=None):
 
                         if mat_cache.source_name.startswith("Ga_Skin_"):
                             try:
-                                if prefs.render_target == "EEVEE":
+                                if chr_cache.get_render_target() == "EEVEE":
                                     mat_cache.parameters.default_roughness_power = 0.5
                                 else:
                                     mat_cache.parameters.default_roughness_power = 0.75
@@ -1047,7 +1040,7 @@ def connect_tearline_shader(obj_cache, obj, mat, mat_json, processed_images):
     shader_name = params.get_shader_name(mat_cache)
     shader_group = shader_name
     mix_shader_group = ""
-    if prefs.render_target == "CYCLES" and shader_name == "rl_tearline_shader":
+    if mat_cache.get_render_target() == "CYCLES" and shader_name == "rl_tearline_shader":
         shader_group = "rl_tearline_cycles_shader"
         mix_shader_group = "rl_tearline_cycles_mix_shader"
     is_plus = (shader_name == "rl_tearline_plus_shader")
@@ -1297,7 +1290,7 @@ def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
     shader_name = "rl_hair_shader"
     shader_group = "rl_hair_shader"
     mix_shader_group = ""
-    if prefs.render_target == "CYCLES":
+    if mat_cache.get_render_target() == "CYCLES":
         shader_group = "rl_hair_cycles_shader"
 
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
@@ -1356,9 +1349,11 @@ def connect_pbr_shader(obj_cache, obj, mat: bpy.types.Material, mat_json, proces
         add_displacement(obj, mat, mat_json, 2, 0)
 
 def add_displacement(obj, mat, mat_json, max_render=5, max_view=3):
+    props = vars.props()
     prefs = vars.prefs()
+    mat_cache = props.get_material_cache(mat)
 
-    method = "DISPLACEMENT" if prefs.render_target == "CYCLES" else "BOTH"
+    method = "DISPLACEMENT" if mat_cache.get_render_target() == "CYCLES" else "BOTH"
     texture_path, strength, level, multiplier, base = jsonutils.get_displacement_data(mat_json)
     if texture_path:
         if strength == 0 or multiplier == 0:

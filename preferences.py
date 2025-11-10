@@ -114,7 +114,6 @@ def reset_datalink():
 
 def reset_preferences():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.render_target = "EEVEE"
     prefs.quality_lighting = "CC3"
     prefs.pipeline_lighting = "CC3"
     prefs.morph_lighting = "MATCAP"
@@ -265,11 +264,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("ERRORS","Just Errors","Log only errors to console."),
                         ("DETAILS","Details","All including details."),
                     ], default="ERRORS", name = "(Debug) Log Level")
-
-    render_target: bpy.props.EnumProperty(items=[
-                        ("EEVEE","Eevee","Build shaders for Eevee rendering."),
-                        ("CYCLES","Cycles","Build shaders for Cycles rendering."),
-                    ], default="EEVEE", name = "Target Renderer")
 
     hair_hint: bpy.props.StringProperty(default="hair,scalp,beard,mustache,sideburns,ponytail,braid,!bow,!band,!tie,!ribbon,!ring,!butterfly,!flower", name="Hair detection keywords")
     hair_scalp_hint: bpy.props.StringProperty(default="scalp,base,skullcap", name="Scalp detection keywords")
@@ -623,7 +617,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         grid.prop(self, "build_body_key_drivers")
 
         layout.label(text="Rendering:")
-        layout.prop(self, "render_target")
         layout.prop(self, "bake_use_gpu")
 
         if colorspace.is_aces():

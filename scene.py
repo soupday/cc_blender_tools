@@ -2467,7 +2467,7 @@ def eevee_setup(context):
     MSS = utils.store_mode_selection_state()
 
     # rebuild for eevee if needed
-    if chr_cache.render_target != "EEVEE":
+    if chr_cache.get_render_target() != "EEVEE":
         bpy.ops.cc3.importer(param="REBUILD_EEVEE")
 
     try:
@@ -2580,7 +2580,7 @@ def cycles_setup(context):
                     obj.cycles.shadow_terminator_offset = 0.1
 
     # rebuild for cycles if needed
-    if chr_cache.render_target != "CYCLES":
+    if chr_cache.get_render_target() != "CYCLES":
         bpy.ops.cc3.importer(param="REBUILD_CYCLES")
     else:
         if extracted:
