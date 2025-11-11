@@ -149,8 +149,12 @@ def get_facerig_config(chr_cache):
 def build_facerig(chr_cache, rigify_rig, meta_rig, cc3_rig):
     prefs = vars.prefs()
 
+    if not chr_cache.can_expression_rig():
+        return
+
     chr_cache.rigify_face_control_color = prefs.rigify_face_control_color
     facial_profile, viseme_profile = chr_cache.get_facial_profile()
+
     objects = chr_cache.get_cache_objects()
     wgt_collection = f"WGTS_{cc3_rig.name}_rig"
     WGT_OUTLINE, WGT_GROUPS, WGT_LABELS, WGT_LINES, WGT_SLIDER, WGT_RECT, WGT_NUB, WGT_NAME = \

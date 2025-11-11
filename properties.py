@@ -1903,7 +1903,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             self.generation == "ActorCore" or
             self.generation == "ActorScan" or
             self.generation == "GameBase"):
-            return True
+            facial_profile, viseme_profile = self.get_facial_profile()
+            if facial_profile in ["STD", "EXT", "TRA", "MH"]:
+                return True
         return False
 
     def can_rigify_face(self):
@@ -1911,6 +1913,16 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             self.generation == "G3Plus"):
             return True
         return False
+
+    def allow_rigify(self):
+        prefs = vars.prefs()
+        if self.rigified:
+            return False
+        can_expresion_rig = self.can_expression_rig()
+        can_rigify_face = self.can_rigify_face()
+        return ((prefs.rigify_expression_rig == "META" and can_expresion_rig) or
+                (prefs.rigify_expression_rig == "RIGIFY" and can_rigify_face) or
+                (prefs.rigify_expression_rig == "NONE"))
 
     def get_facial_profile(self, update=True):
         if self.facial_profile != "NONE" and self.viseme_profile != "NONE":
@@ -3228,7 +3240,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
-    def get_context_character_cache(self, context=None, strict=False):
+    def get_context_character_cache(self, context=None, strict=False) -> CC3CharacterCache:
         context = vars.get_context(context)
 
         chr_cache = None

@@ -542,12 +542,17 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
         row1.enabled = False
         row2.enabled = False
 
+    can_be_rigged = (chr_cache and chr_cache.is_avatar() and not chr_cache.rigified and chr_cache.can_be_rigged())
+    if can_be_rigged:
+        row = col.row(align=True)
+        row.row(align=True).prop(prefs, "rigify_expression_rig", expand=True)
+
     split = col.split(factor=0.5, align=True)
     col_1 = split.column(align=True)
     col_2 = split.column(align=True)
     col_1.scale_y = 1.5
     col_2.scale_y = 1.5
-    col_1.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param ="DATALINK_RIGIFY"
+    col_1.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "DATALINK_RIGIFY"
     if not (chr_cache and chr_cache.is_avatar() and not chr_cache.rigified and chr_cache.can_be_rigged()):
         col_1.enabled = False
     if chr_cache:
@@ -584,7 +589,7 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
 
 
 def render_rebuild_ui(layout: bpy.types.UILayout, chr_cache):
-    if chr_cache.setup_mode == "ADVANCED":
+    if chr_cache and chr_cache.setup_mode == "ADVANCED":
         width = get_layout_width(None, "UI")
         # Cycles Prefs
         engine_render_target = "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
@@ -2237,6 +2242,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     elif chr_cache.can_be_rigged():
 
+                        allow_rigify = chr_cache.allow_rigify()
                         grid = layout.grid_flow(columns=1, row_major=True, align=True)
                         grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
 
@@ -2250,20 +2256,21 @@ class CC3RigifyPanel(bpy.types.Panel):
                             icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
                             row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
 
-                        if chr_cache.can_expression_rig():
+                        if chr_cache.can_expression_rig() or chr_cache.can_rigify_face():
                             col = layout.column(align=True)
                             col.label(text="Expression Rig:")
                             col.row(align=True).prop(prefs, "rigify_expression_rig", expand=True)
                             col = layout.column()
                             if prefs.rigify_expression_rig == "META":
-                                col.row().prop(prefs, "rigify_face_control_color")
+                                if allow_rigify:
+                                    col.row().prop(prefs, "rigify_face_control_color")
+                                else:
+                                    wrapped_text_box(layout, "Invalid Facial Profile!", width, alert=True)
                             elif prefs.rigify_expression_rig == "RIGIFY":
                                 if not chr_cache.can_rigify_face():
                                     wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
                         else:
                             grid = layout.grid_flow(columns=1, row_major=True, align=True)
-
-
 
                         col = layout.column(align=True)
                         col.label(text="Bone Alignment:")
@@ -2274,19 +2281,18 @@ class CC3RigifyPanel(bpy.types.Panel):
                             row = layout.row()
                             row.scale_y = 2
                             row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "ALL"
-                            row.enabled = chr_cache is not None
+                            row.enabled = allow_rigify
 
                         else:
 
                             row = layout.row()
                             row.scale_y = 2
                             row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Attach Meta-Rig").param = "META_RIG"
-                            row.enabled = chr_cache is not None
 
                             row = layout.row()
                             row.scale_y = 2
                             row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
-                            row.enabled = chr_cache is not None
+                            row.enabled = allow_rigify
 
                         #row = layout.row()
                         #row.scale_y = 2

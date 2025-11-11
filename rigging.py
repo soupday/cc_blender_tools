@@ -3731,6 +3731,20 @@ class CC3Rigifier(bpy.types.Operator):
             options={"HIDDEN"}
         )
 
+    override_expression_rig: bpy.props.BoolProperty(
+            name = "Override Expression Rig",
+            default = False,
+            options={"HIDDEN"}
+        )
+
+    rigify_expression_rig: bpy.props.EnumProperty(items=[
+                        ("NONE","None","No expression rig, just eye and jaw controls"),
+                        ("RIGIFY","Rigify","Rigify full face rig"),
+                        ("META","CC5 HD","HD Face Control expression rig"),
+                    ], default="NONE",
+                       name="Expression Rig",
+                       options={"HIDDEN"})
+
     cc3_rig = None
     meta_rig = None
     rigify_rig = None
@@ -3740,11 +3754,11 @@ class CC3Rigifier(bpy.types.Operator):
 
     def use_rigify_face_rig(self, chr_cache):
         prefs = vars.prefs()
-        return not self.no_face_rig and prefs.rigify_expression_rig == "RIGIFY"
+        return not self.no_face_rig and self.rigify_expression_rig == "RIGIFY"
 
     def use_expression_rig(self, chr_cache):
         prefs = vars.prefs()
-        return (chr_cache.can_expression_rig() and prefs.rigify_expression_rig == "META")
+        return (chr_cache.can_expression_rig() and self.rigify_expression_rig == "META")
 
     def add_meta_rig(self, chr_cache):
 
@@ -3916,8 +3930,8 @@ class CC3Rigifier(bpy.types.Operator):
                     utils.hide(self.cc3_rig)
                     utils.hide(self.meta_rig)
                     # update face rig type
-                    chr_cache.rigify_expression_rig = prefs.rigify_expression_rig
-                    utils.set_prop(self.rigify_rig, "rl_face_rig", chr_cache.rigify_expression_rig)
+                    chr_cache.rigify_expression_rig = self.rigify_expression_rig
+                    utils.set_prop(self.rigify_rig, "rl_face_rig", self.rigify_expression_rig)
                     #self.restore_rigify_rigid_body_systems(chr_cache)
 
         utils.log_timer("Done Rigify Process!")
@@ -3995,8 +4009,8 @@ class CC3Rigifier(bpy.types.Operator):
                     utils.hide(self.cc3_rig)
                     utils.hide(self.meta_rig)
                     # update face rig type
-                    chr_cache.rigify_expression_rig = prefs.rigify_expression_rig
-                    utils.set_prop(self.rigify_rig, "rl_face_rig", chr_cache.rigify_expression_rig)
+                    chr_cache.rigify_expression_rig = self.rigify_expression_rig
+                    utils.set_prop(self.rigify_rig, "rl_face_rig", self.rigify_expression_rig)
 
         utils.log_timer("Done Rigify Process!")
 
@@ -4029,6 +4043,14 @@ class CC3Rigifier(bpy.types.Operator):
         self.rigify_rig = None
         self.auto_weight_failed = False
         self.auto_weight_report = ""
+        if not self.override_expression_rig:
+            self.rigify_expression_rig = prefs.rigify_expression_rig
+        can_expression_rig = chr_cache.can_expression_rig()
+        can_rigify_face = chr_cache.can_rigify_face()
+        if self.rigify_expression_rig == "META" and not can_expression_rig:
+            self.rigify_expression_rig = "RIGIFY"
+        if self.rigify_expression_rig == "RIGIFY" and not can_rigify_face:
+            self.rigify_expression_rig = "NONE"
 
         if chr_cache:
 
