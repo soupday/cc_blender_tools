@@ -1937,6 +1937,7 @@ def get_widget_rig_collection(chr_cache):
 
 
 def get_expression_widgets(chr_cache, collection_name):
+    chr_name = chr_cache.character_name
     facial_profile, viseme_profile = chr_cache.get_facial_profile()
     tag = ""
     if facial_profile == "EXT":
@@ -1949,14 +1950,18 @@ def get_expression_widgets(chr_cache, collection_name):
         tag = "MH"
     else:
         raise Exception("Unknown facial profile!")
-    WGT_LINES = lib.get_object(f"WGT-RL_FaceRig_{tag}_Control_Lines", "RL_Custom_Widget")
-    WGT_GROUPS = lib.get_object(f"WGT-RL_FaceRig_{tag}_Groups", "RL_Custom_Widget")
-    WGT_LABELS = lib.get_object(f"WGT-RL_FaceRig_{tag}_Labels", "RL_Custom_Widget")
-    WGT_OUTLINE = lib.get_object(f"WGT-RL_FaceRig_{tag}_Outline", "RL_Custom_Widget")
-    WGT_SLIDER = bones.make_line_widget("WGT-RL_FaceRig_Slider", 2.0)
-    WGT_RECT = bones.make_box_widget("WGT-RL_FaceRig_Rect", 2.0)
-    WGT_NUB = bones.make_sphere_widget("WGT-RL_FaceRig_Slider_Nub", 0.01666)
-    WGT_NAME = bones.make_text_widget("WGT-RL_FaceRig_" + chr_cache.character_name, chr_cache.character_name, 2.0, (0, 0.87, 0), 0.05)
+    WGT_LINES = lib.get_object(f"WGT-RL_FaceRig_{tag}_Control_Lines", "RL_Custom_Widget",
+                               names=f"WGT-{chr_name}_rig_{tag}_Control_Lines")
+    WGT_GROUPS = lib.get_object(f"WGT-RL_FaceRig_{tag}_Groups", "RL_Custom_Widget",
+                                names=f"WGT-{chr_name}_rig_{tag}_Groups")
+    WGT_LABELS = lib.get_object(f"WGT-RL_FaceRig_{tag}_Labels", "RL_Custom_Widget",
+                                names=f"WGT-{chr_name}_rig_{tag}_Labels")
+    WGT_OUTLINE = lib.get_object(f"WGT-RL_FaceRig_{tag}_Outline", "RL_Custom_Widget",
+                                 names=f"WGT-{chr_name}_rig_{tag}_Outline")
+    WGT_SLIDER = bones.make_line_widget(f"WGT-{chr_name}_rig_{tag}_Slider", 2.0)
+    WGT_RECT = bones.make_box_widget(f"WGT-{chr_name}_rig_{tag}_Rect", 2.0)
+    WGT_NUB = bones.make_sphere_widget(f"WGT-{chr_name}_rig_{tag}_Slider_Nub", 0.01666)
+    WGT_NAME = bones.make_text_widget(f"WGT-{chr_name}_rig_{tag}_Name", chr_name, 2.0, (0, 0.87, 0), 0.05)
     bones.add_widget_to_collection(WGT_LINES, collection_name)
     bones.add_widget_to_collection(WGT_GROUPS, collection_name)
     bones.add_widget_to_collection(WGT_LABELS, collection_name)

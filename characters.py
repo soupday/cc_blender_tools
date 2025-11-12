@@ -452,12 +452,16 @@ def link_or_append_rl_character(op, context, blend_file, link=False):
                     objects.append(obj)
 
             # find the widgets
-            widget_prefix = f"WGT-{character_name}_rig"
+            widget_prefixes = [
+                f"WGT-{character_name}_rig",
+                "WGT-RL_FaceRig",
+            ]
             widget_collection_name = f"WGT_{character_name}_rig"
             for obj in dst.objects:
-                if obj.name.startswith(widget_prefix):
-                    keep.append(obj)
-                    widgets.append(obj)
+                for widget_prefix in widget_prefixes:
+                    if obj.name.startswith(widget_prefix):
+                        keep.append(obj)
+                        widgets.append(obj)
 
             # TODO remove all actions or keep them? or get all of them?
 
@@ -545,7 +549,6 @@ def link_or_append_rl_character(op, context, blend_file, link=False):
                         else:
                             has_rigid_body = True
                             utils.hide_tree(rigid_body_system, hide=True)
-
 
     # clean up unused objects
     for obj in dst.objects:

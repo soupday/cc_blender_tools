@@ -20,11 +20,16 @@ import bpy, os
 from . import utils, vars
 
 
-def get_object(object_names, lib_tag="RL_Library_Object", allow_duplicates=True):
+def get_object(object_names,
+               lib_tag="RL_Library_Object",
+               allow_duplicates=True,
+               names=None):
 
     single = False
     if type(object_names) is str:
         object_names = [ object_names ]
+        if names:
+            names = [ names ]
         single = True
     appended_objects = [None]*len(object_names)
 
@@ -33,7 +38,8 @@ def get_object(object_names, lib_tag="RL_Library_Object", allow_duplicates=True)
     if not allow_duplicates:
         for obj in bpy.data.objects:
             for i, object_name in enumerate(object_names):
-                if (obj.name.startswith(object_name) and
+                if ((obj.name.startswith(object_name) or
+                    (obj.name.startswith(names[i]))) and
                     utils.prop(obj, lib_tag) and
                     is_version(obj)):
                     appended_objects[i] = obj
@@ -59,6 +65,11 @@ def get_object(object_names, lib_tag="RL_Library_Object", allow_duplicates=True)
                         if utils.strip_name(obj.name) == object_name and lib_tag not in obj:
                             obj[lib_tag] = True
                             obj["RL_Addon_Version"] = vars.VERSION_STRING
+                            if names:
+                                obj.name = names[i]
+                                try:
+                                    obj.data.name = names[i]
+                                except: ...
                             utils.log_info(f"Appended Library Object: {path} / {object_name} > {obj.name}")
                             appended_objects[i] = obj
                             found += 1
