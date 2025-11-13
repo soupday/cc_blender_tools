@@ -150,15 +150,19 @@ def eval_parameters_func(mat_cache, func, args, default = None):
     try:
         parameters = mat_cache.parameters
         # construct eval function code
-        exec_expression = func + "(mat_cache, "
-        first = True
-        for arg in args:
-            if not first:
-                exec_expression += ", "
-            first = False
-            exec_expression += "parameters." + arg
-        exec_expression += ")"
-
+        if func == "" or func == "=":
+            # expression is mat_cache parameter
+            exec_expression = "parameters." + args[0]
+        else:
+            # construct eval function code
+            exec_expression = func + "(mat_cache, "
+            first = True
+            for arg in args:
+                if not first:
+                    exec_expression += ", "
+                first = False
+                exec_expression += "parameters." + arg
+            exec_expression += ")"
         return eval(exec_expression, None, locals())
     except:
         utils.log_error("eval_parameters_func(): error in expression: " + exec_expression)
