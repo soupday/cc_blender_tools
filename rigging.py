@@ -1543,8 +1543,7 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig, remove_meta = False):
     if utils.object_mode():
         # delesect all bones (including the hidden ones)
         # Rigimap will bake and clear constraints on the ORG bones if we don't do this...
-        for bone in rigify_rig.data.bones:
-            bone.select = False
+        bones.select_all_bones(rigify_rig, False)
         utils.clear_selected_objects()
         if utils.try_select_object(rigify_rig, True):
             utils.set_active_object(rigify_rig)
@@ -2838,16 +2837,16 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
         if rigutils.select_rig(rigify_rig):
             bones.make_bones_visible(rigify_rig)
             bone : bpy.types.Bone
+            bones.select_all_bones(rigify_rig, False)
             for bone in rigify_rig.data.bones:
-                bone.select = False
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                     if bones.is_bone_in_collections(rigify_rig, bone,
                                                     BONE_COLLECTIONS,
                                                     BONE_GROUPS):
-                        bone.select = True
+                        bones.select_bone(rigify_rig, bone, True)
 
                 elif bones.is_bone_in_collections(rigify_rig, bone, EXTRA_COLLECTIONS, EXTRA_GROUPS):
-                    bone.select = True
+                    bones.select_bone(rigify_rig, bone, True)
 
 
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action,
@@ -2897,12 +2896,12 @@ def adv_bake_NLA_to_rigify(op, chr_cache, motion_id=None, motion_prefix=None):
 
         bone : bpy.types.Bone
         bones.make_bones_visible(rigify_rig)
+        bones.select_all_bones(rigify_rig, False)
         for bone in rigify_rig.data.bones:
-            bone.select = False
             if bones.is_bone_in_collections(rigify_rig, bone,
                                             BONE_COLLECTIONS,
                                             BONE_GROUPS):
-                bone.select = True
+                bones.select_bone(rigify_rig, bone, True)
 
         shape_key_objects = []
         if prefs.rigify_bake_shape_keys:
@@ -3348,8 +3347,7 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, objects, accessory_map):
         # select all export rig bones
         if rigutils.select_rig(export_rig):
             bones.make_bones_visible(export_rig)
-            for bone in export_rig.data.bones:
-                bone.select = True
+            bones.select_all_bones(rigify_rig, True)
 
             motion_objects = get_motion_export_objects(objects)
 
@@ -3683,8 +3681,9 @@ def unify_cc3_bone_name(name):
 def check_armature_action(rig, action, fix_rotation_mode=True):
     total = 0
     matching = 0
-    if action.fcurves:
-        for fcurve in action.fcurves:
+    channels = utils.get_action_channels(action, slot_type="OBJECT")
+    if channels and channels.fcurves:
+        for fcurve in channels.fcurves:
             total += 1
             data_path = fcurve.data_path
             bone_name = bones.get_bone_name_from_data_path(data_path)

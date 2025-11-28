@@ -21,6 +21,7 @@ from math import pi, atan
 
 from . import drivers, utils, vars
 from rna_prop_ui import rna_idprop_ui_create
+from . utils import B500
 
 
 NONE_DEFORM_BONES = [
@@ -937,7 +938,7 @@ def store_armature_settings(rig, include_pose=False, include_selection=False):
         selection_data = {}
         pose_bone: bpy.types.PoseBone
         for pose_bone in rig.pose.bones:
-            selection_data[pose_bone.name] = pose_bone.bone.select
+            selection_data[pose_bone.name] = get_bone_selected(rig, pose_bone)
         visibility["selection"] = selection_data
 
     return visibility
@@ -1771,40 +1772,131 @@ def clear_drivers(rig):
         for fc in fcurves:
             drivers.remove(fc)
 
+def safe_get_bone_name(arm, bone_or_name):
+    if arm:
+        T = type(bone_or_name)
+        if T is str:
+            data = arm.data.edit_bones if utils.get_mode() == "EDIT" else arm.data.bones
+            if bone_or_name in data:
+                return bone_or_name
+    try:
+        return bone_or_name.name
+    except:
+        return None
 
 def select_all_bones(arm, select = True, clear_active = True):
     mode = utils.get_mode()
-    data = arm.data.bones
-    if mode == "EDIT":
-        data = arm.data.edit_bones
-    if data:
-        for bone in data:
+    if B500():
+        if mode == "EDIT":
+            for edit_bone in arm.data.edit_bones:
+                edit_bone.select_head = select
+                edit_bone.select_tail = select
+                edit_bone.select = select
+            if clear_active:
+                arm.data.edit_bones.active = None
+        else:
+            for pose_bone in arm.pose.bones:
+                pose_bone.select = select
+            if clear_active:
+                arm.data.bones.active = None
+        return True
+    else:
+        if mode == "EDIT":
+            data = arm.data.edit_bones
+        else:
+            data = arm.data.bones
+        if data:
+            for bone in data:
+                bone.select_head = select
+                bone.select_tail = select
+                bone.select = select
+            if clear_active:
+                data.active = None
+            return True
+        else:
+            return False
+
+def select_bone(arm, bone_or_name, select=True):
+    bone_name = safe_get_bone_name(arm, bone_or_name)
+    mode = utils.get_mode()
+    if B500():
+        if mode == "EDIT":
+            if bone_name in arm.data.edit_bones:
+                edit_bone = arm.data.edit_bones[bone_name]
+                edit_bone.select_head = select
+                edit_bone.select_tail = select
+                edit_bone.select = select
+                return True
+        else:
+            if bone_name in arm.pose.bones:
+                pose_bone = arm.pose.bones[bone_name]
+                pose_bone.select = select
+                return True
+    else:
+        if mode == "EDIT":
+            data = arm.data.edit_bones
+        else:
+            data = arm.data.bones
+        if bone_name in data:
+            bone = data[bone_name]
             bone.select_head = select
             bone.select_tail = select
             bone.select = select
-        if clear_active:
-            data.active = None
-        return True
+            return True
+    return False
+
+
+def get_bone_selected(arm, bone_or_name):
+    bone_name = safe_get_bone_name(arm, bone_or_name)
+    mode = utils.get_mode()
+    if B500():
+        if mode == "EDIT":
+            if bone_name in arm.data.edit_bones:
+                edit_bone = arm.data.edit_bones[bone_name]
+                return edit_bone.select
+        else:
+            if bone_name in arm.pose.bones:
+                pose_bone = arm.pose.bones[bone_name]
+                return pose_bone.select
     else:
-        return False
+        if mode == "EDIT":
+            data = arm.data.edit_bones
+        else:
+            data = arm.data.bones
+        if bone_name in data:
+            bone = data[bone_name]
+            return bone.select
+    return False
 
 
-def set_active_bone(arm, bone_name, deselect_all = True):
+def set_active_bone(arm, bone_or_name, deselect_all = True):
+    bone_name = safe_get_bone_name(arm, bone_or_name)
     if deselect_all:
         select_all_bones(arm, select=False, clear_active=True)
     mode = utils.get_mode()
-    data = arm.data.bones
-    if mode == "EDIT":
-        data = arm.data.edit_bones
-    if bone_name in data:
-        bone = data[bone_name]
-        bone.select_head = True
-        bone.select_tail = True
-        bone.select = True
-        data.active = bone
-        return True
+    select_bone(arm, bone_name, True)
+    if B500():
+        if mode == "EDIT":
+            if bone_name in arm.data.edit_bones:
+                edit_bone = arm.data.edit_bones[bone_name]
+                arm.data.edit_bones.active = edit_bone
+                return True
+        else:
+            if bone_name in arm.pose.bones:
+                pose_bone = arm.pose.bones[bone_name]
+                pose_bone.select = True
+                arm.data.bones.active = pose_bone.bone
+                return True
     else:
-        return False
+        if mode == "EDIT":
+            data = arm.data.edit_bones
+        else:
+            data = arm.data.bones
+        if bone_name in data:
+            bone = data[bone_name]
+            data.active = bone
+            return True
+    return False
 
 
 def get_bone_name_from_data_path(data_path : str):
@@ -1842,9 +1934,7 @@ def clear_pose(arm, bones=None):
         if can_unlock(pose_bone):
             bone.hide_select = False
         select = (not bones or bone.name in bones)
-        bone.select = select
-        bone.select_head = select
-        bone.select_tail = select
+        select_bone(arm, pose_bone, select)
 
     # unlock the bones
     pose_bone : bpy.types.PoseBone
@@ -1859,10 +1949,8 @@ def clear_pose(arm, bones=None):
     bpy.ops.pose.transforms_clear()
 
     # clear bone selections
-    for bone in arm.data.bones:
-        bone.select = False
-        bone.select_head = False
-        bone.select_tail = False
+    for pose_bone in arm.pose.bones:
+        select_bone(arm, pose_bone, False)
 
     restore_bone_locks_visibility(arm, BLV)
 

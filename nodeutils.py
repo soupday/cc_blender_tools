@@ -99,10 +99,13 @@ def make_image_node(nodes, image, name, scale = 1.0):
 
 
 def make_separate_rgb_node(nodes, label, name):
-    value_node = make_shader_node(nodes, "ShaderNodeSeparateRGB")
-    value_node.label = label
-    value_node.name = utils.unique_name(name)
-    return value_node
+    if utils.B330():
+        sep_node = make_shader_node(nodes, "ShaderNodeSeparateColor")
+    else:
+        sep_node = make_shader_node(nodes, "ShaderNodeSeparateRGB")
+    sep_node.label = label
+    sep_node.name = utils.unique_name(name)
+    return sep_node
 
 
 def make_value_node(nodes, label, name, value = 0.0):

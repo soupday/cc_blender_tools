@@ -802,6 +802,7 @@ class ACTION_UL_List(bpy.types.UIList):
         items = getattr(data, propname)
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
+        channels  = utils.get_action_channels(item, slot_type="OBJECT")
         for i, item in enumerate(items):
             allowed = False
             action_set_generation = utils.prop(item, "rl_set_generation")
@@ -817,8 +818,8 @@ class ACTION_UL_List(bpy.types.UIList):
                     prefix, rig_id, type_id, obj_id, motion_id = rigutils.decode_action_name(item)
                     if type_id and rig_id and type_id == "A" and rig_id == arm_name:
                         allowed = True
-            elif len(item.fcurves) > 0:
-                if item.fcurves[0].data_path.startswith("key_blocks"):
+            elif channels and len(channels.fcurves) > 0:
+                if channels.fcurves[0].data_path.startswith("key_blocks"):
                     # no shape key actions
                     allowed = False
                 else:
@@ -887,11 +888,12 @@ class UNITY_ACTION_UL_List(bpy.types.UIList):
         items = getattr(data, propname)
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
+        channels  = utils.get_action_channels(item, slot_type="OBJECT")
         for i, item in enumerate(items):
             if "_Unity" in item.name and "|A|" in item.name:
-                if len(item.fcurves) == 0: # no fcurves, no animation...
+                if channels and len(channels.fcurves) == 0: # no fcurves, no animation...
                     filtered[i] &= ~self.bitflag_filter_item
-                elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
+                elif channels and channels.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
                     filtered[i] &= ~self.bitflag_filter_item
                     if self.filter_name and self.filter_name != "*":
                         if self.filter_name not in item.name:
@@ -3916,6 +3918,12 @@ class CCICDataLinkPanel(bpy.types.Panel):
             if vars.DEV:
                 layout.operator("ccic.datalink", icon="ERROR", text="DEBUG").param = "DEBUG"
                 layout.operator("ccic.datalink", icon="ERROR", text="TEST").param = "TEST"
+
+        if False:
+            layout.label(text="Import Options:")
+            row = layout.row(align=True)
+            label = rigutils.CCICActionImportOptions.label(context, chr_cache)
+            row.operator("ccic.action_import_options", icon="COLLAPSEMENU", text=label)
 
         layout.label(text="Material Send Mode:")
         row = layout.row(align=True)

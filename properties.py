@@ -639,6 +639,39 @@ class CC3ArmatureList(bpy.types.PropertyGroup):
     actions: bpy.props.CollectionProperty(type=CC3ActionList)
 
 
+class CCIC_UI_MixItem(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(default="")
+    weight: bpy.props.FloatProperty(default=1.0)
+
+
+class CCIC_UI_MixList(bpy.types.PropertyGroup):
+    bones: bpy.props.CollectionProperty(type=CCIC_UI_MixItem)
+
+
+class CCICActionOptions(bpy.types.PropertyGroup):
+    action_mode: bpy.props.EnumProperty(items=[
+                        ("NEW","Add New","Import actions as a new set of actions and keep the existing actions"),
+                        ("REPLACE","Replace","Import new actions to replace the existing actions"),
+                        ("MIX","Mix","Import the new actions into the existing actions keeping the keyframes not overwritten by the import"),
+                    ], default="NEW", name = "Import Action Mode")
+    frame_mode: bpy.props.EnumProperty(items=[
+                        ("START","Start","Import keyframes into Blender starting at the start frame"),
+                        ("CURRENT","Current","Import keyframes into Blender starting at the current frame"),
+                        ("MATCH","Match","Import keyframes into Blender matching keyframes with CC/iClone \n*Note: +1 as Blender starts at frame 1*"),
+                    ], default="START", name = "Import Frame Mode")
+    use_masking: bpy.props.BoolProperty(default=False, name="Use Bone / Shape-Key Masking",
+                                     description="Only import the keyframes from the masked bones and shape-keys")
+    import_mix_bones: bpy.props.CollectionProperty(type=CCIC_UI_MixItem)
+    rig_mix_bones_list_index: bpy.props.IntProperty(default=-1)
+    import_mix_bones_list_index: bpy.props.IntProperty(default=-1)
+    # some masking settings ...
+    # some masking presets ...
+    # export / import presets ...
+
+    def test(self):
+        self.import_mix_bones
+
+
 class CC3HeadParameters(bpy.types.PropertyGroup):
     # shader (rl_head_shader)
     skin_diffuse_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -1719,6 +1752,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                                                              min = 0.0, max = 1.0,
                                                              name="Rig Color",
                                                              update=update_facerig_color)
+
+    action_options: bpy.props.PointerProperty(type=CCICActionOptions)
 
     disabled: bpy.props.BoolProperty(default=False)
 

@@ -2471,12 +2471,15 @@ def eevee_setup(context):
         bpy.ops.cc3.importer(param="REBUILD_EEVEE")
 
     try:
-        context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+        context.scene.render.engine = 'BLENDER_EEVEE'
     except:
         try:
-            context.scene.render.engine = 'EEVEE'
+            context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
         except:
-            utils.log_error("Unable to set Eevee render engine!")
+            try:
+                context.scene.render.engine = 'EEVEE'
+            except:
+                utils.log_error("Unable to set Eevee render engine!")
 
     # add modifiers subdiv level 1
     utils.set_mode("OBJECT")

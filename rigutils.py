@@ -42,18 +42,22 @@ def pose_rig(rig):
     return False
 
 
-def name_in_data_paths(action, name):
-    for fcurve in action.fcurves:
-        if name in fcurve.data_path:
-            return True
+def name_in_data_paths(action, name, slot_type=None):
+    channels = utils.get_action_channels(action, slot_type=slot_type)
+    if channels:
+        for fcurve in channels.fcurves:
+            if name in fcurve.data_path:
+                return True
     return False
 
 
-def name_in_pose_bone_data_paths_regex(action, name):
+def name_in_pose_bone_data_paths_regex(action, name, slot_type=None):
+    channels = utils.get_action_channels(action, slot_type=slot_type)
     name = ".*" + name
-    for fcurve in action.fcurves:
-        if re.match(name, fcurve.data_path):
-            return True
+    if channels:
+        for fcurve in channels.fcurves:
+            if re.match(name, fcurve.data_path):
+                return True
     return False
 
 
@@ -65,10 +69,11 @@ def bone_name_in_armature_regex(arm, name):
 
 
 def is_G3_action(action):
-    if action:
-        if len(action.fcurves) > 0:
+    channels = utils.get_action_channels(action, slot_type="OBJECT")
+    if channels:
+        if len(channels.fcurves) > 0:
             for bone_name in rigify_mapping_data.CC3_BONE_NAMES:
-                if not name_in_data_paths(action, bone_name):
+                if not name_in_data_paths(action, bone_name, slot_type="OBJECT"):
                     return False
             return True
     return False
@@ -85,10 +90,11 @@ def is_G3_armature(armature):
 
 
 def is_iClone_action(action):
-    if action:
-        if len(action.fcurves) > 0:
+    channels = utils.get_action_channels(action, slot_type="OBJECT")
+    if channels:
+        if len(channels.fcurves) > 0:
             for bone_name in rigify_mapping_data.ICLONE_BONE_NAMES:
-                if not name_in_data_paths(action, bone_name):
+                if not name_in_data_paths(action, bone_name, slot_type="OBJECT"):
                     return False
             return True
     return False
@@ -105,10 +111,11 @@ def is_iClone_armature(armature):
 
 
 def is_ActorCore_action(action):
-    if action:
-        if len(action.fcurves) > 0:
+    channels = utils.get_action_channels(action, slot_type="OBJECT")
+    if channels:
+        if len(channels.fcurves) > 0:
             for bone_name in rigify_mapping_data.ACTOR_CORE_BONE_NAMES:
-                if not name_in_data_paths(action, bone_name):
+                if not name_in_data_paths(action, bone_name, slot_type="OBJECT"):
                     return False
             return True
     return False
@@ -125,10 +132,11 @@ def is_ActorCore_armature(armature):
 
 
 def is_GameBase_action(action):
-    if action:
-        if len(action.fcurves) > 0:
+    channels = utils.get_action_channels(action, slot_type="OBJECT")
+    if channels:
+        if len(channels.fcurves) > 0:
             for bone_name in rigify_mapping_data.GAME_BASE_BONE_NAMES:
-                if not name_in_data_paths(action, bone_name):
+                if not name_in_data_paths(action, bone_name, slot_type="OBJECT"):
                     return False
             return True
     return False
@@ -145,10 +153,11 @@ def is_GameBase_armature(armature):
 
 
 def is_Mixamo_action(action):
-    if action:
-        if len(action.fcurves) > 0:
+    channels = utils.get_action_channels(action, slot_type="OBJECT")
+    if channels:
+        if len(channels.fcurves) > 0:
             for bone_name in rigify_mapping_data.MIXAMO_BONE_NAMES:
-                if not name_in_pose_bone_data_paths_regex(action, bone_name):
+                if not name_in_pose_bone_data_paths_regex(action, bone_name, slot_type="OBJECT"):
                     return False
             return True
     return False
@@ -165,10 +174,11 @@ def is_Mixamo_armature(armature):
 
 
 def is_rigify_action(action):
-    if action:
-        if len(action.fcurves) > 0:
+    channels = utils.get_action_channels(action, slot_type="OBJECT")
+    if channels:
+        if len(channels.fcurves) > 0:
             for bone_name in rigify_mapping_data.RIGIFY_BONE_NAMES:
-                if not name_in_data_paths(action, bone_name):
+                if not name_in_data_paths(action, bone_name, slot_type="OBJECT"):
                     return False
             return True
     return False
@@ -185,10 +195,11 @@ def is_rigify_armature(armature):
 
 
 def is_rl_rigify_action(action):
-    if action:
-        if len(action.fcurves) > 0:
+    channels = utils.get_action_channels(action, slot_type="OBJECT")
+    if channels:
+        if len(channels.fcurves) > 0:
             for bone_name in rigify_mapping_data.RL_RIGIFY_BONE_NAMES:
-                if not name_in_data_paths(action, bone_name):
+                if not name_in_data_paths(action, bone_name, slot_type="OBJECT"):
                     return False
             return True
     return False
@@ -352,9 +363,11 @@ def get_main_body_action(source_actions):
     num_keys = 0
     for obj_id in source_actions["keys"]:
         action = source_actions["keys"][obj_id]
-        if len(action.fcurves) > num_keys:
-            num_keys = len(action.fcurves)
-            action_with_most_keys = action
+        channels = utils.get_action_channels(action, slot_type="KEY")
+        if channels:
+            if len(channels.fcurves) > num_keys:
+                num_keys = len(channels.fcurves)
+                action_with_most_keys = action
     if action_with_most_keys:
         utils.log_info(f" - Using action with most shape keys: {action_with_most_keys.name}")
     else:
@@ -456,11 +469,13 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
 
 
 def obj_has_action_shape_keys(obj, action: bpy.types.Action):
-    if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-        for key in obj.data.shape_keys.key_blocks:
-            for fcurve in action.fcurves:
-                if key.name in fcurve.data_path:
-                    return True
+    channels = utils.get_action_channels(action, slot_type="KEY")
+    if channels:
+        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            for key in obj.data.shape_keys.key_blocks:
+                for fcurve in channels.fcurves:
+                    if key.name in fcurve.data_path:
+                        return True
     return False
 
 
@@ -754,8 +769,8 @@ def create_key_proxy_object(obj_id, action: bpy.types.Action=None, shape_keys=No
     obj.hide_set(True)
 
     if action:
-
-        for fcurve in action.fcurves:
+        channels = utils.get_action_channels(action, slot_type="KEY")
+        for fcurve in channels.fcurves:
             data_path = fcurve.data_path
             if data_path.startswith("key_blocks["):
                 key_name = data_path[12:-8]
@@ -1419,18 +1434,20 @@ def reset_pose(rig, exceptions=None, use_selected=False):
         for pose_bone in rig.pose.bones:
             bone = pose_bone.bone
             if exceptions and pose_bone.name in exceptions:
-                bone.select = False
+                bones.select_bone(rig, pose_bone, False)
                 continue
-            bones_data[bone] = (bone.select, bone.hide, bone.hide_select)
+            selected = bones.get_bone_selected(rig, bone)
+            bones_data[bone] = (selected, bone.hide, bone.hide_select)
             if not use_selected:
-                bone.select = True
+                bones.select_bone(rig, bone, True)
                 bone.hide = False
                 if bones.can_unlock(pose_bone):
                     bone.hide_select = False
         bpy.ops.pose.transforms_clear()
         for bone in rig.data.bones:
             if bone in bones_data:
-                bone.select, bone.hide, bone.hide_select = bones_data[bone]
+                selected, bone.hide, bone.hide_select = bones_data[bone]
+                bones.select_bone(rig, bone, selected)
 
 
 def reset_shape_keys(mesh):
@@ -1640,8 +1657,7 @@ def bake_rig_action_from_source(src_rig, dst_rig):
     if select_rig(dst_rig):
         bones.make_bones_visible(dst_rig)
         bone : bpy.types.Bone
-        for bone in dst_rig.data.bones:
-            bone.select = True
+        bones.select_all_bones(dst_rig, True)
         baked_action = bake_rig_action(src_rig, dst_rig)
     # remove contraints
     unconstrain_pose_rigs(constraints)
@@ -2710,3 +2726,188 @@ class CCICRigUtils(bpy.types.Operator):
             return "Re-enable the IK stretch mechanisms in the rig"
 
         return ""
+
+
+class CCIC_ImportMixBones_UL_List(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name if item else "", translate=False, icon_value=icon)
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+    def filter_items(self, context, data, propname):
+        filtered = []
+        ordered = []
+        items = getattr(data, propname)
+        filtered = [self.bitflag_filter_item] * len(items)
+        for i, item in enumerate(items):
+            allowed = True
+            # filter by name
+            if self.filter_name and self.filter_name != "*":
+                if self.filter_name not in item.name:
+                    allowed = False
+            # block not allowed
+            if not allowed:
+                filtered[i] &= ~self.bitflag_filter_item
+        return filtered, ordered
+
+
+
+class CCICActionImportFunctions(bpy.types.Operator):
+    """Action Import Functions"""
+    bl_idname = "ccic.action_import_functions"
+    bl_label = "Action Import Functions"
+    bl_options = {"REGISTER", "UNDO"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = "",
+            options={"HIDDEN"}
+        )
+
+    def execute(self, context):
+        props = vars.props()
+        prefs = vars.prefs()
+        chr_cache = props.get_context_character_cache(context)
+        if chr_cache:
+            if self.param == "ADD_BONE":
+                self.add_bone(chr_cache)
+            elif self.param == "REMOVE_BONE":
+                self.remove_bone(chr_cache)
+        return {"FINISHED"}
+
+    def add_bone(self, chr_cache):
+        arm = chr_cache.get_armature()
+        props = chr_cache.action_options
+        bone_index = props.rig_mix_bones_list_index
+        bone = arm.data.bones[bone_index]
+        for bone_item in props.import_mix_bones:
+            if bone_item.name == bone.name:
+                return
+        bone_item = props.import_mix_bones.add()
+        bone_item.name = bone.name
+        bone_item.weight = 1.0
+
+    def remove_bone(self, chr_cache):
+        props = chr_cache.action_options
+        index = props.import_mix_bones_list_index
+        try:
+            props.import_mix_bones.remove(index)
+        except:
+            print(f"Unable to remove import mix bones index: {index}")
+
+
+    @classmethod
+    def description(cls, context, properties):
+        return ""
+
+
+class CCIC_RigMixBones_UL_List(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name if item else "", translate=False, icon_value=icon)
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+    def filter_items(self, context, data, propname):
+        props = vars.props()
+        filtered = []
+        ordered = []
+        items = getattr(data, propname)
+        filtered = [self.bitflag_filter_item] * len(items)
+        item : bpy.types.Action
+        chr_cache = props.get_context_character_cache(context)
+        if chr_cache:
+            arm = chr_cache.get_armature()
+        for i, item in enumerate(items):
+            allowed = True
+            # filter by name
+            if self.filter_name and self.filter_name != "*":
+                if self.filter_name not in item.name:
+                    allowed = False
+            # block not allowed
+            if not allowed:
+                filtered[i] &= ~self.bitflag_filter_item
+        return filtered, ordered
+
+
+class CCICActionImportOptions(bpy.types.Operator):
+    """Action Import Options"""
+    bl_idname = "ccic.action_import_options"
+    bl_label = "Action Import Options"
+    bl_options = {"REGISTER", "UNDO"}
+
+    chr_cache = None
+    objects = {}
+
+    @classmethod
+    def poll(cls, context):
+        props = vars.props()
+        return props.get_context_character_cache(context) is not None
+
+    @classmethod
+    def label(cls, context, chr_cache=None):
+        props = vars.props()
+        if not chr_cache:
+            chr_cache = props.get_context_character_cache(context)
+        if chr_cache and chr_cache.action_options:
+            props = chr_cache.action_options
+            action_text = {
+                "NEW": "Add",
+                "REPLACE": "Repl",
+                "MIX": "Mix",
+            }
+            frame_text = {
+                "START": "Start",
+                "CURRENT": "Curr",
+                "MATCH": "Match",
+            }
+            mask_text = " (Mask)" if props.use_masking else ""
+            return f"{action_text[props.action_mode]} > {frame_text[props.frame_mode]}{mask_text}"
+        return "Import Options"
+
+    def draw(self, context):
+        layout = self.layout
+        column = layout.column()
+        if self.chr_cache and self.chr_cache.action_options:
+            arm = self.chr_cache.get_armature()
+            props = self.chr_cache.action_options
+            column.row().prop(props, "action_mode")
+            column.row().prop(props, "frame_mode")
+            column.row().prop(props, "use_masking")
+            row = column.row()
+            row.template_list("CCIC_RigMixBones_UL_List", "rig_mix_bones_list",
+                                       arm.data, "bones",
+                                       props, "rig_mix_bones_list_index",
+                                       rows=8, maxrows=8)
+            col = row.column()
+            col.separator(factor=4.0)
+            col.operator("ccic.action_import_functions", text="", icon="PLAY").param = "ADD_BONE"
+            col.separator(factor=4.0)
+            col.operator("ccic.action_import_functions", text="", icon="PLAY_REVERSE").param = "REMOVE_BONE"
+            col.separator(factor=4.0)
+            row.template_list("CCIC_ImportMixBones_UL_List", "import_mix_bones_list",
+                                       props, "import_mix_bones",
+                                       props, "import_mix_bones_list_index",
+                                       rows=8, maxrows=8)
+        else:
+            column.label(text="No Character!")
+
+    def execute(self, context):
+        props = vars.props()
+        prefs = vars.prefs()
+        #self.chr_cache = props.get_context_character_cache(context)
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        props = vars.props()
+        prefs = vars.prefs()
+        utils.set_mode("OBJECT")
+        self.chr_cache = props.get_context_character_cache(context)
+        return context.window_manager.invoke_props_dialog(self, width=500)
+
+    @classmethod
+    def description(cls, context, properties):
+        return "Description"

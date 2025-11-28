@@ -2077,7 +2077,8 @@ def clear_action(action, slot_type=None, slot_name=None):
                             channelbag.fcurves.clear()
                 while action.slots:
                     action.slots.remove(action.slots[0])
-            action.fcurves.clear()
+            if not B500():
+                action.fcurves.clear()
             if B440():
                 if slot_type and slot_name:
                     action.slots.new(slot_type, slot_name)
@@ -2240,6 +2241,9 @@ def B430():
 
 def B440():
     return is_blender_version("4.4.0")
+
+def B500():
+    return is_blender_version("5.0.0")
 
 
 def is_blender_version(version: str, test = "GTE"):

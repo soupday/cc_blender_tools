@@ -291,9 +291,10 @@ def init_shape_key_range(obj):
             # the shapekey action to update to the new ranges:
             try:
                 action = utils.safe_get_action(shape_keys)
-                if action:
-                    co = action.fcurves[0].keyframe_points[0].co
-                    action.fcurves[0].keyframe_points[0].co = co
+                channels = utils.get_action_channels(action, slot_type="KEY")
+                if channels:
+                    co = channels.fcurves[0].keyframe_points[0].co
+                    channels.fcurves[0].keyframe_points[0].co = co
             except:
                 pass
 

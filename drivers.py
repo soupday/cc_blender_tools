@@ -48,6 +48,11 @@ def make_driver_var(driver, var_type, var_name, target, target_type = "OBJECT", 
     return var
 
 
+def make_dummy_var(driver, var_name):
+    var : bpy.types.DriverVariable = driver.variables.new()
+    var.name = var_name
+
+
 def make_driver(source, prop_name, driver_type, driver_expression = "", index = -1):
     """
     prop_name = "value", "influence"\n

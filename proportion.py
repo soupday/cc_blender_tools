@@ -27,7 +27,7 @@ def hide_sub_bones(rig, hide=True):
         bone_name: str = bone.name
         if "ShareBone" in bone_name or ("Twist" in bone_name and "NeckTwist" not in bone_name) or "_twist_" in bone_name:
             bone.hide = hide
-            bone.select = False
+            bones.select_bone(rig, bone, False)
 
 
 def convert_to_blender_bone_names(chr_cache):

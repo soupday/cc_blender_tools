@@ -791,25 +791,25 @@ def custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones)
         parent_bone = hair_rig
 
         bone_name = f"{hair_bone_prefix}_{loop_index}_0"
-        bone : bpy.types.EditBone = bones.new_edit_bone(arm, bone_name, parent_bone.name)
+        edit_bone : bpy.types.EditBone = bones.new_edit_bone(arm, bone_name, parent_bone.name)
         new_bones.append(bone_name)
-        bone.select = True
-        bone.select_head = True
-        bone.select_tail = True
+        edit_bone.select = True
+        edit_bone.select_head = True
+        edit_bone.select_tail = True
         world_origin = arm.matrix_world @ hair_rig.head
         world_pos = world_origin + Vector((0, 0.05, 0.15))
         while is_nearby_bone(arm, world_pos):
             world_pos += Vector((0, 0.0175, 0))
         world_head = world_pos
         world_tail = world_pos + Vector((0, 0, bone_length))
-        bone.head = arm.matrix_world.inverted() @ world_head
-        bone.tail = arm.matrix_world.inverted() @ world_tail
+        edit_bone.head = arm.matrix_world.inverted() @ world_head
+        edit_bone.tail = arm.matrix_world.inverted() @ world_tail
         bone_z = (((world_head + world_tail) * 0.5) - world_origin).normalized()
-        bone.align_roll(bone_z)
+        edit_bone.align_roll(bone_z)
         # set bone layer to 25, so we can show only the added hair bones 'in front'
-        bones.set_bone_collection(arm, bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
+        bones.set_bone_collection(arm, edit_bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
         # don't directly connect first bone in a chain
-        bone.use_connect = False
+        edit_bone.use_connect = False
         return True
 
     return False
@@ -1006,28 +1006,28 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length,
 
         for s in range(0, segments):
             bone_name = f"{hair_bone_prefix}_{loop_index}_{s}"
-            bone : bpy.types.EditBone = bones.new_edit_bone(arm, bone_name, parent_bone.name)
-            bone[BONE_SMOOTH_LEVEL_CUSTOM_PROP] = smooth_level
+            edit_bone : bpy.types.EditBone = bones.new_edit_bone(arm, bone_name, parent_bone.name)
+            edit_bone[BONE_SMOOTH_LEVEL_CUSTOM_PROP] = smooth_level
             new_bones.append(bone_name)
-            bone.select = True
-            bone.select_head = True
-            bone.select_tail = True
+            edit_bone.select = True
+            edit_bone.select_head = True
+            edit_bone.select_tail = True
             world_head = eval_loop_at(loop, length, fac)
             world_tail = eval_loop_at(loop, length, fac + df)
-            bone.head = arm.matrix_world.inverted() @ world_head
-            bone.tail = arm.matrix_world.inverted() @ world_tail
+            edit_bone.head = arm.matrix_world.inverted() @ world_head
+            edit_bone.tail = arm.matrix_world.inverted() @ world_tail
             world_origin = arm.matrix_world @ hair_rig.head
             bone_z = (((world_head + world_tail) * 0.5) - world_origin).normalized()
-            bone.align_roll(bone_z)
-            parent_bone = bone
+            edit_bone.align_roll(bone_z)
+            parent_bone = edit_bone
             # set bone layer to 25, so we can show only the added hair bones 'in front'
-            bones.set_bone_collection(arm, bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
+            bones.set_bone_collection(arm, edit_bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
             chain.append(bone_name)
             if first:
-                bone.use_connect = False
+                edit_bone.use_connect = False
                 first = False
             else:
-                bone.use_connect = True
+                edit_bone.use_connect = True
             first = False
             fac += df
 
@@ -1447,8 +1447,7 @@ def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
     if iterations == 0:
         return
 
-    for bone in arm.data.bones:
-        bone.select = False
+    bones.select_all_bones(arm, False)
 
     # select all the bones involved
     for bone_chain in bone_chains:
@@ -1693,10 +1692,7 @@ def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length
 
     if anchor_bone:
         utils.edit_mode_to(arm)
-        for edit_bone in arm.data.edit_bones:
-            edit_bone.select_head = False
-            edit_bone.select_tail = False
-            edit_bone.select = False
+        bones.select_all_bones(arm, False)
         loop_index = 1
         new_bones = []
         loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)

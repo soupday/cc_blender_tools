@@ -1336,18 +1336,24 @@ def build_retarget_driver(chr_cache, rigify_rig, driver_id, driver_def, source_r
             driver = drivers.make_driver(pose_bone, prop, "SCRIPTED", driver_expression=expression, index=index)
             if driver:
                 for var_name, shape_key_name in var_defs:
+                    var = None
+                    key = None
                     for obj in source_objects:
                         key = drivers.get_shape_key(obj, shape_key_name)
                         if key:
-                            # target_type="MESH", data_path="shape_keys.key_blocks[\"{shape_key}\"].value"
-                            data_path = "shape_keys." + key.path_from_id("value")
-                            var = drivers.make_driver_var(driver,
-                                                        "SINGLE_PROP",
-                                                        var_name,
-                                                        obj.data,
-                                                        target_type="MESH",
-                                                        data_path=data_path)
                             break
+                    if not key:
+                        utils.log_warn(f"Unable to find source for shape key: {shape_key_name}")
+                        var = drivers.make_dummy_var(driver, var_name)
+                    else:
+                        # target_type="MESH", data_path="shape_keys.key_blocks[\"{shape_key}\"].value"
+                        data_path = "shape_keys." + key.path_from_id("value")
+                        var = drivers.make_driver_var(driver,
+                                                    "SINGLE_PROP",
+                                                    var_name,
+                                                    obj.data,
+                                                    target_type="MESH",
+                                                    data_path=data_path)
                 for var_name, prop_obj, prop_name in prop_defs:
                     # target_type="MESH", data_path="shape_keys.key_blocks[\"{shape_key}\"].value"
                     data_path = f"[\"{prop_name}\"]"
