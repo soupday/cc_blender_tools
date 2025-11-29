@@ -507,7 +507,7 @@ def func_sclera_brightness(cc, b):
     return b
 
 def func_eye_tiling(cc, ir, ss):
-    return 0.16 / (ir * ss)
+    return (1.0 / 6.81) / (ir * ss)
 
 def func_half(cc, s):
     return s * 0.5
@@ -550,35 +550,6 @@ def func_mul_5(cc, v):
 
 def func_mul_2(cc, v):
     return v * 2.0
-
-def func_limbus_dark_radius(cc, limbus_dark_scale):
-    #return 1 / limbus_dark_scale
-    #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
-    #return utils.lerp(0.155, 0.08, t) + 0.025
-    limbus_dark_scale = max(limbus_dark_scale, 0.01)
-    ds = pow(0.01, 0.2) / limbus_dark_scale
-    dm = pow(0.5, 0.2) / limbus_dark_scale
-    de = dm + (dm - ds)
-    return de
-
-def func_limbus_dark_width(cc, limbus_dark_scale):
-    #return 1 / limbus_dark_scale
-    #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
-    #return utils.lerp(0.155, 0.08, t) + 0.025
-    limbus_dark_scale = max(limbus_dark_scale, 0.01)
-    ds = pow(0.01, 0.2) / limbus_dark_scale
-    dm = pow(0.5, 0.2) / limbus_dark_scale
-    de = dm + (dm - ds)
-    return ds / de
-
-def func_export_limbus_dark_scale(cc, ldr):
-    #return 1 / limbus_dark_radius
-    #t = utils.inverse_lerp(0.155, 0.08, limbus_dark_radius - 0.025)
-    #return utils.clamp(utils.lerp(0.0, 10.0, t), 0, 10)
-    M = pow(0.5, 0.2)
-    S = pow(0.01, 0.2)
-    lds = (2 * M - S) / ldr
-    return lds
 
 def func_brightness(cc, b):
     """Shader brightness adjust"""
@@ -727,7 +698,7 @@ def func_get_occlusion_contrast(cc, mc):
 #
 # End Prop matrix eval, parameter conversion functions
 
-def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, tex_json):
+def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, shader_node, tex_json):
     prefs = vars.prefs()
 
     tex_type = texture_def[2]
@@ -786,6 +757,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
         nodeutils.set_node_input_value(tiling_node, "Tiling", tiling)
         nodeutils.set_node_input_value(tiling_node, "Pivot", (0.5, 0.5, 0))
         nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
+        nodeutils.link_nodes(links, tiling_node, "Vector", shader_node, "Iris UV")
 
     elif tiling_mode == "OFFSET":
         node_group = lib.get_node_group("tiling_offset_mapping")
@@ -800,6 +772,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
         mapping_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
         mapping_node.location = location
         nodeutils.link_nodes(links, mapping_node, "Vector", node, "Vector")
+        nodeutils.link_nodes(links, mapping_node, "Vector", shader_node, "Iris UV")
         shader_name = params.get_shader_name(mat_cache)
         shader_def = params.get_shader_def(shader_name)
         if "mapping" in shader_def.keys():
@@ -997,7 +970,7 @@ def apply_texture_matrix(nodes, links, shader_node,
                             y -= 700
 
                         set_image_node_tiling(nodes, links, image_node, mat_cache, texture_def,
-                                              shader_name, tex_json)
+                                              shader_name, shader_node, tex_json)
 
                         # ensure bump maps are connected to the correct socket
                         if socket_name == "Normal Map" and suffix and suffix.lower() == "bump":

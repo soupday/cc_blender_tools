@@ -802,12 +802,12 @@ class ACTION_UL_List(bpy.types.UIList):
         items = getattr(data, propname)
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
-        channels  = utils.get_action_channels(item, slot_type="OBJECT")
         for i, item in enumerate(items):
             allowed = False
             action_set_generation = utils.prop(item, "rl_set_generation")
             action_type = utils.prop(item, "rl_action_type")
             action_armature_id = utils.prop(item, "rl_armature_id")
+            channels  = utils.get_action_channels(item, slot_type="OBJECT")
             if props.armature_action_filter and arm_object:
                 if arm_set_generation and action_set_generation and action_type and rl_arm_id and action_armature_id:
                     if (arm_set_generation == action_set_generation and
@@ -888,9 +888,9 @@ class UNITY_ACTION_UL_List(bpy.types.UIList):
         items = getattr(data, propname)
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
-        channels  = utils.get_action_channels(item, slot_type="OBJECT")
         for i, item in enumerate(items):
             if "_Unity" in item.name and "|A|" in item.name:
+                channels  = utils.get_action_channels(item, slot_type="OBJECT")
                 if channels and len(channels.fcurves) == 0: # no fcurves, no animation...
                     filtered[i] &= ~self.bitflag_filter_item
                 elif channels and channels.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
