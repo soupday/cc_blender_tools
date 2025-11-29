@@ -807,7 +807,7 @@ class ACTION_UL_List(bpy.types.UIList):
             action_set_generation = utils.prop(item, "rl_set_generation")
             action_type = utils.prop(item, "rl_action_type")
             action_armature_id = utils.prop(item, "rl_armature_id")
-            channels  = utils.get_action_channels(item, slot_type="OBJECT")
+            channels = utils.get_action_channels(item, slot_type="OBJECT")
             if props.armature_action_filter and arm_object:
                 if arm_set_generation and action_set_generation and action_type and rl_arm_id and action_armature_id:
                     if (arm_set_generation == action_set_generation and

@@ -879,7 +879,7 @@ def remove_existing_loop_bones(chr_cache, arm, smoothed_loops):
         if hair_rig:
 
             for chain_root in hair_rig.children:
-                chain_root : bpy.types.EditBone
+                chain_root: bpy.types.EditBone
                 if chain_root not in removed_roots:
                     chain_bones = get_linked_bones(chain_root, [])
                     for smoothed_loop_set in smoothed_loops:
@@ -892,7 +892,7 @@ def remove_existing_loop_bones(chr_cache, arm, smoothed_loops):
                             remove_bones = False
                             remove_loop = False
                             if bone_selection_mode == "SELECTED":
-                                if chain_root.select:
+                                if bones.get_bone_selected(arm, chain_root):
                                     # if the chain is selected, then it is to be replaced, so remove it.
                                     remove_bones = True
                                 else:
@@ -1414,7 +1414,7 @@ def get_bone_chain_defs(chr_cache, arm, bone_selection_mode, parent_mode):
     hair_rig = springbones.get_spring_rig(chr_cache, arm, parent_mode, mode = "EDIT")
     if hair_rig:
         for child_bone in hair_rig.children:
-            if arm.data.bones[child_bone.name].select or bone_selection_mode == "ALL":
+            if bones.get_bone_selected(arm, child_bone.name) or bone_selection_mode == "ALL":
                 chain = []
                 if not add_bone_chain_def(arm, child_bone, chain):
                     continue
@@ -1454,7 +1454,7 @@ def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
         for bone_def in bone_chain:
             bone_name = bone_def["name"]
             if bone_name in arm.data.bones:
-                arm.data.bones[bone_name].select = True
+                bones.select_bone(arm, bone_name, True)
 
     # Note: BONE_SELECT group select mode is only available if the armature is also selected with the active mesh
     #       (otherwise it doesn't even exist as an enum option)

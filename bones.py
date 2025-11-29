@@ -974,7 +974,7 @@ def restore_armature_settings(rig, visibility, include_pose=False, include_selec
     if include_selection:
         selection_data = visibility["selection"]
         for bone_name in selection_data:
-            rig.data.bones[bone_name].select = selection_data[bone_name]
+            select_bone(rig, bone_name, selection_data[bone_name])
 
 
 def set_rig_bind_pose(rig):

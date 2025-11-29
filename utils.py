@@ -2104,8 +2104,11 @@ def get_action_channels(action: bpy.types.Action, slot=None, slot_type=None):
             slot = get_action_slot(action, slot_type)
         if slot:
             channelbag = strip.channelbag(slot, ensure=True)
-            return channelbag
-        return action
+            if channelbag:
+                return channelbag
+    if B500():
+        # actions do not have fcurves in B5
+        return None
     else:
         return action
 
