@@ -695,6 +695,18 @@ def func_get_occlusion_contrast(cc, mc):
     c = pow(0.5/mc, 0.5)
     return min(1, max(0, c))
 
+def func_invert(cc, inv: bool):
+    return 1.0 if inv else 0.0
+
+def func_eye_invert(cc, inv: bool):
+    return 0.0 if inv else 1.0
+
+def func_to_bool(cc, f: float):
+    return True if f > 0.0001 else False
+
+def func_from_bool(cc, b: bool):
+    return 1.0 if b else 0.0
+
 #
 # End Prop matrix eval, parameter conversion functions
 
@@ -750,6 +762,8 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, sh
         if prefs.refractive_eyes == "SSR" or mat_cache.is_eye():
             tiling_mode = "CENTERED"
 
+    tiling_node = None
+
     if tiling_mode == "CENTERED":
         node_group = lib.get_node_group("tiling_pivot_mapping")
         tiling_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
@@ -769,18 +783,19 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, sh
 
     elif tiling_mode == "EYE_PARALLAX":
         node_group = lib.get_node_group("tiling_cornea_parallax_mapping")
-        mapping_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
-        mapping_node.location = location
-        nodeutils.link_nodes(links, mapping_node, "Vector", node, "Vector")
-        nodeutils.link_nodes(links, mapping_node, "Vector", shader_node, "Iris UV")
-        shader_name = params.get_shader_name(mat_cache)
-        shader_def = params.get_shader_def(shader_name)
-        if "mapping" in shader_def.keys():
-            mapping_defs = shader_def["mapping"]
-            for mapping_def in mapping_defs:
-                if len(mapping_def) > 1:
-                    socket_name = mapping_def[1]
-                    nodeutils.set_node_input_value(mapping_node, socket_name, eval_tiling_param(mapping_def, mat_cache, 2))
+        tiling_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
+        tiling_node.location = location
+        nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
+        nodeutils.link_nodes(links, tiling_node, "Vector", shader_node, "Iris UV")
+
+    shader_name = params.get_shader_name(mat_cache)
+    shader_def = params.get_shader_def(shader_name)
+    if tiling_node and "mapping" in shader_def.keys():
+        mapping_defs = shader_def["mapping"]
+        for mapping_def in mapping_defs:
+            if tex_type == mapping_def[0]:
+                socket_name = mapping_def[1]
+                nodeutils.set_node_input_value(tiling_node, socket_name, eval_tiling_param(mapping_def, mat_cache, 2))
 
 
 def init_character_property_defaults(chr_cache, chr_json, only:list=None):

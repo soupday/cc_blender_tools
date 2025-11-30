@@ -1389,12 +1389,13 @@ SHADER_MATRIX = [
             ["Iris Emission Map", "", "EMISSION"],
         ],
         "mapping": [
-            ["DIFFUSE"], # The Parallax mapping node is updated with these params, not the mapping params in the textures above.
-            ["EYE_PARALLAX", "Sclera Scale", "", "eye_sclera_scale"],
-            ["EYE_PARALLAX", "Iris Radius", "", "eye_iris_radius"],
-            ["EYE_PARALLAX", "Pupil Scale", "", "eye_pupil_scale"],
-            ["EYE_PARALLAX", "Depth", "func_set_parallax_iris_depth", "eye_iris_depth"],
-            ["EYE_PARALLAX", "IOR", "", "eye_ior"],
+            ["DIFFUSE", "Sclera Scale", "", "eye_sclera_scale"],
+            ["DIFFUSE", "Iris Radius", "", "eye_iris_radius"],
+            ["DIFFUSE", "Pupil Scale", "", "eye_pupil_scale"],
+            ["DIFFUSE", "Depth", "func_set_parallax_iris_depth", "eye_iris_depth"],
+            ["DIFFUSE", "IOR", "", "eye_ior"],
+            ["SCLERA", "Invert", "func_eye_invert", "eye_is_left_eye"],
+            ["SCLERANORMAL", "Invert", "func_eye_invert", "eye_is_left_eye"],
         ],
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
@@ -1427,6 +1428,7 @@ SHADER_MATRIX = [
             ["eye_iris_emission_strength", 0, "", "Pbr/Glow"],
             ["eye_subsurface_falloff", (1,1,1,1), "func_color_bytes", "SSS/Falloff"],
             ["eye_subsurface_radius", 5, "", "SSS/Radius"],
+            ["eye_is_left_eye", False, "func_float_to_bool", "Custom/Is Left Eye"],
             # non json properties (just defaults)
             ["eye_subsurface_scale", 1.0, "DEF"],
             ["eye_refraction_depth", 2.5, "DEF"],
@@ -1460,6 +1462,7 @@ SHADER_MATRIX = [
             ["Custom/Iris Depth Scale", 0.5, "func_export_eye_depth", "eye_iris_depth"],
             ["Custom/Sclera Flatten Normal", 0.9, "func_one_minus", "eye_sclera_normal_strength"],
             ["Custom/Sclera Normal UV Scale", 0.5, "func_tiling", "eye_sclera_normal_tiling"],
+            ["Custom/Is Left Eye", False, "func_from_bool", "eye_is_left_eye"],
             ["SSS/Falloff", [255.0, 255.0, 255.0], "func_export_byte3", "eye_subsurface_falloff"],
         ],
         "ui": [
@@ -1473,6 +1476,7 @@ SHADER_MATRIX = [
             ["PROP", "Sclera Brightness", "eye_sclera_brightness", True],
             ["PAIR", "*Sclera HS", "eye_sclera_hue", "eye_sclera_saturation", True],
             ["PROP", "*Sclera HSV Strength", "eye_sclera_hsv", True],
+            ["PROP", "Is Left Eye", "eye_is_left_eye", False],
             ["SPACER"],
             ["PROP", "Iris Color", "eye_iris_color", False],
             ["PROP", "Iris Brightness", "eye_iris_brightness", True],
@@ -1507,7 +1511,7 @@ SHADER_MATRIX = [
             ["PROP", "Pupil Scale", "eye_pupil_scale", True],
             ["PROP", "IOR", "eye_ior", True],
             ["PROP", "*Refraction Depth", "eye_refraction_depth", True],
-            ["HEADER",  "Shape", "SHADING_WIRE"],
+            ["HEADER",  "Shapekeys", "SHADING_WIRE"],
             ["PROP", "Pupil Narrow", "eye_pupil_narrow", True],
             ["PROP", "Pupil Wide", "eye_pupil_wide", True],
             ["HEADER",  "Normals", "NORMALS_FACE"],

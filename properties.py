@@ -294,11 +294,13 @@ def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
 
 def update_shader_mapping(shader_name, mat, mat_cache, prop_name, mapping_defs):
     mapping_node = None
+    current_texture_type = None
     for mapping_def in mapping_defs:
-        if len(mapping_def) == 1:
-            texture_type = mapping_def[0]
+        texture_type = mapping_def[0]
+        if current_texture_type != texture_type:
             mapping_node = nodeutils.get_tiling_node(mat, shader_name, texture_type)
-        elif mapping_node:
+            current_texture_type = texture_type
+        if mapping_node:
             tiling_props = mapping_def[3:]
             if prop_name in tiling_props:
                 socket_name = mapping_def[1]
@@ -856,6 +858,7 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     # shape
     eye_pupil_narrow: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_pupil_narrow"))
     eye_pupil_wide: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_pupil_wide"))
+    eye_is_left_eye: bpy.props.BoolProperty(default=False, update=lambda s,c: update_property(s,c,"eye_is_left_eye"))
 
 
 class CC3EyeOcclusionParameters(bpy.types.PropertyGroup):
