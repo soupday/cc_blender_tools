@@ -1,5 +1,5 @@
 # CC/iC Blender Tools (Installed in Blender)
-An add-on for importing and automatically setting up materials for Character Creator 3 & 4 and iClone 7 & 8 character exports.
+An add-on for importing and automatically setting up materials for Character Creator 3, 4 & 5 and iClone 7 & 8 character exports.
 
 Using Blender in the Character Creator pipeline can often feel like hitting a brick wall. Spending potentially hours having to get the import settings correct and setting up the materials often with hundreds of textures.
 
@@ -11,7 +11,7 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 Links
 =====
-[CC4 Blender Pipeline Tool (Installed in CC4)](https://github.com/soupday/CCiC-Blender-Pipeline-Plugin)
+[CC4/5 Blender Pipeline Tool (Installed in CC4/5)](https://github.com/soupday/CCiC-Blender-Pipeline-Plugin)
 
 [CC3 Blender Pipeline Tool (Installed in CC3)](https://github.com/soupday/CC3-Blender-Tools-Plugin)
 
@@ -32,6 +32,9 @@ Links
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+
+### 2.3.3
+
 
 ### 2.3.2
 - Shaders updated for CC5:

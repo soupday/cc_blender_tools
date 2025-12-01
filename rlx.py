@@ -296,6 +296,7 @@ def import_rlx_camera(data: BinaryData, data_folder):
     dof_cache = frame_cache(num_frames)
     focus_distance_cache = frame_cache(num_frames)
     f_stop_cache = frame_cache(num_frames)
+    active_cache = []
 
     frame = 0
     start = None
@@ -329,6 +330,7 @@ def import_rlx_camera(data: BinaryData, data_folder):
         transition = (1 / blur) * (dof_range + dof_far_transition + dof_near_transition) / 16
         f_stop = transition
         store_frame(camera, f_stop_cache, frame, start, f_stop)
+        active_cache.append((frame, time, active))
 
     ob_action, cam_action, ob_slot, cam_slot = prep_rlx_actions(camera, name, "Export",
                                                                 reuse_existing=False,
@@ -340,6 +342,7 @@ def import_rlx_camera(data: BinaryData, data_folder):
     add_cache_fcurves(cam_action, "dof.use_dof", dof_cache, num_frames, "DOF", slot=cam_slot)
     add_cache_fcurves(cam_action, "dof.focus_distance", focus_distance_cache, num_frames, "DOF", slot=cam_slot)
     add_cache_fcurves(cam_action, "dof.aperture_fstop", f_stop_cache, num_frames, "DOF", slot=cam_slot)
+    add_camera_markers(camera, active_cache, num_frames, start)
 
 
 def frame_rotation_cache(obj, frames):
@@ -435,6 +438,29 @@ def add_cache_fcurves(action: bpy.types.Action, data_path, cache, num_frames, gr
         fcurve.group = channels.groups[group_name]
         fcurve.keyframe_points.add(num_frames)
         fcurve.keyframe_points.foreach_set('co', cache[i])
+
+
+def add_camera_markers(camera, cache, num_frames, start):
+    scene = bpy.context.scene
+    frames = len(cache)
+
+    # wipe all camera markers for this camera in this frame range
+    to_remove = []
+    for marker in scene.timeline_markers:
+        if marker.frame >= start and marker.frame < start + num_frames:
+            if marker.camera == camera:
+                to_remove.append(marker)
+    for marker in to_remove:
+        scene.timeline_markers.remove(marker)
+
+    # add markers for camera only when camera first activates
+    last_active = False
+    for i, (frame, time, active) in enumerate(cache):
+        if active and not last_active:
+           marker = scene.timeline_markers.new(f"RLCam_F{frame}")
+           marker.frame = frame
+           marker.camera = camera
+        last_active = active
 
 
 def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
