@@ -2576,6 +2576,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def change_import_file(self, filepath):
         self.import_file = filepath
 
+    def get_character_json_path(self):
+        return jsonutils.get_json_path(self.import_file)
+
     def get_character_json(self, json_data=None):
         if not json_data:
             json_data = self.get_json_data()

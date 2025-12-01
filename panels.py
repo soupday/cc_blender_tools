@@ -569,10 +569,11 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
     if chr_cache or generic_rig or non_chr_objects:
         if chr_cache:
             if chr_cache.link_id:
-                row = layout.row()
+                row = layout.row(align=True)
                 row.label(text=f"Link ID: {chr_cache.link_id}")
                 if chr_cache.import_file:
                     row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
+                    row.operator("ccic.datalink", icon="OPTIONS", text="").param = "SHOW_ACTOR_JSON"
             else:
                 layout.row().label(text=f"{type_string}: Unlinked")
         elif generic_rig:

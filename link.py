@@ -4476,6 +4476,13 @@ class CCICDataLink(bpy.types.Operator):
                 utils.open_folder(chr_cache.get_import_dir())
             return {'FINISHED'}
 
+        elif self.param == "SHOW_ACTOR_JSON":
+            props = vars.props()
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                os.startfile(chr_cache.get_character_json_path())
+            return {'FINISHED'}
+
         elif self.param == "SHOW_PROJECT_FILES":
             local_path = get_local_data_path()
             if local_path:
