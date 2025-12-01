@@ -962,6 +962,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             column = box.column()
             column.prop(PREFS, "import_deduplicate")
             column.prop(PREFS, "import_auto_convert")
+            column.prop(PREFS, "import_reset_custom_normals")
             if PREFS.import_auto_convert:
                 column.prop(PREFS, "auto_convert_materials")
             column.prop(PREFS, "build_limit_textures")
@@ -4060,6 +4061,7 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
             column = box.column()
             column.prop(PREFS, "import_deduplicate")
             column.prop(PREFS, "import_auto_convert")
+            column.prop(PREFS, "import_reset_custom_normals")
             if PREFS.import_auto_convert:
                 column.prop(PREFS, "auto_convert_materials")
             column.prop(PREFS, "build_limit_textures")

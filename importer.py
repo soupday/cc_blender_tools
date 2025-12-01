@@ -615,6 +615,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             physics.delete_accessory_colliders(arm, objects)
 
             # add child objects to object_cache
+            character_meshes = []
             for obj in objects:
                 if obj.type == "MESH" and obj.parent and obj.parent == arm:
                     if only_objects:
@@ -622,6 +623,14 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
                         if source_name not in only_objects:
                             continue
                     chr_cache.add_object_cache(obj)
+                    character_meshes.append(obj)
+
+            # clear custom normals option
+            if prefs.import_reset_custom_normals:
+                for obj in character_meshes:
+                    bpy.context.view_layer.objects.active = obj
+                    bpy.ops.mesh.customdata_custom_splitnormals_clear()
+                    bpy.context.view_layer.objects.active = None
 
             # remame actions
             utils.log_info("Renaming actions:")
