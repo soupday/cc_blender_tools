@@ -1428,7 +1428,7 @@ SHADER_MATRIX = [
             ["eye_iris_emission_strength", 0, "", "Pbr/Glow"],
             ["eye_subsurface_falloff", (1,1,1,1), "func_color_bytes", "SSS/Falloff"],
             ["eye_subsurface_radius", 5, "", "SSS/Radius"],
-            ["eye_is_left_eye", False, "func_float_to_bool", "Custom/Is Left Eye"],
+            ["eye_is_left_eye", False, "func_to_bool", "Custom/Is Left Eye"],
             # non json properties (just defaults)
             ["eye_subsurface_scale", 1.0, "DEF"],
             ["eye_refraction_depth", 2.5, "DEF"],
