@@ -114,7 +114,6 @@ def reset_datalink():
 
 def reset_preferences():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.render_target = "EEVEE"
     prefs.quality_lighting = "CC3"
     prefs.pipeline_lighting = "CC3"
     prefs.morph_lighting = "MATCAP"
@@ -141,6 +140,7 @@ def reset_preferences():
     prefs.import_auto_convert = True
     prefs.auto_convert_materials = True
     prefs.import_deduplicate = True
+    prefs.import_reset_custom_normals = False
     prefs.build_pack_texture_channels = False
     prefs.build_pack_wrinkle_diffuse_roughness = False
     prefs.build_reuse_baked_channel_packs = True
@@ -266,11 +266,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("DETAILS","Details","All including details."),
                     ], default="ERRORS", name = "(Debug) Log Level")
 
-    render_target: bpy.props.EnumProperty(items=[
-                        ("EEVEE","Eevee","Build shaders for Eevee rendering."),
-                        ("CYCLES","Cycles","Build shaders for Cycles rendering."),
-                    ], default="EEVEE", name = "Target Renderer")
-
     hair_hint: bpy.props.StringProperty(default="hair,scalp,beard,mustache,sideburns,ponytail,braid,!bow,!band,!tie,!ribbon,!ring,!butterfly,!flower", name="Hair detection keywords")
     hair_scalp_hint: bpy.props.StringProperty(default="scalp,base,skullcap", name="Scalp detection keywords")
 
@@ -358,6 +353,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
 
+    import_reset_custom_normals: bpy.props.BoolProperty(default=False, name="Reset Custom Normals",
+                description="Reset the custom normals on all imported meshes (can help resolve lighting artifacts)")
     import_deduplicate: bpy.props.BoolProperty(default=True, name="De-duplicate Materials",
                 description="Detects and re-uses duplicate textures and consolidates materials with same name, textures and parameters into a single material")
     import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic",
@@ -608,6 +605,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
         layout.label(text="Import:")
         grid = layout.grid_flow(row_major=True, columns=2)
+        grid.prop(self, "import_reset_custom_normals")
         grid.prop(self, "import_deduplicate")
         grid.prop(self, "import_auto_convert")
         grid.prop(self, "auto_convert_materials")
@@ -623,7 +621,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         grid.prop(self, "build_body_key_drivers")
 
         layout.label(text="Rendering:")
-        layout.prop(self, "render_target")
         layout.prop(self, "bake_use_gpu")
 
         if colorspace.is_aces():

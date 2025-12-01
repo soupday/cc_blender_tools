@@ -74,6 +74,7 @@ def wrapped_text_box(layout, info_text, width, alert = False, icon = None):
         else:
             box.label(text=text)
         first = False
+    return box
 
 
 def warn_icon(row, icon = "ERROR"):
@@ -525,6 +526,8 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
         box.label(text=f"{chr_name}", icon="TOOL_SETTINGS")
     col = layout.column(align=True)
 
+    render_rebuild_ui(col, chr_cache)
+
     grid = col.grid_flow(row_major=True, columns=2, align=True)
     grid.scale_y = 1.5
     grid.operator("cc3.character", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_ACTOR_ALL"
@@ -539,12 +542,17 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
         row1.enabled = False
         row2.enabled = False
 
+    can_be_rigged = (chr_cache and chr_cache.is_avatar() and not chr_cache.rigified and chr_cache.can_be_rigged())
+    if can_be_rigged:
+        row = col.row(align=True)
+        row.row(align=True).prop(prefs, "rigify_expression_rig", expand=True)
+
     split = col.split(factor=0.5, align=True)
     col_1 = split.column(align=True)
     col_2 = split.column(align=True)
     col_1.scale_y = 1.5
     col_2.scale_y = 1.5
-    col_1.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param ="DATALINK_RIGIFY"
+    col_1.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "DATALINK_RIGIFY"
     if not (chr_cache and chr_cache.is_avatar() and not chr_cache.rigified and chr_cache.can_be_rigged()):
         col_1.enabled = False
     if chr_cache:
@@ -561,10 +569,11 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
     if chr_cache or generic_rig or non_chr_objects:
         if chr_cache:
             if chr_cache.link_id:
-                row = layout.row()
+                row = layout.row(align=True)
                 row.label(text=f"Link ID: {chr_cache.link_id}")
                 if chr_cache.import_file:
                     row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
+                    row.operator("ccic.datalink", icon="OPTIONS", text="").param = "SHOW_ACTOR_JSON"
             else:
                 layout.row().label(text=f"{type_string}: Unlinked")
         elif generic_rig:
@@ -580,12 +589,27 @@ def character_tools_ui(context, layout: bpy.types.UILayout):
             layout.row().label(text=obj_text)
 
 
+def render_rebuild_ui(layout: bpy.types.UILayout, chr_cache):
+    if chr_cache and chr_cache.setup_mode == "ADVANCED":
+        width = get_layout_width(None, "UI")
+        # Cycles Prefs
+        engine_render_target = "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
+        if chr_cache.get_render_target() != engine_render_target:
+            box = layout.box()
+            box.alert = True
+            row = box.row(align=True)
+            row.scale_y = 2
+            text = "Rebuild for " + engine_render_target
+            row.operator("cc3.importer", icon="SHADING_TEXTURE", text=text).param ="BUILD_REBUILD"
+
+
+
 def render_prefs_ui(layout: bpy.types.UILayout, index=1):
     prefs = vars.prefs()
     props = vars.props()
 
     # Cycles Prefs
-    if prefs.render_target == "CYCLES":
+    if bpy.context.scene.render.engine == "CYCLES":
         suffix = "B4.1" if utils.B410() else "B3.4"
         box = layout.box()
         if fake_drop_down(box.row(),
@@ -784,6 +808,7 @@ class ACTION_UL_List(bpy.types.UIList):
             action_set_generation = utils.prop(item, "rl_set_generation")
             action_type = utils.prop(item, "rl_action_type")
             action_armature_id = utils.prop(item, "rl_armature_id")
+            channels = utils.get_action_channels(item, slot_type="OBJECT")
             if props.armature_action_filter and arm_object:
                 if arm_set_generation and action_set_generation and action_type and rl_arm_id and action_armature_id:
                     if (arm_set_generation == action_set_generation and
@@ -794,8 +819,8 @@ class ACTION_UL_List(bpy.types.UIList):
                     prefix, rig_id, type_id, obj_id, motion_id = rigutils.decode_action_name(item)
                     if type_id and rig_id and type_id == "A" and rig_id == arm_name:
                         allowed = True
-            elif len(item.fcurves) > 0:
-                if item.fcurves[0].data_path.startswith("key_blocks"):
+            elif channels and len(channels.fcurves) > 0:
+                if channels.fcurves[0].data_path.startswith("key_blocks"):
                     # no shape key actions
                     allowed = False
                 else:
@@ -866,9 +891,10 @@ class UNITY_ACTION_UL_List(bpy.types.UIList):
         item : bpy.types.Action
         for i, item in enumerate(items):
             if "_Unity" in item.name and "|A|" in item.name:
-                if len(item.fcurves) == 0: # no fcurves, no animation...
+                channels  = utils.get_action_channels(item, slot_type="OBJECT")
+                if channels and len(channels.fcurves) == 0: # no fcurves, no animation...
                     filtered[i] &= ~self.bitflag_filter_item
-                elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
+                elif channels and channels.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
                     filtered[i] &= ~self.bitflag_filter_item
                     if self.filter_name and self.filter_name != "*":
                         if self.filter_name not in item.name:
@@ -936,6 +962,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             column = box.column()
             column.prop(PREFS, "import_deduplicate")
             column.prop(PREFS, "import_auto_convert")
+            column.prop(PREFS, "import_reset_custom_normals")
             if PREFS.import_auto_convert:
                 column.prop(PREFS, "auto_convert_materials")
             column.prop(PREFS, "build_limit_textures")
@@ -966,8 +993,6 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         row.prop(var, "setup_mode", expand=True)
         if var.setup_mode == "ADVANCED":
             row = column.row(align=True)
-            row.prop(PREFS, "render_target", expand=True)
-            row = column.row(align=True)
             row.prop(PREFS, "refractive_eyes", expand=True)
 
         # ACES Prefs
@@ -992,7 +1017,12 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             row = col.row()
             row.scale_y = 2
             if chr_cache.setup_mode == "ADVANCED":
-                op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials").param ="BUILD"
+                engine_render_target = "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
+                if chr_cache.get_render_target() != engine_render_target:
+                    row.alert = True
+                    op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials").param ="BUILD_REBUILD"
+                else:
+                    op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials").param ="BUILD"
             else:
                 op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials").param ="BUILD"
 
@@ -1599,6 +1629,8 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         if mat_cache:
             parameters = mat_cache.parameters
 
+        render_rebuild_ui(layout, chr_cache)
+
         render_prefs_ui(layout, 2)
 
         # Parameters
@@ -1715,7 +1747,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     if condition == "HAS_VERTEX_COLORS":
                                         cond_res = len(obj.data.vertex_colors) > 0
                                     elif condition[0] == '#':
-                                        cond_res = chr_cache.render_target == condition[1:]
+                                        cond_res = chr_cache.get_render_target() == condition[1:]
                                     elif condition[0] == '>':
                                         cond_res = nodeutils.has_connected_output(shader_node, condition[1:])
                                     elif condition[0] == '!':
@@ -1756,7 +1788,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     if condition == "HAS_VERTEX_COLORS":
                                         cond_res = len(obj.data.vertex_colors) > 0
                                     elif condition[0] == '#':
-                                        cond_res = chr_cache.render_target == condition[1:]
+                                        cond_res = chr_cache.get_render_target() == condition[1:]
                                     elif condition[0] == '>':
                                         cond_res = nodeutils.has_connected_output(shader_node, condition[1:])
                                     elif condition[0] == '!':
@@ -1799,7 +1831,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     if condition == "HAS_VERTEX_COLORS":
                                         cond_res = len(obj.data.vertex_colors) > 0
                                     elif condition[0] == '#':
-                                        cond_res = chr_cache.render_target == condition[1:]
+                                        cond_res = chr_cache.get_render_target() == condition[1:]
                                     elif condition[0] == '>':
                                         cond_res = nodeutils.has_connected_output(shader_node, condition[1:])
                                     elif condition[0] == '!':
@@ -2214,6 +2246,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     elif chr_cache.can_be_rigged():
 
+                        allow_rigify = chr_cache.allow_rigify()
                         grid = layout.grid_flow(columns=1, row_major=True, align=True)
                         grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
 
@@ -2227,20 +2260,21 @@ class CC3RigifyPanel(bpy.types.Panel):
                             icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
                             row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
 
-                        if chr_cache.can_expression_rig():
+                        if chr_cache.can_expression_rig() or chr_cache.can_rigify_face():
                             col = layout.column(align=True)
                             col.label(text="Expression Rig:")
                             col.row(align=True).prop(prefs, "rigify_expression_rig", expand=True)
                             col = layout.column()
                             if prefs.rigify_expression_rig == "META":
-                                col.row().prop(prefs, "rigify_face_control_color")
+                                if allow_rigify:
+                                    col.row().prop(prefs, "rigify_face_control_color")
+                                else:
+                                    wrapped_text_box(layout, "Invalid Facial Profile!", width, alert=True)
                             elif prefs.rigify_expression_rig == "RIGIFY":
                                 if not chr_cache.can_rigify_face():
                                     wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
                         else:
                             grid = layout.grid_flow(columns=1, row_major=True, align=True)
-
-
 
                         col = layout.column(align=True)
                         col.label(text="Bone Alignment:")
@@ -2251,19 +2285,18 @@ class CC3RigifyPanel(bpy.types.Panel):
                             row = layout.row()
                             row.scale_y = 2
                             row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "ALL"
-                            row.enabled = chr_cache is not None
+                            row.enabled = allow_rigify
 
                         else:
 
                             row = layout.row()
                             row.scale_y = 2
                             row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Attach Meta-Rig").param = "META_RIG"
-                            row.enabled = chr_cache is not None
 
                             row = layout.row()
                             row.scale_y = 2
                             row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
-                            row.enabled = chr_cache is not None
+                            row.enabled = allow_rigify
 
                         #row = layout.row()
                         #row.scale_y = 2
@@ -3888,6 +3921,12 @@ class CCICDataLinkPanel(bpy.types.Panel):
                 layout.operator("ccic.datalink", icon="ERROR", text="DEBUG").param = "DEBUG"
                 layout.operator("ccic.datalink", icon="ERROR", text="TEST").param = "TEST"
 
+        if False:
+            layout.label(text="Import Options:")
+            row = layout.row(align=True)
+            label = rigutils.CCICActionImportOptions.label(context, chr_cache)
+            row.operator("ccic.action_import_options", icon="COLLAPSEMENU", text=label)
+
         layout.label(text="Material Send Mode:")
         row = layout.row(align=True)
         row.prop(prefs, "datalink_send_mode", text=text, expand=True)
@@ -4022,6 +4061,7 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
             column = box.column()
             column.prop(PREFS, "import_deduplicate")
             column.prop(PREFS, "import_auto_convert")
+            column.prop(PREFS, "import_reset_custom_normals")
             if PREFS.import_auto_convert:
                 column.prop(PREFS, "auto_convert_materials")
             column.prop(PREFS, "build_limit_textures")
@@ -4245,7 +4285,7 @@ class CCICBakePanel(bpy.types.Panel):
         chr_cache = props.get_character_cache(obj, mat)
         bake_cache = bake.get_export_bake_cache(mat)
 
-        if chr_cache and (chr_cache.render_target != "EEVEE" or
+        if chr_cache and (chr_cache.get_render_target() != "EEVEE" or
                           chr_cache.is_wrinkle_active()):
             box = layout.box()
             box.alert = True
@@ -4358,7 +4398,7 @@ class CCICBakePanel(bpy.types.Panel):
         row.prop(prefs, "bake_objects_mode", expand=True)
         row = col.row(align=True)
         row.scale_y = 2
-        if chr_cache and chr_cache.render_target != "EEVEE":
+        if chr_cache and chr_cache.get_render_target() != "EEVEE":
             row.alert = True
 
         # Bake Button

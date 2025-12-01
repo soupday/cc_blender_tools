@@ -99,10 +99,13 @@ def make_image_node(nodes, image, name, scale = 1.0):
 
 
 def make_separate_rgb_node(nodes, label, name):
-    value_node = make_shader_node(nodes, "ShaderNodeSeparateRGB")
-    value_node.label = label
-    value_node.name = utils.unique_name(name)
-    return value_node
+    if utils.B330():
+        sep_node = make_shader_node(nodes, "ShaderNodeSeparateColor")
+    else:
+        sep_node = make_shader_node(nodes, "ShaderNodeSeparateRGB")
+    sep_node.label = label
+    sep_node.name = utils.unique_name(name)
+    return sep_node
 
 
 def make_value_node(nodes, label, name, value = 0.0):
@@ -694,7 +697,7 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
     output_node.location = (900, -400)
 
     blocked_bsdf_sockets = []
-    if prefs.render_target != "CYCLES":
+    if mat_cache.get_render_target() != "CYCLES":
         blocked_bsdf_sockets.append("Subsurface Radius")
         blocked_bsdf_sockets.append("Subsurface Color")
 
@@ -714,7 +717,7 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
         if has_connected_input(bsdf_node, "Emission Color"):
             set_node_input_value(bsdf_node, "Emission Strength", 1.0)
 
-    if prefs.render_target != "CYCLES" and not utils.B400():
+    if mat_cache.get_render_target() != "CYCLES" and not utils.B400():
         link_nodes(links, group_node, "Base Color", bsdf_node, "Subsurface Color")
 
     # connect group_node outputs to any mix_node inputs:

@@ -1,5 +1,5 @@
 # CC/iC Blender Tools (Installed in Blender)
-An add-on for importing and automatically setting up materials for Character Creator 3 & 4 and iClone 7 & 8 character exports.
+An add-on for importing and automatically setting up materials for Character Creator 3, 4 & 5 and iClone 7 & 8 character exports.
 
 Using Blender in the Character Creator pipeline can often feel like hitting a brick wall. Spending potentially hours having to get the import settings correct and setting up the materials often with hundreds of textures.
 
@@ -11,7 +11,7 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 Links
 =====
-[CC4 Blender Pipeline Tool (Installed in CC4)](https://github.com/soupday/CCiC-Blender-Pipeline-Plugin)
+[CC4/5 Blender Pipeline Tool (Installed in CC4/5)](https://github.com/soupday/CCiC-Blender-Pipeline-Plugin)
 
 [CC3 Blender Pipeline Tool (Installed in CC3)](https://github.com/soupday/CC3-Blender-Tools-Plugin)
 
@@ -32,6 +32,20 @@ Links
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+
+### 2.3.3
+- Blender 5.0 update.
+    - Blender 5.0 API changed bone selection methods and compositor which broke just about everything ...
+- Eye shader updates, Limbus region should be more accurate to CC4/5 now.
+- Expression drivers for CC3 rig use expression json.
+- Materials build for current render engine (Eevee / Cycles).
+    - Buttons activate on Materials Parameters and DataLink panels to rebuild materials if changed.
+- Rigify will fallback to next best face rig if selected in unavailable.
+- Widgets for face rig included in Link/Append function.
+- Fix to rigidbody collider orientation.
+- Import option added in preferences to reset all custom normals on import.
+    - On some characters, custom split normals cause dark lighting artifacts that can be cured by removing custom normals.
+- Camera switch markers generated when sending camera's across DataLink.
 
 ### 2.3.2
 - Shaders updated for CC5:

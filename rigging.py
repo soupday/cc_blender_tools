@@ -1336,6 +1336,14 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
                 else:
                     utils.log_error(f"Unable to find edit_bone: {name}")
 
+    store_expression_set(chr_cache, cc3_rig, rigify_rig, rigify_data)
+
+
+def store_expression_set(chr_cache, cc3_rig, rigify_rig=None, rigify_data=None):
+    """Store source bone data from the cc3 rig in the org and def bones of rigify rig.
+       This data can be used to reconstruct elements of the source rig for retargetting and exporting.
+    """
+
     expression_meta_bone_map = {
         "CC_Base_JawRoot": "MCH-CTRL-jaw",
         "CC_Base_L_Eye": "MCH-CTRL-eye.L",
@@ -1352,63 +1360,56 @@ def store_source_bone_data(chr_cache, cc3_rig, rigify_rig, rigify_data):
     }
 
     # convert all the expression bone transforms to rigify ones
-    if rigutils.select_rig(rigify_rig):
+    if rigutils.select_rig(rigify_rig if rigify_rig else cc3_rig):
         json_data = chr_cache.get_json_data()
 
-        expression_json, default_expression_json = chr_cache.get_expression_json(json_data)
-
-        # merge missing values from default expression set
-        if default_expression_json:
-            for expression, default_expression_def in default_expression_json.items():
-                if expression not in expression_json:
-                    expression_json[expression] = {}
-                expression_def = expression_json[expression]
-                if "Bones" not in expression_def and "Bones" in default_expression_def:
-                    expression_def["Bones"] = copy.deepcopy(default_expression_def["Bones"])
-                if "Bones" in expression_def:
-                    for bone_name, default_bone_def in default_expression_def["Bones"].items():
-                        if bone_name not in expression_def["Bones"]:
-                            expression_def["Bones"][bone_name] = copy.deepcopy(default_expression_def["Bones"][bone_name])
-                        else:
-                            bone_def = expression_def["Bones"][bone_name]
-                            if "Translate" in default_bone_def and "Translate" not in bone_def:
-                                bone_def["Translate"] = default_bone_def["Translate"].copy()
-                            if "Rotation" in default_bone_def and "Rotation" not in bone_def:
-                                bone_def["Rotation"] = default_bone_def["Rotation"].copy()
+        expression_json = chr_cache.get_expression_json(json_data)
 
         utils.clear_prop_collection(chr_cache.expression_set)
-        bone_mapping = rigify_data.bone_mapping
         if expression_json:
             for expression_name, expression_def in expression_json.items():
                 if "Bones" in expression_def and expression_def["Bones"]:
                     expression_def["Rigify Bones"] = {}
                     for bone_name in expression_def["Bones"]:
-                        rigify_bone_name = bones.get_rigify_control_bone(rigify_rig, bone_mapping, bone_name, extra_mapping=expression_meta_bone_map)
-                        offset_bone_name = offset_bone_map[bone_name] if bone_name in offset_bone_map else ""
-                        tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
-                        rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
-                        R, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, rigify_bone_name, tra, rot, True)
-                        if R:
+
+                        if rigify_rig and cc3_rig and rigify_data:
+                            rigify_bone_name = bones.get_rigify_control_bone(rigify_rig, rigify_data.bone_mapping, bone_name, extra_mapping=expression_meta_bone_map)
+                            offset_bone_name = offset_bone_map[bone_name] if bone_name in offset_bone_map else ""
+                            tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
+                            rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
+                            R, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, rigify_bone_name, tra, rot, True)
+                            if R:
+                                rot_euler = rot.to_euler("XYZ")
+                                R_quat = R.to_quaternion().normalized()
+                                R_euler = R_quat.to_euler("XYZ")
+                                R_tra = R.to_translation()
+                                expression_cache = chr_cache.expression_set.add()
+                                expression_cache.key_name = expression_name
+                                expression_cache.bone_name = bone_name
+                                expression_cache.translation = tra_local
+                                expression_cache.rotation = rot_euler
+                                expression_cache.rigify_bone_name = rigify_bone_name
+                                expression_cache.rigify_translation = R_tra
+                                expression_cache.rigify_rotation = R_euler
+                                if offset_bone_name:
+                                    OR, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, offset_bone_name, tra, rot, True)
+                                    OR_quat = OR.to_quaternion().normalized()
+                                    OR_euler = OR_quat.to_euler("XYZ")
+                                    OR_tra = OR.to_translation()
+                                    expression_cache.offset_bone_name = offset_bone_name
+                                    expression_cache.offset_translation = OR_tra
+                                    expression_cache.offset_rotation = OR_euler
+                        else:
+                            tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
+                            rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
+                            pba: bpy.types.PoseBone = cc3_rig.pose.bones[bone_name]
+                            tra_local = pba.bone.matrix.inverted() @ tra
                             rot_euler = rot.to_euler("XYZ")
-                            R_quat = R.to_quaternion().normalized()
-                            R_euler = R_quat.to_euler("XYZ")
-                            R_tra = R.to_translation()
                             expression_cache = chr_cache.expression_set.add()
                             expression_cache.key_name = expression_name
                             expression_cache.bone_name = bone_name
                             expression_cache.translation = tra_local
                             expression_cache.rotation = rot_euler
-                            expression_cache.rigify_bone_name = rigify_bone_name
-                            expression_cache.rigify_translation = R_tra
-                            expression_cache.rigify_rotation = R_euler
-                            if offset_bone_name:
-                                OR, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, offset_bone_name, tra, rot, True)
-                                OR_quat = OR.to_quaternion().normalized()
-                                OR_euler = OR_quat.to_euler("XYZ")
-                                OR_tra = OR.to_translation()
-                                expression_cache.offset_bone_name = offset_bone_name
-                                expression_cache.offset_translation = OR_tra
-                                expression_cache.offset_rotation = OR_euler
 
 
 def modify_rigify_controls(cc3_rig, rigify_rig, rigify_data):
@@ -1542,8 +1543,7 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig, remove_meta = False):
     if utils.object_mode():
         # delesect all bones (including the hidden ones)
         # Rigimap will bake and clear constraints on the ORG bones if we don't do this...
-        for bone in rigify_rig.data.bones:
-            bone.select = False
+        bones.select_all_bones(rigify_rig, False)
         utils.clear_selected_objects()
         if utils.try_select_object(rigify_rig, True):
             utils.set_active_object(rigify_rig)
@@ -2837,16 +2837,16 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
         if rigutils.select_rig(rigify_rig):
             bones.make_bones_visible(rigify_rig)
             bone : bpy.types.Bone
+            bones.select_all_bones(rigify_rig, False)
             for bone in rigify_rig.data.bones:
-                bone.select = False
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                     if bones.is_bone_in_collections(rigify_rig, bone,
                                                     BONE_COLLECTIONS,
                                                     BONE_GROUPS):
-                        bone.select = True
+                        bones.select_bone(rigify_rig, bone, True)
 
                 elif bones.is_bone_in_collections(rigify_rig, bone, EXTRA_COLLECTIONS, EXTRA_GROUPS):
-                    bone.select = True
+                    bones.select_bone(rigify_rig, bone, True)
 
 
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action,
@@ -2896,12 +2896,12 @@ def adv_bake_NLA_to_rigify(op, chr_cache, motion_id=None, motion_prefix=None):
 
         bone : bpy.types.Bone
         bones.make_bones_visible(rigify_rig)
+        bones.select_all_bones(rigify_rig, False)
         for bone in rigify_rig.data.bones:
-            bone.select = False
             if bones.is_bone_in_collections(rigify_rig, bone,
                                             BONE_COLLECTIONS,
                                             BONE_GROUPS):
-                bone.select = True
+                bones.select_bone(rigify_rig, bone, True)
 
         shape_key_objects = []
         if prefs.rigify_bake_shape_keys:
@@ -3347,8 +3347,7 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, objects, accessory_map):
         # select all export rig bones
         if rigutils.select_rig(export_rig):
             bones.make_bones_visible(export_rig)
-            for bone in export_rig.data.bones:
-                bone.select = True
+            bones.select_all_bones(rigify_rig, True)
 
             motion_objects = get_motion_export_objects(objects)
 
@@ -3682,8 +3681,9 @@ def unify_cc3_bone_name(name):
 def check_armature_action(rig, action, fix_rotation_mode=True):
     total = 0
     matching = 0
-    if action.fcurves:
-        for fcurve in action.fcurves:
+    channels = utils.get_action_channels(action, slot_type="OBJECT")
+    if channels and channels.fcurves:
+        for fcurve in channels.fcurves:
             total += 1
             data_path = fcurve.data_path
             bone_name = bones.get_bone_name_from_data_path(data_path)
@@ -3730,6 +3730,20 @@ class CC3Rigifier(bpy.types.Operator):
             options={"HIDDEN"}
         )
 
+    override_expression_rig: bpy.props.BoolProperty(
+            name = "Override Expression Rig",
+            default = False,
+            options={"HIDDEN"}
+        )
+
+    rigify_expression_rig: bpy.props.EnumProperty(items=[
+                        ("NONE","None","No expression rig, just eye and jaw controls"),
+                        ("RIGIFY","Rigify","Rigify full face rig"),
+                        ("META","CC5 HD","HD Face Control expression rig"),
+                    ], default="NONE",
+                       name="Expression Rig",
+                       options={"HIDDEN"})
+
     cc3_rig = None
     meta_rig = None
     rigify_rig = None
@@ -3739,11 +3753,11 @@ class CC3Rigifier(bpy.types.Operator):
 
     def use_rigify_face_rig(self, chr_cache):
         prefs = vars.prefs()
-        return not self.no_face_rig and prefs.rigify_expression_rig == "RIGIFY"
+        return not self.no_face_rig and self.rigify_expression_rig == "RIGIFY"
 
     def use_expression_rig(self, chr_cache):
         prefs = vars.prefs()
-        return (chr_cache.can_expression_rig() and prefs.rigify_expression_rig == "META")
+        return (chr_cache.can_expression_rig() and self.rigify_expression_rig == "META")
 
     def add_meta_rig(self, chr_cache):
 
@@ -3915,8 +3929,8 @@ class CC3Rigifier(bpy.types.Operator):
                     utils.hide(self.cc3_rig)
                     utils.hide(self.meta_rig)
                     # update face rig type
-                    chr_cache.rigify_expression_rig = prefs.rigify_expression_rig
-                    utils.set_prop(self.rigify_rig, "rl_face_rig", chr_cache.rigify_expression_rig)
+                    chr_cache.rigify_expression_rig = self.rigify_expression_rig
+                    utils.set_prop(self.rigify_rig, "rl_face_rig", self.rigify_expression_rig)
                     #self.restore_rigify_rigid_body_systems(chr_cache)
 
         utils.log_timer("Done Rigify Process!")
@@ -3994,8 +4008,8 @@ class CC3Rigifier(bpy.types.Operator):
                     utils.hide(self.cc3_rig)
                     utils.hide(self.meta_rig)
                     # update face rig type
-                    chr_cache.rigify_expression_rig = prefs.rigify_expression_rig
-                    utils.set_prop(self.rigify_rig, "rl_face_rig", chr_cache.rigify_expression_rig)
+                    chr_cache.rigify_expression_rig = self.rigify_expression_rig
+                    utils.set_prop(self.rigify_rig, "rl_face_rig", self.rigify_expression_rig)
 
         utils.log_timer("Done Rigify Process!")
 
@@ -4028,6 +4042,14 @@ class CC3Rigifier(bpy.types.Operator):
         self.rigify_rig = None
         self.auto_weight_failed = False
         self.auto_weight_report = ""
+        if not self.override_expression_rig:
+            self.rigify_expression_rig = prefs.rigify_expression_rig
+        can_expression_rig = chr_cache.can_expression_rig()
+        can_rigify_face = chr_cache.can_rigify_face()
+        if self.rigify_expression_rig == "META" and not can_expression_rig:
+            self.rigify_expression_rig = "RIGIFY"
+        if self.rigify_expression_rig == "RIGIFY" and not can_rigify_face:
+            self.rigify_expression_rig = "NONE"
 
         if chr_cache:
 

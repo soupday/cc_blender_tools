@@ -19,6 +19,7 @@ import os
 from mathutils import Vector
 from . import normal, colorspace, imageutils, wrinkle, nodeutils, materials, utils, params, vars
 from .exporter import get_export_objects
+from . utils import B500
 
 BAKE_SAMPLES = 4
 BAKE_INDEX = 1001
@@ -609,6 +610,51 @@ def pack_RGBA(mat, channel_id, pack_mode, bake_dir,
     return image
 
 
+def get_compositor_tree(context) -> bpy.types.NodeGroup:
+    if B500():
+        return context.scene.compositing_node_group
+    else:
+        return context.scene.node_tree
+
+
+def compositing_setup(context):
+    if B500():
+        old_tree = context.scene.compositing_node_group
+        tree = bpy.data.node_groups.new("Compositor Bake", "CompositorNodeTree")
+        context.scene.compositing_node_group = tree
+        nodes = tree.nodes
+        links = tree.links
+        store = (tree, old_tree)
+    else:
+        context.scene.use_nodes = True
+        tree = context.scene.node_tree
+        nodes = tree.nodes
+        links = tree.links
+        # store nodes state
+        store = {}
+        for node in nodes:
+            store[node] = node.mute
+            node.mute = True
+    return nodes, links, store, tree
+
+
+def compositing_cleanup(context, store):
+    if B500():
+        context.scene.compositing_node_group = store[1]
+        bpy.data.node_groups.remove(store[0])
+    else:
+        nodes = context.scene.node_tree.nodes
+        # restore nodes and clean up
+        for node in store:
+            node.mute = store[node]
+        clean_up = []
+        for node in nodes:
+            if node not in store.keys():
+                clean_up.append(node)
+        for node in clean_up:
+            nodes.remove(node)
+
+
 def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
                          image_r: bpy.types.Image=None, image_g=None, image_b=None, image_a=None,
                          value_r=0, value_g=0, value_b=0, value_a=0,
@@ -645,26 +691,22 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
         utils.log_info(f"Resuing existing texture pack {image_name}, not baking.")
         return imageutils.load_image(image_path, color_space)
 
-    context.scene.use_nodes = True
-    nodes = context.scene.node_tree.nodes
-    links = context.scene.node_tree.links
-
-    # store nodes state
-    store = {}
-    for node in nodes:
-        store[node] = node.mute
-        node.mute = True
+    nodes, links, store, node_tree = compositing_setup(context)
 
     CNCC_node = nodeutils.make_shader_node(nodes, "CompositorNodeCombineColor")
-    CNC_node = nodeutils.make_shader_node(nodes, "CompositorNodeComposite")
-    #CNOF_node = nodeutils.make_shader_node(nodes, "CompositorNodeOutputFile")
-    CNC_node.use_alpha = True
+    CNCGO_node = None
+    if B500():
+        CNCGO_node = nodeutils.make_shader_node(nodes, "NodeGroupOutput")
+        node_tree.interface.new_socket(name="Image", in_out="OUTPUT", socket_type="NodeSocketColor")
+        node_tree.interface.new_socket(name="Alpha", in_out="OUTPUT", socket_type="NodeSocketFloat")
+    else:
+        CNCGO_node = nodeutils.make_shader_node(nodes, "CompositorNodeComposite")
+        CNCGO_node.use_alpha = True
     nodeutils.set_node_input_value(CNCC_node, "Red", value_r)
     nodeutils.set_node_input_value(CNCC_node, "Green", value_g)
     nodeutils.set_node_input_value(CNCC_node, "Blue", value_b)
     nodeutils.set_node_input_value(CNCC_node, "Alpha", value_a)
-    nodeutils.link_nodes(links, CNCC_node, "Image", CNC_node, "Image")
-    #nodeutils.link_nodes(links, CNCC_node, "Image", CNOF_node, "Image")
+    nodeutils.link_nodes(links, CNCC_node, "Image", CNCGO_node, "Image")
 
     if pack_mode == "RGB_A":
 
@@ -674,13 +716,16 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
             CNI_R_node.image = image_r
             if image_r.size[0] != width or image_r.size[1] != height:
                 CNS_R_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
-                CNS_R_node.space = "ABSOLUTE"
+                if B500():
+                    nodeutils.set_node_input_value(CNS_R_node, "Type", "Absolute")
+                else:
+                    CNS_R_node.space = "ABSOLUTE"
                 nodeutils.set_node_input_value(CNS_R_node, "X", width)
                 nodeutils.set_node_input_value(CNS_R_node, "Y", height)
                 nodeutils.link_nodes(links, CNI_R_node, "Image", CNS_R_node, "Image")
-                nodeutils.link_nodes(links, CNS_R_node, "Image", CNC_node, "Image")
+                nodeutils.link_nodes(links, CNS_R_node, "Image", CNCGO_node, "Image")
             else:
-                nodeutils.link_nodes(links, CNI_R_node, "Image", CNC_node, "Image")
+                nodeutils.link_nodes(links, CNI_R_node, "Image", CNCGO_node, "Image")
 
         if image_a:
             if image_a.depth > 32: color_depth = '32'
@@ -688,13 +733,16 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
             CNI_A_node.image = image_a
             if image_a.size[0] != width or image_a.size[1] != height:
                 CNS_A_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
-                CNS_A_node.space = "ABSOLUTE"
+                if B500():
+                    nodeutils.set_node_input_value(CNS_A_node, "Type", "Absolute")
+                else:
+                    CNS_A_node.space = "ABSOLUTE"
                 nodeutils.set_node_input_value(CNS_A_node, "X", width)
                 nodeutils.set_node_input_value(CNS_A_node, "Y", height)
                 nodeutils.link_nodes(links, CNI_A_node, "Image", CNS_A_node, "Image")
                 #nodeutils.link_nodes(links, CNS_A_node, "Image", CNC_node, "Alpha")
             else:
-                nodeutils.link_nodes(links, CNI_A_node, "Image", CNC_node, "Alpha")
+                nodeutils.link_nodes(links, CNI_A_node, "Image", CNCGO_node, "Alpha")
 
     else:
 
@@ -704,7 +752,10 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
             CNI_R_node.image = image_r
             if image_r.size[0] != width or image_r.size[1] != height:
                 CNS_R_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
-                CNS_R_node.space = "ABSOLUTE"
+                if B500():
+                    nodeutils.set_node_input_value(CNS_R_node, "Type", "Absolute")
+                else:
+                    CNS_R_node.space = "ABSOLUTE"
                 nodeutils.set_node_input_value(CNS_R_node, "X", width)
                 nodeutils.set_node_input_value(CNS_R_node, "Y", height)
                 nodeutils.link_nodes(links, CNI_R_node, "Image", CNS_R_node, "Image")
@@ -718,7 +769,10 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
             CNI_G_node.image = image_g
             if image_g.size[0] != width or image_g.size[1] != height:
                 CNS_G_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
-                CNS_G_node.space = "ABSOLUTE"
+                if B500():
+                    nodeutils.set_node_input_value(CNS_G_node, "Type", "Absolute")
+                else:
+                    CNS_G_node.space = "ABSOLUTE"
                 nodeutils.set_node_input_value(CNS_G_node, "X", width)
                 nodeutils.set_node_input_value(CNS_G_node, "Y", height)
                 nodeutils.link_nodes(links, CNI_G_node, "Image", CNS_G_node, "Image")
@@ -732,7 +786,10 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
             CNI_B_node.image = image_b
             if image_b.size[0] != width or image_b.size[1] != height:
                 CNS_B_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
-                CNS_B_node.space = "ABSOLUTE"
+                if B500():
+                    nodeutils.set_node_input_value(CNS_B_node, "Type", "Absolute")
+                else:
+                    CNS_B_node.space = "ABSOLUTE"
                 nodeutils.set_node_input_value(CNS_B_node, "X", width)
                 nodeutils.set_node_input_value(CNS_B_node, "Y", height)
                 nodeutils.link_nodes(links, CNI_B_node, "Image", CNS_B_node, "Image")
@@ -746,7 +803,10 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
             CNI_A_node.image = image_a
             if image_a.size[0] != width or image_a.size[1] != height:
                 CNS_A_node = nodeutils.make_shader_node(nodes, "CompositorNodeScale")
-                CNS_A_node.space = "ABSOLUTE"
+                if B500():
+                    nodeutils.set_node_input_value(CNS_A_node, "Type", "Absolute")
+                else:
+                    CNS_A_node.space = "ABSOLUTE"
                 nodeutils.set_node_input_value(CNS_A_node, "X", width)
                 nodeutils.set_node_input_value(CNS_A_node, "Y", height)
                 nodeutils.link_nodes(links, CNI_A_node, "Image", CNS_A_node, "Image")
@@ -754,7 +814,7 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
                 #nodeutils.link_nodes(links, CNS_A_node, "Image", CNC_node, "Alpha")
             else:
                 nodeutils.link_nodes(links, CNI_A_node, "Image", CNCC_node, "Alpha")
-                nodeutils.link_nodes(links, CNI_A_node, "Image", CNC_node, "Alpha")
+                nodeutils.link_nodes(links, CNI_A_node, "Image", CNCGO_node, "Alpha")
 
     X = context.scene.render.resolution_x
     Y = context.scene.render.resolution_y
@@ -783,8 +843,8 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
 
     for node in nodes:
         node.select = False
-    CNC_node.select = True
-    bpy.context.scene.node_tree.nodes.active = CNC_node
+    CNCGO_node.select = True
+    node_tree.nodes.active = CNCGO_node
 
     bpy.ops.render.render(write_still=True)
 
@@ -799,15 +859,7 @@ def compositor_pack_RGBA(mat, channel_id, pack_mode, bake_dir,
     context.scene.view_settings.gamma = GA
     context.scene.view_settings.exposure = EX
 
-    # restore nodes and clean up
-    for node in store:
-        node.mute = store[node]
-    clean_up = []
-    for node in nodes:
-        if node not in store.keys():
-            clean_up.append(node)
-    for node in clean_up:
-        nodes.remove(node)
+    compositing_cleanup(context, store)
 
     image: bpy.types.Image = imageutils.load_image(image_path, color_space)
     return image
@@ -1308,16 +1360,20 @@ def pack_r_g_b_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
         pack_node.location = n.location
         sep_node.location = pack_node.location + Vector((275, 69))
         nodeutils.link_nodes(links, pack_node, "Color", sep_node, "Image")
+        nodeutils.link_nodes(links, pack_node, "Color", sep_node, "Color")
         if r_node:
             nodeutils.link_nodes(links, sep_node, "R", shader_node, r_socket)
+            nodeutils.link_nodes(links, sep_node, "Red", shader_node, r_socket)
             r_node.location = NODE_CURSOR
             NODE_CURSOR += Vector((0,-300))
         if g_node:
             nodeutils.link_nodes(links, sep_node, "G", shader_node, g_socket)
+            nodeutils.link_nodes(links, sep_node, "Green", shader_node, g_socket)
             g_node.location = NODE_CURSOR
             NODE_CURSOR += Vector((0,-300))
         if b_node:
             nodeutils.link_nodes(links, sep_node, "B", shader_node, b_socket)
+            nodeutils.link_nodes(links, sep_node, "Blue", shader_node, b_socket)
             b_node.location = NODE_CURSOR
             NODE_CURSOR += Vector((0,-300))
         if a_node:

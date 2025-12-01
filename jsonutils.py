@@ -33,6 +33,16 @@ def get_json_cache_copy(fbx_path):
         return None
 
 
+def get_json_path(fbx_path):
+    json_path = None
+    if fbx_path:
+        fbx_file = os.path.basename(fbx_path)
+        fbx_folder = os.path.dirname(fbx_path)
+        fbx_name = os.path.splitext(fbx_file)[0]
+        json_path = os.path.join(fbx_folder, fbx_name + ".json")
+    return json_path
+
+
 def read_json(fbx_path, errors, no_local=False):
     json_file_exists = False
     json_cache = get_json_cache_copy(fbx_path)

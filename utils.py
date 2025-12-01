@@ -2077,7 +2077,8 @@ def clear_action(action, slot_type=None, slot_name=None):
                             channelbag.fcurves.clear()
                 while action.slots:
                     action.slots.remove(action.slots[0])
-            action.fcurves.clear()
+            if not B500():
+                action.fcurves.clear()
             if B440():
                 if slot_type and slot_name:
                     action.slots.new(slot_type, slot_name)
@@ -2103,8 +2104,11 @@ def get_action_channels(action: bpy.types.Action, slot=None, slot_type=None):
             slot = get_action_slot(action, slot_type)
         if slot:
             channelbag = strip.channelbag(slot, ensure=True)
-            return channelbag
-        return action
+            if channelbag:
+                return channelbag
+    if B500():
+        # actions do not have fcurves in B5
+        return None
     else:
         return action
 
@@ -2240,6 +2244,9 @@ def B430():
 
 def B440():
     return is_blender_version("4.4.0")
+
+def B500():
+    return is_blender_version("5.0.0")
 
 
 def is_blender_version(version: str, test = "GTE"):

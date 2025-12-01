@@ -996,15 +996,15 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                     pose_bone: bpy.types.PoseBone
                     bones.make_bones_visible(rig, collections=SHOW_BONE_COLLECTIONS, layers=SHOW_BONE_LAYERS)
                     for pose_bone in rig.pose.bones:
+                        bones.select_bone(rig, pose_bone, False)
                         bone = pose_bone.bone
-                        bone.select = False
                         if bones.is_bone_in_collections(rig, bone, BAKE_BONE_COLLECTIONS,
                                                                    BAKE_BONE_GROUPS):
                             if bone.name not in BAKE_BONE_EXCLUSIONS:
                                 bone.hide = False
                                 if bones.can_unlock(pose_bone):
                                     bone.hide_select = False
-                                bone.select = True
+                                bones.select_bone(rig, bone, True)
             else:
                 if utils.object_mode_to(rig):
                     bone: bpy.types.Bone
@@ -1014,7 +1014,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                         bone.hide = False
                         if bones.can_unlock(pose_bone):
                             bone.hide_select = False
-                        bone.select = True
+                        bones.select_bone(rig, bone, True)
 
             # create keyframe cache for animation sequences
             if LINK_DATA.set_keyframes:
@@ -1035,8 +1035,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                 }
                 for pose_bone in rig.pose.bones:
                     bone_name = pose_bone.name
-                    bone = rig.data.bones[bone_name]
-                    if bone.select:
+                    if bones.get_bone_selected(rig, pose_bone):
                         loc_cache = create_fcurves_cache(count, 3, [0,0,0])
                         sca_cache = create_fcurves_cache(count, 3, [1,1,1])
                         rot_cache = create_rotation_fcurves_cache(pose_bone, count)
@@ -4475,6 +4474,13 @@ class CCICDataLink(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 utils.open_folder(chr_cache.get_import_dir())
+            return {'FINISHED'}
+
+        elif self.param == "SHOW_ACTOR_JSON":
+            props = vars.props()
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                os.startfile(chr_cache.get_character_json_path())
             return {'FINISHED'}
 
         elif self.param == "SHOW_PROJECT_FILES":

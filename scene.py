@@ -266,15 +266,34 @@ def camera_auto_target(camera, target):
         target.location = target_location + head_dir * 0.03
         camera.location = head_location + head_dir * 2
 
+
+def get_compositor_tree(context) -> bpy.types.NodeGroup:
+    if utils.B500():
+        if context.scene.compositing_node_group:
+            return context.scene.compositing_node_group
+        tree = bpy.data.node_groups.new("Compositor Bake", "CompositorNodeTree")
+        context.scene.compositing_node_group = tree
+        return tree
+    else:
+        context.scene.use_nodes = True
+        return context.scene.node_tree
+
+
 def compositor_setup(context):
     context = vars.get_context(context)
+    tree = get_compositor_tree(context)
 
-    context.scene.use_nodes = True
-    nodes = context.scene.node_tree.nodes
-    links = context.scene.node_tree.links
+    nodes = tree.nodes
+    links = tree.links
     nodes.clear()
     rlayers_node = nodeutils.make_shader_node(nodes, "CompositorNodeRLayers")
-    c_node = nodeutils.make_shader_node(nodes, "CompositorNodeComposite")
+    c_node = None
+    if utils.B500():
+        c_node = nodeutils.make_shader_node(nodes, "NodeGroupOutput")
+        tree.interface.clear()
+        tree.interface.new_socket(name="Image", in_out="OUTPUT", socket_type="NodeSocketColor")
+    else:
+        c_node = nodeutils.make_shader_node(nodes, "CompositorNodeComposite")
     glare_node = nodeutils.make_shader_node(nodes, "CompositorNodeGlare")
     filter_node = nodeutils.make_shader_node(nodes, "CompositorNodeFilter")
     lens_node = nodeutils.make_shader_node(nodes, "CompositorNodeLensdist")
@@ -283,20 +302,27 @@ def compositor_setup(context):
     glare_node.location = (-180,120)
     lens_node.location = (50,50)
     c_node.location = (300,0)
-    try:
-        glare_node.glare_type = 'BLOOM'
-        glare_node.quality = 'HIGH'
-    except:
-        glare_node.glare_type = 'FOG_GLOW'
-        glare_node.quality = 'HIGH'
-        glare_node.threshold = 0.85
-    filter_node.filter_type = "SHARPEN_DIAMOND"
+    if utils.B500():
+        nodeutils.set_node_input_value(glare_node, "Type", "Bloom")
+        nodeutils.set_node_input_value(glare_node, "Quality", "High")
+        nodeutils.set_node_input_value(filter_node, "Type", "Diamond Sharpen")
+        nodeutils.set_node_input_value(lens_node, "Fit", True)
+    else:
+        try:
+            glare_node.glare_type = 'BLOOM'
+            glare_node.quality = 'HIGH'
+        except:
+            glare_node.glare_type = 'FOG_GLOW'
+            glare_node.quality = 'HIGH'
+            glare_node.threshold = 0.85
+        filter_node.filter_type = "SHARPEN_DIAMOND"
+        lens_node.use_fit = True
     nodeutils.set_node_input_value(filter_node, "Fac", 0.350)
     nodeutils.set_node_input_value(glare_node, "Threshold", 1.0)
     nodeutils.set_node_input_value(glare_node, "Strength", 0.5)
     nodeutils.set_node_input_value(glare_node, "Saturation", 1.0)
     nodeutils.set_node_input_value(lens_node, "Dispersion", 0.0325)
-    lens_node.use_fit = True
+
     nodeutils.link_nodes(links, rlayers_node, "Image", filter_node, "Image")
     nodeutils.link_nodes(links, filter_node, "Image", glare_node, "Image")
     nodeutils.link_nodes(links, glare_node, "Image", lens_node, "Image")
@@ -2467,16 +2493,19 @@ def eevee_setup(context):
     MSS = utils.store_mode_selection_state()
 
     # rebuild for eevee if needed
-    if chr_cache.render_target != "EEVEE":
+    if chr_cache.get_render_target() != "EEVEE":
         bpy.ops.cc3.importer(param="REBUILD_EEVEE")
 
     try:
-        context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+        context.scene.render.engine = 'BLENDER_EEVEE'
     except:
         try:
-            context.scene.render.engine = 'EEVEE'
+            context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
         except:
-            utils.log_error("Unable to set Eevee render engine!")
+            try:
+                context.scene.render.engine = 'EEVEE'
+            except:
+                utils.log_error("Unable to set Eevee render engine!")
 
     # add modifiers subdiv level 1
     utils.set_mode("OBJECT")
@@ -2580,7 +2609,7 @@ def cycles_setup(context):
                     obj.cycles.shadow_terminator_offset = 0.1
 
     # rebuild for cycles if needed
-    if chr_cache.render_target != "CYCLES":
+    if chr_cache.get_render_target() != "CYCLES":
         bpy.ops.cc3.importer(param="REBUILD_CYCLES")
     else:
         if extracted:

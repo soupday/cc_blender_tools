@@ -53,6 +53,8 @@ def process_material(chr_cache, obj_cache, obj, mat, obj_json, processed_images)
 
     # store the material type and id
     mat_cache.check_id()
+    # store the render target
+    mat_cache.render_target = chr_cache.render_target
 
     if chr_cache.setup_mode == "ADVANCED":
 
@@ -289,9 +291,10 @@ def init_shape_key_range(obj):
             # the shapekey action to update to the new ranges:
             try:
                 action = utils.safe_get_action(shape_keys)
-                if action:
-                    co = action.fcurves[0].keyframe_points[0].co
-                    action.fcurves[0].keyframe_points[0].co = co
+                channels = utils.get_action_channels(action, slot_type="KEY")
+                if channels:
+                    co = channels.fcurves[0].keyframe_points[0].co
+                    channels.fcurves[0].keyframe_points[0].co = co
             except:
                 pass
 
@@ -522,6 +525,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
 
     imported_characters = []
 
+    render_target = "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
+
     if armatures and (len(armatures) > 1 or len(rl_armatures) > 1):
         report.append("Multiple armatures detected in Fbx is not fully supported!")
         utils.log_warn("Multiple armatures detected in Fbx is not fully supported!")
@@ -610,6 +615,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             physics.delete_accessory_colliders(arm, objects)
 
             # add child objects to object_cache
+            character_meshes = []
             for obj in objects:
                 if obj.type == "MESH" and obj.parent and obj.parent == arm:
                     if only_objects:
@@ -617,6 +623,14 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
                         if source_name not in only_objects:
                             continue
                     chr_cache.add_object_cache(obj)
+                    character_meshes.append(obj)
+
+            # clear custom normals option
+            if prefs.import_reset_custom_normals:
+                for obj in character_meshes:
+                    bpy.context.view_layer.objects.active = obj
+                    bpy.ops.mesh.customdata_custom_splitnormals_clear()
+                    bpy.context.view_layer.objects.active = None
 
             # remame actions
             utils.log_info("Renaming actions:")
@@ -650,7 +664,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             chr_cache.setup_mode = props.setup_mode
 
             # character render target
-            chr_cache.render_target = prefs.render_target
+            chr_cache.render_target = render_target
 
             # visibility
             try:
@@ -743,7 +757,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             chr_cache.setup_mode = props.setup_mode
 
             # character render target
-            chr_cache.render_target = prefs.render_target
+            chr_cache.render_target = render_target
 
             json_avatar_type = jsonutils.get_json(json_data, f"{chr_id}/Avatar_Type")
             if json_avatar_type and json_avatar_type == "Prop":
@@ -832,7 +846,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
         chr_cache.setup_mode = props.setup_mode
 
         # character render target
-        chr_cache.render_target = prefs.render_target
+        chr_cache.render_target = render_target
 
         imported_characters.append(chr_cache.link_id)
 
@@ -1205,15 +1219,18 @@ class CC3Import(bpy.types.Operator):
                 utils.log_timer("Done .USD Import?")
 
 
-    def build_materials(self, context):
+    def build_materials(self, context, render_target=None):
         objects_processed = []
         props = vars.props()
         prefs = vars.prefs()
 
         utils.start_timer()
 
+        if not render_target:
+            render_target = "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
+
         utils.log_info("")
-        utils.log_info("Building Character Materials:")
+        utils.log_info(f"Building Character Materials for {render_target}:")
         utils.log_info("-----------------------------")
 
         lib.check_node_groups()
@@ -1240,11 +1257,11 @@ class CC3Import(bpy.types.Operator):
             json_data = self.read_json_data(chr_cache.import_file, stage = 1)
             if not on_import:
                 # when rebuilding, use the currently selected render target
-                chr_cache.render_target = prefs.render_target
+                chr_cache.render_target = render_target
 
             chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
 
-            if self.param == "BUILD":
+            if self.param == "BUILD" or self.param == "BUILD_REBUILD":
                 chr_cache.check_material_types(chr_json)
 
             # update character data props
@@ -1348,6 +1365,7 @@ class CC3Import(bpy.types.Operator):
                 facial_name, viseme_name = chr_cache.get_facial_profile_names()
                 utils.log_info(f"Facial Profile: {facial_name}")
                 utils.log_info(f"Viseme Profile: {viseme_name}")
+                rigging.store_expression_set(chr_cache, chr_cache.get_armature())
                 if facial_profile == "STD" or facial_profile == "EXT" or facial_profile == "TRA":
                     drivers.add_facial_shape_key_bone_drivers(chr_cache,
                                                prefs.build_shape_key_bone_drivers_jaw,
@@ -1591,6 +1609,7 @@ class CC3Import(bpy.types.Operator):
                     for chr_cache in imported_characters:
                         if chr_cache.can_be_rigged():
                             cc3_rig = chr_cache.get_armature()
+                            chr_cache.select(only=True)
                             bpy.ops.cc3.rigifier(param="ALL")
                             rigging.full_retarget_source_rig_action(self, chr_cache, cc3_rig,
                                                                     use_ui_options=True)
@@ -1698,7 +1717,7 @@ class CC3Import(bpy.types.Operator):
                 utils.log_error(f"Invalid filepaths!")
 
         # build materials
-        elif self.param == "BUILD":
+        elif self.param == "BUILD" or self.param == "BUILD_REBUILD":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 mode_selection = utils.store_mode_selection_state()
@@ -1744,35 +1763,32 @@ class CC3Import(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 utils.object_mode()
-                prefs.render_target = "EEVEE"
-                prefs.refractive_eyes = "SSR"
-                if chr_cache.render_target != "EEVEE":
+                if chr_cache.get_render_target() != "EEVEE":
+                    prefs.refractive_eyes = "PARALLAX"
                     utils.log_info("Character is currently build for Cycles Rendering.")
                     utils.log_info("Rebuilding Character for Eevee Rendering...")
-                    self.build_materials(context)
+                    self.build_materials(context, render_target="EEVEE")
                     self.build_drivers(context)
 
         elif self.param == "REBUILD_BAKE":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 utils.object_mode()
-                prefs.render_target = "EEVEE"
                 props.wrinkle_mode = False
-                utils.log_info("Character is currently build for Cycles Rendering.")
-                utils.log_info("Rebuilding Character for Eevee Rendering...")
-                self.build_materials(context)
+                prefs.refractive_eyes = "PARALLAX"
+                utils.log_info("Rebuilding Character for Eevee Bake...")
+                self.build_materials(context, render_target="EEVEE")
                 self.build_drivers(context)
 
         elif self.param == "REBUILD_CYCLES":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 utils.object_mode()
-                prefs.render_target = "CYCLES"
                 prefs.refractive_eyes = "SSR"
-                if chr_cache.render_target != "CYCLES":
+                if chr_cache.get_render_target() != "CYCLES":
                     utils.log_info("Character is currently build for Eevee Rendering.")
                     utils.log_info("Rebuilding Character for Cycles Rendering...")
-                    self.build_materials(context)
+                    self.build_materials(context, render_target="CYCLES")
                     self.build_drivers(context)
 
         return {"FINISHED"}
@@ -1799,6 +1815,8 @@ class CC3Import(bpy.types.Operator):
                    " - OBJ export 'Nude Character in Bind Pose' .obj does not export any materials"
         elif properties.param == "BUILD":
             return "Rebuild materials and drivers for the current imported character with the current build settings"
+        elif properties.param == "BUILD_REBUILD":
+            return "Rebuild materials for the current rendering engine"
         elif properties.param == "BUILD_DRIVERS":
             return "Rebuild the facial expression shape-key and bone drivers for the current imported character with the current build settings"
         elif properties.param == "REMOVE_DRIVERS":

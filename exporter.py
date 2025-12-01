@@ -761,7 +761,7 @@ def write_back_json(mat_json, mat, mat_cache):
                 json_default = export_def[1]
                 func = export_def[2]
                 args = export_def[3:]
-                json_value = shaders.eval_parameters_func(mat_cache.parameters, func, args, json_default)
+                json_value = shaders.eval_parameters_func(mat_cache, func, args, json_default)
                 jsonutils.set_material_json_var(mat_json, json_var, json_value)
 
 

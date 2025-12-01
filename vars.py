@@ -18,11 +18,11 @@
 
 import bpy
 
-VERSION_STRING = "v2.3.2"
+VERSION_STRING = "v2.3.3"
 DEV = False
 #DEV = True
 PLUGIN_COMPATIBLE = [
-    "2.3.2",
+    "2.3.2", "2.3.3",
 ]
 
 def set_version_string(bl_info):
@@ -34,16 +34,24 @@ def set_version_string(bl_info):
         VERSION_STRING += str(v)
 
 def prefs():
-    return bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    from . preferences import CC3ToolsAddonPreferences
+    res: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    return res
 
 def props():
-    return getattr(bpy.context.scene, "CC3ImportProps", None)
+    from . properties import CC3ImportProps
+    res: CC3ImportProps = getattr(bpy.context.scene, "CC3ImportProps", None)
+    return res
 
 def link_props():
-    return getattr(bpy.context.scene, "CCICLinkProps", None)
+    from . properties import CCICLinkProps
+    res: CCICLinkProps = getattr(bpy.context.scene, "CCICLinkProps", None)
+    return res
 
 def bake_props():
-    return getattr(bpy.context.scene, "CCICBakeProps", None)
+    from . properties import CCICBakeProps
+    res: CCICBakeProps = getattr(bpy.context.scene, "CCICBakeProps", None)
+    return res
 
 def get_context(context=None) -> bpy.types.Context:
     if not context:

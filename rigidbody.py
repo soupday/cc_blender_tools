@@ -831,13 +831,14 @@ def create_capsule_collider(name, location, rotation, scale, radius, length, axi
         mat_rot_z = Matrix.Rotation(radians(90), 4, 'Z')
         r.rotate(mat_rot_z)
         r.rotate(mat_rot_y)
-    if axis == "Y":
+    elif axis == "Y":
         mat_rot_x = Matrix.Rotation(radians(90), 4, 'X')
         mat_rot_z = Matrix.Rotation(radians(90), 4, 'Z')
         r.rotate(mat_rot_z)
         r.rotate(mat_rot_x)
+
     r.rotate(rotation)
-    utils.set_transform_rotation(object, rotation)
+    utils.set_transform_rotation(object, r)
     object.scale = scale
     return object
 

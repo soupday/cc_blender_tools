@@ -294,11 +294,13 @@ def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
 
 def update_shader_mapping(shader_name, mat, mat_cache, prop_name, mapping_defs):
     mapping_node = None
+    current_texture_type = None
     for mapping_def in mapping_defs:
-        if len(mapping_def) == 1:
-            texture_type = mapping_def[0]
+        texture_type = mapping_def[0]
+        if current_texture_type != texture_type:
             mapping_node = nodeutils.get_tiling_node(mat, shader_name, texture_type)
-        elif mapping_node:
+            current_texture_type = texture_type
+        if mapping_node:
             tiling_props = mapping_def[3:]
             if prop_name in tiling_props:
                 socket_name = mapping_def[1]
@@ -639,6 +641,39 @@ class CC3ArmatureList(bpy.types.PropertyGroup):
     actions: bpy.props.CollectionProperty(type=CC3ActionList)
 
 
+class CCIC_UI_MixItem(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(default="")
+    weight: bpy.props.FloatProperty(default=1.0)
+
+
+class CCIC_UI_MixList(bpy.types.PropertyGroup):
+    bones: bpy.props.CollectionProperty(type=CCIC_UI_MixItem)
+
+
+class CCICActionOptions(bpy.types.PropertyGroup):
+    action_mode: bpy.props.EnumProperty(items=[
+                        ("NEW","Add New","Import actions as a new set of actions and keep the existing actions"),
+                        ("REPLACE","Replace","Import new actions to replace the existing actions"),
+                        ("MIX","Mix","Import the new actions into the existing actions keeping the keyframes not overwritten by the import"),
+                    ], default="NEW", name = "Import Action Mode")
+    frame_mode: bpy.props.EnumProperty(items=[
+                        ("START","Start","Import keyframes into Blender starting at the start frame"),
+                        ("CURRENT","Current","Import keyframes into Blender starting at the current frame"),
+                        ("MATCH","Match","Import keyframes into Blender matching keyframes with CC/iClone \n*Note: +1 as Blender starts at frame 1*"),
+                    ], default="START", name = "Import Frame Mode")
+    use_masking: bpy.props.BoolProperty(default=False, name="Use Bone / Shape-Key Masking",
+                                     description="Only import the keyframes from the masked bones and shape-keys")
+    import_mix_bones: bpy.props.CollectionProperty(type=CCIC_UI_MixItem)
+    rig_mix_bones_list_index: bpy.props.IntProperty(default=-1)
+    import_mix_bones_list_index: bpy.props.IntProperty(default=-1)
+    # some masking settings ...
+    # some masking presets ...
+    # export / import presets ...
+
+    def test(self):
+        self.import_mix_bones
+
+
 class CC3HeadParameters(bpy.types.PropertyGroup):
     # shader (rl_head_shader)
     skin_diffuse_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -796,8 +831,7 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_inner_scale: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_inner_scale"))
     eye_iris_transmission_opacity: bpy.props.FloatProperty(default=0.85, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_transmission_opacity"))
     eye_limbus_width: bpy.props.FloatProperty(default=0.055, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_width"))
-    eye_limbus_dark_radius: bpy.props.FloatProperty(default=0.13125, min=0.1, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_dark_radius"))
-    eye_limbus_dark_width: bpy.props.FloatProperty(default=0.34375, min=0.01, max=0.99, update=lambda s,c: update_property(s,c,"eye_limbus_dark_width"))
+    eye_limbus_dark_scale: bpy.props.FloatProperty(default=9.0, min=0.0, max=10.0, update=lambda s,c: update_property(s,c,"eye_limbus_dark_scale"))
     eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.0, 0.0, 0.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
     eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_shadow_radius"))
@@ -820,8 +854,11 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
     eye_iris_depth: bpy.props.FloatProperty(default=0.45, min=0, max=1.25, update=lambda s,c: update_property(s,c,"eye_iris_depth"))
     eye_pupil_scale: bpy.props.FloatProperty(default=0.8, min=0.5, max=4.0, update=lambda s,c: update_property(s,c,"eye_pupil_scale"))
-    eye_limbus_shading: bpy.props.FloatProperty(default=0.2, min=0.0, max=2.0, update=lambda s,c: update_property(s,c,"eye_limbus_shading"))
-    eye_limbus_contrast: bpy.props.FloatProperty(default=1.1, min=0.1, max=2, update=lambda s,c: update_property(s,c,"eye_limbus_contrast"))
+    eye_limbus_contrast: bpy.props.FloatProperty(default=1.0, min=0.1, max=2, update=lambda s,c: update_property(s,c,"eye_limbus_contrast"))
+    # shape
+    eye_pupil_narrow: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_pupil_narrow"))
+    eye_pupil_wide: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_pupil_wide"))
+    eye_is_left_eye: bpy.props.BoolProperty(default=False, update=lambda s,c: update_property(s,c,"eye_is_left_eye"))
 
 
 class CC3EyeOcclusionParameters(bpy.types.PropertyGroup):
@@ -1212,6 +1249,11 @@ class CC3MaterialCache:
     alpha_mode: bpy.props.StringProperty(default="NONE") # NONE, BLEND, HASHED, OPAQUE
     culling_sides: bpy.props.IntProperty(default=0) # 0 - default, 1 - single sided, 2 - double sided
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
+    render_target: bpy.props.EnumProperty(items=[
+                        ("NONE","None","Not Set."),
+                        ("EEVEE","Eevee","Build shaders for Eevee rendering."),
+                        ("CYCLES","Cycles","Build shaders for Cycles rendering."),
+                    ], default="NONE", name = "Target Renderer")
     disabled: bpy.props.BoolProperty(default=False)
 
     def set_texture_mapping(self, texture_type, texture_path, embedded, image, location, rotation, scale):
@@ -1321,6 +1363,13 @@ class CC3MaterialCache:
         if not self.material_id:
             self.material_id = utils.generate_random_id(20)
         return self.material_id
+
+    def get_render_target(self):
+        # return render target if set
+        if self.render_target != "NONE":
+            return self.render_target
+        # fall back to scene render engine
+        return "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
 
     def check_id(self):
         material_id = self.get_material_id()
@@ -1600,9 +1649,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="ADVANCED")
 
     render_target: bpy.props.EnumProperty(items=[
+                        ("NONE","None","Not Set."),
                         ("EEVEE","Eevee","Build shaders for Eevee rendering."),
                         ("CYCLES","Cycles","Build shaders for Cycles rendering."),
-                    ], default="EEVEE", name = "Target Renderer")
+                    ], default="NONE", name = "Target Renderer")
 
     physics_disabled: bpy.props.BoolProperty(default=False)
     physics_applied: bpy.props.BoolProperty(default=False)
@@ -1706,6 +1756,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                                                              min = 0.0, max = 1.0,
                                                              name="Rig Color",
                                                              update=update_facerig_color)
+
+    action_options: bpy.props.PointerProperty(type=CCICActionOptions)
 
     disabled: bpy.props.BoolProperty(default=False)
 
@@ -1841,7 +1893,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return "AVATAR"
         else:
             return "PROP"
-        return "NONE"
+
+    def get_render_target(self):
+        # return render target if set
+        if self.render_target != "NONE":
+            return self.render_target
+        # fall back to scene render engine
+        return "CYCLES" if bpy.context.scene.render.engine == "CYCLES" else "EEVEE"
 
     def is_actor_core(self):
         if (self.generation == "ActorCore"
@@ -1884,7 +1942,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             self.generation == "ActorCore" or
             self.generation == "ActorScan" or
             self.generation == "GameBase"):
-            return True
+            facial_profile, viseme_profile = self.get_facial_profile()
+            if facial_profile in ["STD", "EXT", "TRA", "MH"]:
+                return True
         return False
 
     def can_rigify_face(self):
@@ -1892,6 +1952,16 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             self.generation == "G3Plus"):
             return True
         return False
+
+    def allow_rigify(self):
+        prefs = vars.prefs()
+        if self.rigified:
+            return False
+        can_expresion_rig = self.can_expression_rig()
+        can_rigify_face = self.can_rigify_face()
+        return ((prefs.rigify_expression_rig == "META" and can_expresion_rig) or
+                (prefs.rigify_expression_rig == "RIGIFY" and can_rigify_face) or
+                (prefs.rigify_expression_rig == "NONE"))
 
     def get_facial_profile(self, update=True):
         if self.facial_profile != "NONE" and self.viseme_profile != "NONE":
@@ -2506,6 +2576,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def change_import_file(self, filepath):
         self.import_file = filepath
 
+    def get_character_json_path(self):
+        return jsonutils.get_json_path(self.import_file)
+
     def get_character_json(self, json_data=None):
         if not json_data:
             json_data = self.get_json_data()
@@ -2517,8 +2590,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         chr_json = self.get_character_json(json_data=json_data)
         if chr_json and "Expression" in chr_json:
             expression_json = chr_json["Expression"]
-        else:
-            expression_json = {}
+            return copy.deepcopy(expression_json)
+
         facial_profile, viseme_profile = self.get_facial_profile()
         if facial_profile == "MH":
             # MH profile has complete expression json
@@ -2530,7 +2603,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             default_expression_json = copy.deepcopy(facerig_data.EXPRESSION_TRA)
         else:
             default_expression_json = {}
-        return expression_json, default_expression_json
+        return default_expression_json
 
     def get_constraint_json(self, json_data=None):
         if not json_data:
@@ -2557,7 +2630,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     self.rigify_expression_rig = "RIGIFY"
                 else:
                     self.rigify_expression_rig = "NONE"
-                utils.set_prop(rig, self.rigify_expression_rig)
+                utils.set_prop(rig, "rl_face_rig", self.rigify_expression_rig)
         # ensure the facial profile & viseme profile types are in the character data
         self.get_facial_profile()
 
@@ -3209,7 +3282,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
-    def get_context_character_cache(self, context=None, strict=False):
+    def get_context_character_cache(self, context=None, strict=False) -> CC3CharacterCache:
         context = vars.get_context(context)
 
         chr_cache = None
