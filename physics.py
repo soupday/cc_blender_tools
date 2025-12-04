@@ -890,8 +890,11 @@ def physics_paint_strength_update(self, context):
     props = vars.props()
 
     if context.mode == "PAINT_TEXTURE":
-        ups = context.tool_settings.unified_paint_settings
-        prop_owner = ups if ups.use_unified_color else context.tool_settings.image_paint.brush
+        if not utils.B500():
+            ups = context.tool_settings.unified_paint_settings
+            prop_owner = ups if ups.use_unified_color else context.tool_settings.image_paint.brush
+        else:
+            prop_owner = context.tool_settings.image_paint.brush
         s = props.physics_paint_strength
         prop_owner.color = (s, s, s)
 

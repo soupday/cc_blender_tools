@@ -2731,6 +2731,7 @@ class LinkService():
         json_data = decode_to_json(data)
         request_type = json_data["type"]
         actors_data = json_data["actors"]
+        json_data["FPS"] = bpy.context.scene.render.fps
         for actor_data in actors_data:
             name = actor_data["name"]
             link_id = actor_data["link_id"]
