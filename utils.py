@@ -1975,9 +1975,9 @@ def make_action(name, reuse=False, slot_type=None, target_obj=None, slot_name=No
         if target_obj:
             if not slot_type:
                 slot_type = get_slot_type_for(target_obj)
-            if not slot_name:
-                slot_name = f"SLOT-{slot_type}"
-            make_action_slot(action, slot_type, slot_name)
+        if not slot_name:
+            slot_name = f"SLOT-{slot_type}"
+        make_action_slot(action, slot_type, slot_name)
     return action
 
 
