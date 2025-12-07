@@ -33,6 +33,17 @@ Links
 
 ## Changelog
 
+### 2.3.4
+- Add / apply physics resets physics to frame 1.
+- Reset all dynamics added to cloth physics panel.
+- Reset physics sets frame sync to "play all frames".
+- Warning on bake physics button when not "play all frames".
+- Fix to spring rig simulation reset error when baked.
+- Fix to remove all physics error.
+- Fix to rigidbody colliders positions when character rig is not at origin.
+- Fix to physics weight paint Blender 5.0.
+- Fix to ARKit Proxy CSV load.
+
 ### 2.3.3
 - Blender 5.0 update.
     - Blender 5.0 API changed bone selection methods and compositor which broke just about everything ...
