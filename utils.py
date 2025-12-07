@@ -2812,7 +2812,7 @@ def set_rl_object_id(obj, new_id=None):
 
 
 def get_rl_object_id(obj):
-    if obj:
+    if object_exists(obj):
         if obj.type == "ARMATURE" and "rl_armature_id" in obj:
             return obj["rl_armature_id"]
         if "rl_object_id" in obj:
@@ -2938,3 +2938,13 @@ def smallest_index(items: list):
             smallest_value = value
             index = i
     return index
+
+
+def safe_free_bake(point_cache):
+    if B320():
+        with bpy.context.temp_override(point_cache=point_cache):
+            bpy.ops.ptcache.free_bake()
+    else:
+        context_override = bpy.context.copy()
+        context_override["point_cache"] = point_cache
+        bpy.ops.ptcache.free_bake(context_override)

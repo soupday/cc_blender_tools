@@ -761,8 +761,7 @@ def reset_cache(context):
         # free the bake
         if cache.is_baked:
             utils.log_info("Freeing baked point cache...")
-            context_override = {"point_cache": bpy.context.scene.rigidbody_world.point_cache}
-            bpy.ops.ptcache.free_bake(context_override)
+            utils.safe_free_bake(bpy.context.scene.rigidbody_world.point_cache)
 
         # invalidate the cache
         utils.log_info("Invalidating point cache...")
@@ -799,7 +798,7 @@ def reset_cache(context):
         rigidbody_world.solver_iterations = interations
 
 
-def create_capsule_collider(name, location, rotation, scale, radius, length, axis):
+def create_capsule_collider(name, parent, location, rotation, scale, radius, length, axis):
     bm = bmesh.new()
     try:
         bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, radius=radius)
@@ -819,11 +818,11 @@ def create_capsule_collider(name, location, rotation, scale, radius, length, axi
     mesh.update()
     bm.free()
 
-    object = bpy.data.objects.new(name, mesh)
-    bpy.context.scene.collection.objects.link(object)
-    object.display_type = 'WIRE'
+    capsule = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(capsule)
+    capsule.display_type = 'WIRE'
 
-    object.location = location
+    capsule.location = parent.matrix_world @ location
     r = Quaternion()
     r.identity()
     if axis == "X":
@@ -838,12 +837,12 @@ def create_capsule_collider(name, location, rotation, scale, radius, length, axi
         r.rotate(mat_rot_x)
 
     r.rotate(rotation)
-    utils.set_transform_rotation(object, r)
-    object.scale = scale
-    return object
+    utils.set_transform_rotation(capsule, rotate_quat(parent.matrix_world, r))
+    capsule.scale = parent.scale * scale
+    return capsule
 
 
-def create_sphere_collider(name, location, rotation, scale, radius):
+def create_sphere_collider(name, parent, location, rotation, scale, radius):
     bm = bmesh.new()
     try:
         bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, radius=radius)
@@ -855,17 +854,17 @@ def create_sphere_collider(name, location, rotation, scale, radius):
     mesh.update()
     bm.free()
 
-    object = bpy.data.objects.new(name, mesh)
-    bpy.context.scene.collection.objects.link(object)
-    object.display_type = 'WIRE'
+    sphere = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(sphere)
+    sphere.display_type = 'WIRE'
 
-    object.location = location
-    utils.set_transform_rotation(object, rotation)
-    object.scale = scale
-    return object
+    sphere.location = parent.matrix_world @ location
+    utils.set_transform_rotation(sphere, rotate_quat(parent.matrix_world, rotation))
+    sphere.scale = parent.scale * scale
+    return sphere
 
 
-def create_box_collider(name, location, rotation, scale, extents, axis):
+def create_box_collider(name, parent, location, rotation, scale, extents, axis):
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     bm.verts.ensure_lookup_table()
@@ -882,15 +881,17 @@ def create_box_collider(name, location, rotation, scale, extents, axis):
     mesh.update()
     bm.free()
 
-    object = bpy.data.objects.new(name, mesh)
-    bpy.context.scene.collection.objects.link(object)
-    object.display_type = 'WIRE'
+    box = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(box)
+    box.display_type = 'WIRE'
 
-    object.location = location
-    utils.set_transform_rotation(object, rotation)
-    object.scale = scale
-    return object
+    box.location = parent.matrix_world @ location
+    utils.set_transform_rotation(box, rotate_quat(parent.matrix_world, rotation))
+    box.scale = parent.scale * scale
+    return box
 
+def rotate_quat(M: Matrix, Q: Quaternion):
+    return (M @ Q.to_matrix().to_4x4()).to_quaternion()
 
 def fix_quat(q):
     return [q[3], q[0], q[1], q[2]]
@@ -963,25 +964,25 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
             margin = shape_data["Margin"] * 0.01
             friction = shape_data["Friction"]
             elasticity = shape_data["Elasticity"] / 10.0
-            translate = Vector(shape_data["WorldTranslate"]) * 0.01
+            translate = Vector(shape_data["WorldTranslate"])
             rotate = Quaternion(fix_quat(shape_data["WorldRotationQ"]))
-            scale = shape_data["WorldScale"]
+            scale = Vector(shape_data["WorldScale"])
             if use_bind_data:
-                translate = Vector(shape_data["BindPose WorldTranslate"]) * 0.01
+                translate = Vector(shape_data["BindPose WorldTranslate"])
                 rotate = Quaternion(fix_quat(shape_data["BindPose WorldRotationQ"]))
-                scale = shape_data["BindPose WorldScale"]
+                scale = Vector(shape_data["BindPose WorldScale"])
                 axis = shape_data["BindPose Bound Axis"]
             obj : bpy.types.Object = None
             if shape == "Box":
-                extent = Vector(shape_data["Extent"]) * 0.01 / 2.0
-                obj = create_box_collider(name, translate, rotate, scale, extent, axis)
+                extent = Vector(shape_data["Extent"]) / 2.0
+                obj = create_box_collider(name, arm, translate, rotate, scale, extent, axis)
             elif shape == "Capsule":
-                radius = shape_data["Radius"] * 0.01
-                length = shape_data["Capsule Length"] * 0.01
-                obj = create_capsule_collider(name, translate, rotate, scale, radius, length, axis)
+                radius = shape_data["Radius"]
+                length = shape_data["Capsule Length"]
+                obj = create_capsule_collider(name, arm, translate, rotate, scale, radius, length, axis)
             elif shape == "Sphere":
-                radius = shape_data["Radius"] * 0.01
-                obj = create_sphere_collider(name, translate, rotate, scale, radius)
+                radius = shape_data["Radius"]
+                obj = create_sphere_collider(name, arm, translate, rotate, scale, radius)
 
             if not obj:
                 continue

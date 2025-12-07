@@ -387,6 +387,12 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
         column.row().label(text="Rigid Body Cache:")
         row = column.row()
         row.operator("cc3.springbones", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "RESET_PHYSICS"
+        # frame dropping warning
+        if bpy.context.scene.sync_mode != "NONE":
+            row = column.row()
+            row.alert = True
+            row.label(text="Frame Dropping!", icon="ERROR")
+        #
         row = column.row()
         row.scale_y = 1.5
         row.context_pointer_set("point_cache", rigidbody_point_cache)
@@ -396,6 +402,27 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
             row.operator("ptcache.free_bake", text="Free Simulation", icon="REC")
         else:
             row.operator("ptcache.bake", text="Bake Simulation", icon="REC", depress=rigidbody_baking).bake = True
+
+
+def physics_all_dynamics_ui(layout : bpy.types.UILayout):
+    has_cloth, has_collision, has_rigidbody, all_baked, any_baked, all_baking, any_baking = physics.get_scene_physics_state()
+    layout.label(text="All Dynamics:", icon="PHYSICS")
+    column = layout.column(align=True)
+    column.operator("cc3.scene", icon="LOOP_BACK", text="Reset All").param = "PHYSICS_PREP_ALL"
+    # frame dropping warning
+    if bpy.context.scene.sync_mode != "NONE":
+        row = column.row(align=True)
+        row.alert = True
+        row.label(text="Frame Dropping!", icon="ERROR")
+    #
+    row = column.row(align=True)
+    row.scale_y = 1.5
+    row.alert = all_baked
+    all_depress = all_baking
+    if any_baked:
+        row.operator("ptcache.free_bake_all", text="Free All Dynamics", icon="REC")
+    else:
+        row.operator("ptcache.bake_all", text="Bake All Dynamics", icon="REC", depress=all_depress).bake = True
 
 
 def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
@@ -435,6 +462,12 @@ def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
 
     row = grid_column.row(align=True)
     row.operator("cc3.scene", icon="LOOP_BACK", text="Reset").param = "PHYSICS_PREP_CLOTH"
+    # frame dropping warning
+    if bpy.context.scene.sync_mode != "NONE":
+        row = grid_column.row(align=True)
+        row.alert = True
+        row.label(text="Frame Dropping!", icon="ERROR")
+    #
     row = grid_column.row(align=True)
     row.context_pointer_set("point_cache", cloth_point_cache)
     row.scale_y = 1.5
@@ -452,6 +485,12 @@ def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
 
     row = grid_column.row(align=True)
     row.operator("cc3.scene", icon="LOOP_BACK", text="Reset").param = "PHYSICS_PREP_RBW"
+    # frame dropping warning
+    if bpy.context.scene.sync_mode != "NONE":
+        row = grid_column.row(align=True)
+        row.alert = True
+        row.label(text="Frame Dropping!", icon="ERROR")
+    #
     row = grid_column.row(align=True)
     row.context_pointer_set("point_cache", rigidbody_point_cache)
     row.scale_y = 1.5
@@ -466,20 +505,7 @@ def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
 
     layout.separator()
 
-    has_cloth, has_collision, has_rigidbody, all_baked, any_baked, all_baking, any_baking = physics.get_scene_physics_state()
-
-    layout.label(text="All Dynamics:", icon="PHYSICS")
-
-    column = layout.column(align=True)
-    column.operator("cc3.scene", icon="LOOP_BACK", text="Reset All").param = "PHYSICS_PREP_ALL"
-    row = column.row(align=True)
-    row.scale_y = 1.5
-    row.alert = all_baked
-    all_depress = all_baking
-    if any_baked:
-        row.operator("ptcache.free_bake_all", text="Free All Dynamics", icon="REC")
-    else:
-        row.operator("ptcache.bake_all", text="Bake All Dynamics", icon="REC", depress=all_depress).bake = True
+    physics_all_dynamics_ui(layout)
 
 
 def character_tools_ui(context, layout: bpy.types.UILayout):
@@ -3298,7 +3324,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         column.separator()
 
-        column.row().label(text="Cloth Simulation:")
+        column.row().label(text="Cloth Simulation:", icon="MATCLOTH")
         if bpy.context.object:
             column.label(text=bpy.context.object.name, icon="OBJECT_DATA")
 
@@ -3306,6 +3332,12 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         row.operator("cc3.scene", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "PHYSICS_PREP_CLOTH"
         if not has_cloth:
             row.enabled = False
+        # frame dropping warning
+        if context.scene.sync_mode != "NONE":
+            row = column.row()
+            row.alert = True
+            row.label(text="Frame Dropping!", icon="ERROR")
+        #
         row = column.row()
         row.scale_y = 1.5
         row.context_pointer_set("point_cache", cloth_point_cache)
@@ -3318,8 +3350,9 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         if not has_cloth:
             row.enabled = False
 
-        column.separator()
+        physics_all_dynamics_ui(layout)
 
+        column.separator()
 
         # Physics Mesh Tools
         layout.box().label(text="Mesh Correction", icon="MESH_DATA")

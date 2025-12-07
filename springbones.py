@@ -554,6 +554,7 @@ class CC3OperatorSpringBones(bpy.types.Operator):
             #utils.restore_mode_selection_state(mode_selection)
 
         if self.param == "BAKE_PHYSICS":
+            context.scene.sync_mode = "NONE"
             utils.object_mode_to(arm)
             reset_spring_physics(context)
             utils.log_info("Baking rigid body world point cache...")
