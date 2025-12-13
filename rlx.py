@@ -430,14 +430,15 @@ def add_cache_rotation_fcurves(obj, action: bpy.types.Action, cache, num_frames,
 def add_cache_fcurves(action: bpy.types.Action, data_path, cache, num_frames, group_name=None, slot=None):
     channels = utils.get_action_channels(action, slot)
     num_curves = len(cache)
-    fcurve: bpy.types.FCurve = None
-    if group_name not in channels.groups:
-        channels.groups.new(group_name)
-    for i in range(0, num_curves):
-        fcurve = channels.fcurves.new(data_path, index=i)
-        fcurve.group = channels.groups[group_name]
-        fcurve.keyframe_points.add(num_frames)
-        fcurve.keyframe_points.foreach_set('co', cache[i])
+    if channels:
+        fcurve: bpy.types.FCurve = None
+        if group_name not in channels.groups:
+            channels.groups.new(group_name)
+        for i in range(0, num_curves):
+            fcurve = channels.fcurves.new(data_path, index=i)
+            fcurve.group = channels.groups[group_name]
+            fcurve.keyframe_points.add(num_frames)
+            fcurve.keyframe_points.foreach_set('co', cache[i])
 
 
 def add_camera_markers(camera, cache, num_frames, start):

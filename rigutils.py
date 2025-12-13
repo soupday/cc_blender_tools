@@ -53,8 +53,8 @@ def name_in_data_paths(action, name, slot_type=None):
 
 def name_in_pose_bone_data_paths_regex(action, name, slot_type=None):
     channels = utils.get_action_channels(action, slot_type=slot_type)
-    name = ".*" + name
     if channels:
+        name = ".*" + name
         for fcurve in channels.fcurves:
             if re.match(name, fcurve.data_path):
                 return True

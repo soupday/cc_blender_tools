@@ -1218,7 +1218,7 @@ def store_camera_cache_keyframes(actor: LinkActor, frame):
     store_cache_curves_frame(camera_cache, "f_stop", frame, start, data.dof.aperture_fstop)
 
 
-def write_action_rotation_cache_curve(action: bpy.types.Action, cache, prop, obj, num_frames, group_name=None, slot=None):
+def write_action_rotation_cache_curve(action: bpy.types.Action, cache, prop, obj, num_frames, group_name=None, slot=None, slot_type=None):
     cache_type = cache[prop]["type"]
     data_path = None
     if cache_type == "QUATERNION":
@@ -1233,27 +1233,30 @@ def write_action_rotation_cache_curve(action: bpy.types.Action, cache, prop, obj
         data_path = obj.path_from_id("rotation_euler")
         if not group_name:
             group_name = "Rotation Euler"
-    write_action_cache_curve(action, cache, prop, data_path, num_frames, group_name, slot=slot)
+    write_action_cache_curve(action, cache, prop, data_path, num_frames, group_name, slot=slot, slot_type=slot_type)
 
 
-def write_action_cache_curve(action: bpy.types.Action, cache, prop, data_path, num_frames, group_name, slot=None):
+def write_action_cache_curve(action: bpy.types.Action, cache, prop, data_path, num_frames, group_name, slot=None, slot_type=None):
     if not LINK_DATA.set_keyframes: return
     prop_cache = cache[prop]
     num_curves = len(prop_cache["curves"])
-    channels = utils.get_action_channels(action, slot)
-    fcurve: bpy.types.FCurve = None
-    if group_name not in channels.groups:
-        channels.groups.new(group_name)
-    for i in range(0, num_curves):
-        cache_curve = prop_cache["curves"][i]
-        fcurve = channels.fcurves.new(data_path, index=i)
-        fcurve.keyframe_points.add(num_frames)
-        set_count = num_frames * 2
-        if set_count < len(cache_curve):
-            # if setting fewer frames than are in the cache (sequence was stopped early)
-            fcurve.keyframe_points.foreach_set('co', cache_curve[:set_count])
-        else:
-            fcurve.keyframe_points.foreach_set('co', cache_curve)
+    channels = utils.get_action_channels(action, slot=slot, slot_type=slot_type)
+    if not channels:
+        print("No channels")
+    if channels:
+        fcurve: bpy.types.FCurve = None
+        if group_name not in channels.groups:
+            channels.groups.new(group_name)
+        for i in range(0, num_curves):
+            cache_curve = prop_cache["curves"][i]
+            fcurve = channels.fcurves.new(data_path, index=i)
+            fcurve.keyframe_points.add(num_frames)
+            set_count = num_frames * 2
+            if set_count < len(cache_curve):
+                # if setting fewer frames than are in the cache (sequence was stopped early)
+                fcurve.keyframe_points.foreach_set('co', cache_curve[:set_count])
+            else:
+                fcurve.keyframe_points.foreach_set('co', cache_curve)
 
 
 def write_sequence_actions(actor: LinkActor, num_frames):
@@ -1268,14 +1271,18 @@ def write_sequence_actions(actor: LinkActor, num_frames):
             if rig_action:
                 utils.clear_action(rig_action, "OBJECT", rig_action.name)
                 bone_cache = actor.cache["bones"]
+                rig_slot = utils.get_action_slot(rig_action, "OBJECT")
                 for bone_name in bone_cache:
                     pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
                     write_action_cache_curve(rig_action, bone_cache[bone_name], "loc",
-                                                pose_bone.path_from_id("location"), num_frames, bone_name)
+                                                pose_bone.path_from_id("location"), num_frames, bone_name,
+                                                slot=rig_slot)
                     write_action_rotation_cache_curve(rig_action, bone_cache[bone_name], "rot",
-                                                pose_bone, num_frames, group_name=bone_name)
+                                                pose_bone, num_frames, group_name=bone_name,
+                                                slot=rig_slot)
                     write_action_cache_curve(rig_action, bone_cache[bone_name], "sca",
-                                                pose_bone.path_from_id("scale"), num_frames, bone_name)
+                                                pose_bone.path_from_id("scale"), num_frames, bone_name,
+                                                slot=rig_slot)
                 # re-apply action to fix slot
                 utils.safe_set_action(rig, rig_action)
 
@@ -1283,18 +1290,21 @@ def write_sequence_actions(actor: LinkActor, num_frames):
             viseme_cache = actor.cache["visemes"]
             for obj in objects:
                 obj_action = utils.safe_get_action(obj.data.shape_keys)
+                key_slot = utils.get_action_slot(obj_action, "KEY")
                 if obj_action:
                     utils.clear_action(obj_action, "KEY", obj_action.name)
                     for expression_name in expression_cache:
                         if expression_name in obj.data.shape_keys.key_blocks:
                             key = obj.data.shape_keys.key_blocks[expression_name]
                             write_action_cache_curve(obj_action, expression_cache, expression_name,
-                                                        key.path_from_id("value"), num_frames, "Expression")
+                                                     key.path_from_id("value"), num_frames, "Expression",
+                                                     slot=key_slot)
                     for viseme_name in viseme_cache:
                         if viseme_name in obj.data.shape_keys.key_blocks:
                             key = obj.data.shape_keys.key_blocks[viseme_name]
                             write_action_cache_curve(obj_action, viseme_cache, viseme_name,
-                                                        key.path_from_id("value"), num_frames, "Viseme")
+                                                     key.path_from_id("value"), num_frames, "Viseme",
+                                                     slot=key_slot)
                     utils.safe_set_action(obj.data.shape_keys, obj_action) # re-apply action to fix slot
 
             # remove actions from non sequence objects
