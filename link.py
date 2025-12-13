@@ -1241,8 +1241,6 @@ def write_action_cache_curve(action: bpy.types.Action, cache, prop, data_path, n
     prop_cache = cache[prop]
     num_curves = len(prop_cache["curves"])
     channels = utils.get_action_channels(action, slot=slot, slot_type=slot_type)
-    if not channels:
-        print("No channels")
     if channels:
         fcurve: bpy.types.FCurve = None
         if group_name not in channels.groups:
