@@ -2088,6 +2088,34 @@ def clear_action(action, slot_type=None, slot_name=None):
     return False
 
 
+def get_all_action_channels(action: bpy.types.Action):
+    channels = []
+    if action:
+        if B440():
+            if not action.layers:
+                layer = action.layers.new("Layer")
+            else:
+                layer = action.layers[0]
+            if not layer.strips:
+                strip = layer.strips.new(type='KEYFRAME')
+            else:
+                strip = layer.strips[0]
+            for channelbag in strip.channelbags:
+                channels.append(channelbag)
+        else:
+            channels.append(action)
+    return channels
+
+
+def get_action_fcurves(action: bpy.types.Action):
+    fcurves = []
+    channels = get_all_action_channels(action)
+    for channel in channels:
+        for fcurve in channel.fcurves:
+            fcurves.append(fcurve)
+    return fcurves
+
+
 def get_action_channels(action: bpy.types.Action, slot=None, slot_type=None):
     if not action:
         return None

@@ -128,7 +128,10 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
     utils.set_only_active_object(ao_body)
     set_multi_res_level(ao_body, view_level=9, sculpt_level=9, render_level=9)
     utils.log_info(f"Baking {layer_target} AO...")
-    bpy.context.scene.render.use_bake_multires = False
+    if utils.B500():
+        bpy.context.scene.render.bake.use_multires = False
+    else:
+        bpy.context.scene.render.use_bake_multires = False
     # *cycles* bake type to AO
     bpy.context.scene.cycles.bake_type = "AO"
     if prefs.bake_use_gpu:
@@ -141,7 +144,10 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
     # Displacement Baking
     select_bake_images(multires_mesh, BAKE_TYPE_DISPLACEMENT, layer_target)
 
-    bpy.context.scene.render.use_bake_multires = True
+    if utils.B500():
+        bpy.context.scene.render.bake.use_multires = True
+    else:
+        bpy.context.scene.render.use_bake_multires = True
     bake.set_cycles_samples(context, samples=2)
 
     # copy the body for displacement baking
@@ -167,7 +173,10 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
         set_multi_res_level(obj, view_level=0, sculpt_level=9, render_level=9)
         # bake the displacement mask
         utils.log_info(f"Baking {layer_target} sub displacement {obj.name}")
-        bpy.context.scene.render.bake_type = BAKE_TYPE_DISPLACEMENT
+        if utils.B500():
+            bpy.context.scene.render.bake.type = BAKE_TYPE_DISPLACEMENT
+        else:
+            bpy.context.scene.render.bake_type = BAKE_TYPE_DISPLACEMENT
         bpy.ops.object.bake_image()
         utils.delete_mesh_object(obj)
 
@@ -191,7 +200,10 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
 
     # bake the normals
     utils.log_info(f"Baking {layer_target} normals...")
-    bpy.context.scene.render.bake_type = BAKE_TYPE_NORMALS
+    if utils.B500():
+        bpy.context.scene.render.bake.type = BAKE_TYPE_NORMALS
+    else:
+        bpy.context.scene.render.bake_type = BAKE_TYPE_NORMALS
     bpy.ops.object.bake_image()
 
     utils.log_recess()
