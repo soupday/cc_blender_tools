@@ -1499,6 +1499,10 @@ def hide_tree(obj, hide=True, render=False):
         except: ...
 
 
+def show(obj: bpy.types.Object, show=True, render=False):
+    hide(obj, hide=not show, render=render)
+
+
 def hide(obj: bpy.types.Object, hide=True, render=False):
     try:
         obj.hide_set(hide)

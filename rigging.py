@@ -2778,7 +2778,7 @@ def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None
         rigutils.add_motion_set_data(armature_action, set_id, set_generation, rl_arm_id=rl_arm_id)
         armature_action.use_fake_user = props.rigify_retarget_use_fake_user if use_ui_options else True
         utils.log_info(f"Renaming armature action to: {armature_action.name}")
-        for obj_id, key_action in key_actions.items():
+        for obj_id, (key_action, old_key_action) in key_actions.items():
             rigutils.set_key_action_name(key_action, rig_id, motion_id, obj_id, motion_prefix)
             rigutils.add_motion_set_data(key_action, set_id, set_generation, obj_id=obj_id)
             utils.log_info(f"Renaming key action ({obj_id}) to: {key_action.name}")

@@ -3869,7 +3869,9 @@ class LinkService():
             # generate new action set data
             set_id, set_generation = rigutils.generate_motion_set(actor_rig, motion_id, LINK_DATA.motion_prefix)
             remove_actions = []
+            action_pairs = []
             if actor_rig:
+
                 if actor.get_type() == "PROP":
                     # if it's a prop retarget the animation (or copy the rest pose):
                     #    props have no bind pose so the rest pose is the first frame of
@@ -3888,6 +3890,7 @@ class LinkService():
                         rigutils.copy_rest_pose(motion_rig, actor_rig)
                         utils.safe_set_action(actor_rig, motion_rig_action)
                     rigutils.update_prop_rig(actor_rig)
+
                 else: # Avatar
                     if chr_cache.rigified:
                         update_link_status(f"Retargeting Motion...")
@@ -3897,11 +3900,14 @@ class LinkService():
                         rigutils.set_armature_action_name(armature_action, actor_rig_id, motion_id, LINK_DATA.motion_prefix)
                         remove_actions.append(motion_rig_action)
                     else:
+                        actor_rig_action = utils.safe_get_action(actor_rig)
                         rigutils.add_motion_set_data(motion_rig_action, set_id, set_generation, rl_arm_id=rl_arm_id)
                         rigutils.set_armature_action_name(motion_rig_action, actor_rig_id, motion_id, LINK_DATA.motion_prefix)
                         motion_rig_action.use_fake_user = LINK_DATA.use_fake_user
                         utils.safe_set_action(actor_rig, motion_rig_action)
+                        action_pairs.append((actor_rig_action, motion_rig_action))
                     rigutils.update_avatar_rig(actor_rig)
+
             # assign motion object shape key actions:
             key_actions = rigutils.apply_source_key_actions(actor_rig,
                                                 source_actions, copy=True,
@@ -3909,11 +3915,12 @@ class LinkService():
                                                 motion_prefix=LINK_DATA.motion_prefix,
                                                 all_matching=True,
                                                 set_id=set_id, set_generation=set_generation)
-            for action in key_actions.values():
+            actions = [ p[0] for p in key_actions.values() ]
+            for action in actions:
                 action.use_fake_user = LINK_DATA.use_fake_user
             # remove unused motion key actions
             for obj_action in source_actions["keys"].values():
-                if obj_action not in key_actions.values():
+                if obj_action not in actions:
                     remove_actions.append(obj_action)
             # delete imported motion rig and objects
             for obj in motion_objects:

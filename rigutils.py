@@ -428,6 +428,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
         if obj.type == "MESH":
             if utils.object_has_shape_keys(obj):
                 obj_id = get_action_obj_id(obj)
+                old_action = utils.safe_get_action(obj.data.shape_keys)
                 if (obj_id in source_actions["keys"] and
                     obj_has_action_shape_keys(obj, source_actions["keys"][obj_id])):
                     action = source_actions["keys"][obj_id]
@@ -440,7 +441,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
                     utils.log_info(f" - Applying action: {action.name} to {obj_id}")
                     utils.safe_set_action(obj.data.shape_keys, action)
                     obj_used.append(obj)
-                    key_actions[obj_id] = action
+                    key_actions[obj_id] = (action, old_action)
                 else:
                     utils.safe_set_action(obj.data.shape_keys, None)
 
@@ -452,6 +453,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
             if filter and obj not in filter: continue
             if obj not in obj_used and utils.object_has_shape_keys(obj):
                 obj_id = get_action_obj_id(obj)
+                old_action = utils.safe_get_action(obj.data.shape_keys)
                 if body_action:
                     if obj_has_action_shape_keys(obj, body_action):
                         action = body_action
@@ -464,7 +466,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
                         utils.log_info(f" - Applying action: {action.name} to {obj_id}")
                         utils.safe_set_action(obj.data.shape_keys, action)
                         obj_used.append(obj)
-                        key_actions[obj_id] = action
+                        key_actions[obj_id] = (action, old_action)
     return key_actions
 
 

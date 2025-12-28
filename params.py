@@ -1364,9 +1364,9 @@ SHADER_MATRIX = [
         # modifier properties:
         # [prop_name, material_type, modifier_type, modifier_id, expression]
         "modifiers": [
-            [ "eye_iris_depth", "EYE_RIGHT", "DISPLACE", "Eye_Displace_R", "mod.strength = 1.5 * parameters.eye_iris_depth"],
+            [ "eye_iris_depth", "EYE_RIGHT", "DISPLACE", "Eye_Displace_R", "mod.strength = 1.0 * parameters.eye_iris_depth"],
             [ "eye_pupil_scale", "EYE_RIGHT", "UV_WARP", "Eye_UV_Warp_R", "mod.scale = (1.0 / parameters.eye_pupil_scale, 1.0 / parameters.eye_pupil_scale)" ],
-            [ "eye_iris_depth", "EYE_LEFT", "DISPLACE", "Eye_Displace_L", "mod.strength = 1.5 * parameters.eye_iris_depth"],
+            [ "eye_iris_depth", "EYE_LEFT", "DISPLACE", "Eye_Displace_L", "mod.strength = 1.0 * parameters.eye_iris_depth"],
             [ "eye_pupil_scale", "EYE_LEFT", "UV_WARP", "Eye_UV_Warp_L", "mod.scale = (1.0 / parameters.eye_pupil_scale, 1.0 / parameters.eye_pupil_scale)" ],
         ],
         # material setting properties:
@@ -1391,7 +1391,7 @@ SHADER_MATRIX = [
         "mapping": [
             ["DIFFUSE", "Sclera Scale", "", "eye_sclera_scale"],
             ["DIFFUSE", "Iris Radius", "", "eye_iris_radius"],
-            ["DIFFUSE", "Pupil Scale", "", "eye_pupil_scale"],
+            ["DIFFUSE", "Pupil Scale", "func_set_parallax_pupil_scale", "eye_pupil_scale"],
             ["DIFFUSE", "Depth", "func_set_parallax_iris_depth", "eye_iris_depth"],
             ["DIFFUSE", "IOR", "", "eye_ior"],
             ["SCLERA", "Invert", "func_eye_invert", "eye_is_left_eye"],

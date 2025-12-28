@@ -210,13 +210,13 @@ def import_rlx_light(data: BinaryData, data_folder):
     cutoff_distance_cache = frame_cache(num_frames)
     spot_blend_cache = frame_cache(num_frames)
     spot_size_cache = frame_cache(num_frames)
+    visible_cache = frame_cache(num_frames)
+    render_cache = frame_cache(num_frames)
 
-    frame = 0
     start = None
     while not frames.eof():
-        frame += 1
         time = frames.time()
-        frame = frames.int()
+        frame = frames.int() + 1
         if start is None:
             start = frame
         active = frames.bool()
@@ -230,8 +230,6 @@ def import_rlx_light(data: BinaryData, data_folder):
         falloff = frames.float() / 100
         attenuation = frames.float() / 100
         darkness = frames.float()
-        if not active:
-            multiplier = 0.0
         cutoff_distance = range
         store_frame(light, loc_cache, frame, start, loc)
         store_frame(light, rot_cache, frame, start, rot)
@@ -254,6 +252,9 @@ def import_rlx_light(data: BinaryData, data_folder):
         elif light_type == "POINT":
             energy = ENERGY_SCALE * multiplier
             store_frame(light, energy_cache, frame, start, energy)
+        store_frame(light, visible_cache, frame, start, 0.0 if active else 1.0)
+        store_frame(light, render_cache, frame, start, 0.0 if active else 1.0)
+
 
     ob_action, light_action, ob_slot, light_slot = prep_rlx_actions(light, name, "Export",
                                                                     reuse_existing=False,
@@ -261,6 +262,8 @@ def import_rlx_light(data: BinaryData, data_folder):
     add_cache_fcurves(ob_action, light.path_from_id("location"), loc_cache, num_frames, "Location", slot=ob_slot)
     add_cache_rotation_fcurves(light, ob_action, rot_cache, num_frames, slot=ob_slot)
     add_cache_fcurves(ob_action, light.path_from_id("scale"), sca_cache, num_frames, "Scale", slot=ob_slot)
+    add_cache_fcurves(light_action, light.path_from_id("hide_viewport"), visible_cache, num_frames, "Hide Viewport", slot=ob_slot, interpolation="CONSTANT")
+    add_cache_fcurves(light_action, light.path_from_id("hide_render"), render_cache, num_frames, "Hide Render", slot=ob_slot, interpolation="CONSTANT")
     add_cache_fcurves(light_action, light.data.path_from_id("color"), color_cache, num_frames, "Color", slot=light_slot)
     add_cache_fcurves(light_action, light.data.path_from_id("energy"), energy_cache, num_frames, "Energy", slot=light_slot)
     add_cache_fcurves(light_action, light.data.path_from_id("cutoff_distance"), cutoff_distance_cache, num_frames, "Cutoff Distance", slot=light_slot)
@@ -298,12 +301,10 @@ def import_rlx_camera(data: BinaryData, data_folder):
     f_stop_cache = frame_cache(num_frames)
     active_cache = []
 
-    frame = 0
     start = None
     while not frames.eof():
-        frame += 1
         time = frames.time()
-        frame = frames.int()
+        frame = frames.int() + 1
         if start is None:
             start = frame
         loc = frames.vector() / 100
@@ -427,7 +428,7 @@ def add_cache_rotation_fcurves(obj, action: bpy.types.Action, cache, num_frames,
     add_cache_fcurves(action, data_path, cache, num_frames, group_name=group_name, slot=slot)
 
 
-def add_cache_fcurves(action: bpy.types.Action, data_path, cache, num_frames, group_name=None, slot=None):
+def add_cache_fcurves(action: bpy.types.Action, data_path, cache, num_frames, group_name=None, slot=None, interpolation="LINEAR"):
     channels = utils.get_action_channels(action, slot)
     num_curves = len(cache)
     if channels:
@@ -436,9 +437,51 @@ def add_cache_fcurves(action: bpy.types.Action, data_path, cache, num_frames, gr
             channels.groups.new(group_name)
         for i in range(0, num_curves):
             fcurve = channels.fcurves.new(data_path, index=i)
+            fcurve.auto_smoothing = "NONE"
             fcurve.group = channels.groups[group_name]
-            fcurve.keyframe_points.add(num_frames)
-            fcurve.keyframe_points.foreach_set('co', cache[i])
+            reduced = reduce_cache(cache[i], interpolation)
+            num_reduced = int(len(reduced) / 2)
+            fcurve.keyframe_points.add(num_reduced)
+            fcurve.keyframe_points.foreach_set('co', reduced)
+            if interpolation != "BEZIER":
+                for keyframe in fcurve.keyframe_points:
+                    keyframe.interpolation = interpolation
+            else:
+                L = len(fcurve.keyframe_points)
+                for i, keyframe in enumerate(fcurve.keyframe_points):
+                    prev = fcurve.keyframe_points[i-1] if i > 0 else keyframe
+                    next = fcurve.keyframe_points[i+1] if i < L-1 else keyframe
+                    keyframe.handle_left_type = "AUTO"
+                    keyframe.handle_left[0] = keyframe.co.x - 0.5
+                    keyframe.handle_left[1] = (keyframe.co.y + prev.co.y) * 0.5
+                    keyframe.handle_right_type = "AUTO"
+                    keyframe.handle_right[0] = keyframe.co.x + 0.5
+                    keyframe.handle_right[1] = (keyframe.co.y + next.co.y) * 0.5
+
+def reduce_cache(cache, interpolation):
+    if not cache or len(cache) <= 4:
+        return cache
+    reduced = []
+    L = len(cache)
+    Lm2 = L - 2
+    # add first frame
+    reduced.append(cache[0])
+    reduced.append(cache[1])
+    use_next = interpolation != "CONSTANT"
+    for i in range(2, L, 2):
+        frame = cache[i]
+        value = cache[i+1]
+        value_last = cache[i-1]
+        value_next = cache[i+3] if i < Lm2 else value
+        last_changed = abs(value - value_last) > 0.0001
+        next_changed = abs(value - value_next) > 0.0001
+        if last_changed or (use_next and next_changed):
+            reduced.append(frame)
+            reduced.append(value)
+    # add last frame
+    #reduced.append(cache[-2])
+    #reduced.append(cache[-1])
+    return reduced
 
 
 def add_camera_markers(camera, cache, num_frames, start):
@@ -567,8 +610,10 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
             light.data.contact_shadow_distance = 0.1
             light.data.contact_shadow_bias = 0.03
             light.data.contact_shadow_thickness = 0.001
-    if not active:
-        utils.hide(light)
+
+    light.hide_viewport = not active
+    light.hide_render = not active
+
     return light
 
 

@@ -21,7 +21,7 @@ import bpy
 from . import imageutils, jsonutils, nodeutils, utils, params, vars
 
 
-def detect_skin_material(mat):
+def detect_skin_material_name(mat):
     name = mat.name.lower()
     if "std_skin_" in name or "ga_skin_" in name:
         return True
@@ -67,7 +67,7 @@ def detect_key_words(hints, text):
     return "False"
 
 
-def detect_scalp_material(mat):
+def detect_scalp_material_name(mat):
     prefs = vars.prefs()
     material_name = mat.name.lower()
     hints = prefs.hair_scalp_hint.split(",")
@@ -79,14 +79,14 @@ def detect_scalp_material(mat):
     return detect
 
 
-def detect_eyelash_material(mat):
+def detect_eyelash_material_name(mat):
     name = mat.name.lower()
     if "std_eyelash" in name or "ga_eyelash" in name:
         return True
     return False
 
 
-def detect_teeth_material(mat):
+def detect_teeth_material_name(mat):
     name = mat.name.lower()
     if "std_upper_teeth" in name:
         return True
@@ -95,21 +95,21 @@ def detect_teeth_material(mat):
     return False
 
 
-def detect_tongue_material(mat):
+def detect_tongue_material_name(mat):
     name = mat.name.lower()
     if "std_tongue" in name or "ga_tongue" in name:
         return True
     return False
 
 
-def detect_nails_material(mat):
+def detect_nails_material_name(mat):
     name = mat.name.lower()
     if "std_nails" in name or "ga_nails" in name:
         return True
     return False
 
 
-def detect_body_object(chr_cache, obj):
+def detect_body_object_name(obj):
     name = obj.name.lower()
     if "base_body" in name or "game_body" in name:
         return True
@@ -282,16 +282,16 @@ def detect_materials_by_name(chr_cache, obj, mat):
 
     if detect_hair_object(obj, tex_dirs, chr_cache.get_import_dir()) == "True":
         object_type = "HAIR"
-        if detect_scalp_material(mat) == "True":
+        if detect_scalp_material_name(mat) == "True":
             material_type = "SCALP"
         elif detect_hair_material(obj, mat, tex_dirs, chr_cache.get_import_dir()) == "Deny":
             material_type = "DEFAULT"
         else:
             material_type = "HAIR"
 
-    elif detect_body_object(chr_cache, obj):
+    elif detect_body_object_name(obj):
         object_type = "BODY"
-        if detect_skin_material(mat):
+        if detect_skin_material_name(mat):
             if "head" in mat_name:
                 material_type = "SKIN_HEAD"
             elif "body" in mat_name:
@@ -300,9 +300,9 @@ def detect_materials_by_name(chr_cache, obj, mat):
                 material_type = "SKIN_ARM"
             elif "leg" in mat_name:
                 material_type = "SKIN_LEG"
-        elif detect_nails_material(mat):
+        elif detect_nails_material_name(mat):
             material_type = "NAILS"
-        elif detect_eyelash_material(mat):
+        elif detect_eyelash_material_name(mat):
             material_type = "EYELASH"
 
     elif detect_cornea_material(mat):
@@ -333,14 +333,14 @@ def detect_materials_by_name(chr_cache, obj, mat):
         else:
             material_type = "TEARLINE_RIGHT"
 
-    elif detect_teeth_material(mat):
+    elif detect_teeth_material_name(mat):
         object_type = "TEETH"
         if detect_material_side(mat, "UPPER"):
             material_type = "TEETH_UPPER"
         else:
             material_type = "TEETH_LOWER"
 
-    elif detect_tongue_material(mat):
+    elif detect_tongue_material_name(mat):
         object_type = "TONGUE"
         material_type = "TONGUE"
 
@@ -368,12 +368,12 @@ def detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json):
             object_type = "HAIR"
             if detect_hair_material(obj, mat, tex_dirs, chr_cache.get_import_dir(), mat_json) == "True":
                 material_type = "HAIR"
-            elif detect_scalp_material(mat) == "True":
+            elif detect_scalp_material_name(mat) == "True":
                 material_type = "SCALP"
             else:
                 material_type = "DEFAULT"
 
-        elif detect_eyelash_material(mat):
+        elif detect_eyelash_material_name(mat):
             object_type = "BODY"
             material_type = "EYELASH"
 
@@ -402,7 +402,7 @@ def detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json):
             material_type = "SKIN_ARM"
         elif "leg" in mat_name:
             material_type = "SKIN_LEG"
-        elif detect_nails_material(mat):
+        elif detect_nails_material_name(mat):
             material_type = "NAILS"
 
     elif shader == "RLHead":
@@ -459,7 +459,12 @@ def detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json):
         object_type = "DEFAULT"
         material_type = "DEFAULT"
 
-    utils.log_info(f"Material: {mat_name} detected from Json data as: {material_type}")
+    # final check for body
+    if object_type == "DEFAULT" and material_type == "DEFAULT":
+        if detect_body_object_name(obj) and detect_skin_material_name(mat):
+            object_type = "BODY"
+
+    utils.log_info(f"Material: {obj.name}/{mat_name} detected from Json data as: {object_type}/{material_type}")
     return object_type, material_type
 
 

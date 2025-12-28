@@ -2641,7 +2641,7 @@ def cycles_setup(context):
         pass
 
     try:
-        context.scene.cycles.preview_denoiser = 'OPTIX'
+        context.scene.cycles.preview_denoiser = 'OPENIMAGEDENOISE'
         context.scene.cycles.denoiser = 'OPTIX'
     except:
         pass
