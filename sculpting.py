@@ -67,7 +67,12 @@ def apply_multi_res_shape(body):
         mod = modifiers.get_object_modifier(body, modifiers.MOD_MULTIRES, modifiers.MOD_MULTIRES_NAME)
         if mod and utils.set_only_active_object(body):
             utils.log_info("Applying base shape")
-            bpy.ops.object.multires_base_apply(modifier=mod.name)
+            if utils.B500():
+                # apply_heuristic=True applies base assuming it will be used subdivided
+                # apply_heuristic=False applies base to level 0
+                bpy.ops.object.multires_base_apply(modifier=mod.name, apply_heuristic=False)
+            else:
+                bpy.ops.object.multires_base_apply(modifier=mod.name)
 
 
 def displacement_map_func(value):
@@ -209,20 +214,22 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
     utils.log_recess()
     utils.log_info("Baking complete!")
 
-    utils.delete_mesh_object(norm_body)
-
     if layer_target == LAYER_TARGET_SCULPT and apply_shape and source_body:
 
         utils.log_info("Transfering sculpt base shape to source body...")
 
         utils.unhide(multires_mesh)
         utils.unhide(source_body)
-        copy_base_shape(multires_mesh, source_body, layer_target, True)
+        if norm_body and source_body:
+            copy_base_shape(norm_body, source_body, layer_target, True)
 
-        # if there is a detail sculpt body, update that with the new base shape too
-        detail_body = chr_cache.get_detail_body(context_object=source_body)
-        if detail_body:
-            copy_base_shape(multires_mesh, detail_body, layer_target, True)
+            # if there is a detail sculpt body, update that with the new base shape too
+            detail_body = chr_cache.get_detail_body(context_object=source_body)
+            if detail_body:
+                # the base shape has only been applied to the norm_body so far ...
+                copy_base_shape(norm_body, detail_body, layer_target, True)
+
+    utils.delete_mesh_object(norm_body)
 
     # restore render engine
     bake.post_bake(context, bake_state)
