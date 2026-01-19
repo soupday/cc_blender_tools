@@ -1499,6 +1499,10 @@ def hide_tree(obj, hide=True, render=False):
         except: ...
 
 
+def show(obj: bpy.types.Object, show=True, render=False):
+    hide(obj, hide=not show, render=render)
+
+
 def hide(obj: bpy.types.Object, hide=True, render=False):
     try:
         obj.hide_set(hide)
@@ -2086,6 +2090,34 @@ def clear_action(action, slot_type=None, slot_name=None):
         except:
             log_error(f"Unable to clear action: {action}")
     return False
+
+
+def get_all_action_channels(action: bpy.types.Action):
+    channels = []
+    if action:
+        if B440():
+            if not action.layers:
+                layer = action.layers.new("Layer")
+            else:
+                layer = action.layers[0]
+            if not layer.strips:
+                strip = layer.strips.new(type='KEYFRAME')
+            else:
+                strip = layer.strips[0]
+            for channelbag in strip.channelbags:
+                channels.append(channelbag)
+        else:
+            channels.append(action)
+    return channels
+
+
+def get_action_fcurves(action: bpy.types.Action):
+    fcurves = []
+    channels = get_all_action_channels(action)
+    for channel in channels:
+        for fcurve in channel.fcurves:
+            fcurves.append(fcurve)
+    return fcurves
 
 
 def get_action_channels(action: bpy.types.Action, slot=None, slot_type=None):
@@ -2812,7 +2844,7 @@ def set_rl_object_id(obj, new_id=None):
 
 
 def get_rl_object_id(obj):
-    if obj:
+    if object_exists(obj):
         if obj.type == "ARMATURE" and "rl_armature_id" in obj:
             return obj["rl_armature_id"]
         if "rl_object_id" in obj:
@@ -2938,3 +2970,13 @@ def smallest_index(items: list):
             smallest_value = value
             index = i
     return index
+
+
+def safe_free_bake(point_cache):
+    if B320():
+        with bpy.context.temp_override(point_cache=point_cache):
+            bpy.ops.ptcache.free_bake()
+    else:
+        context_override = bpy.context.copy()
+        context_override["point_cache"] = point_cache
+        bpy.ops.ptcache.free_bake(context_override)

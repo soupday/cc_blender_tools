@@ -2013,26 +2013,28 @@ def load_csv(chr_cache, file_path):
                 key_action = utils.make_action(f"{chr_cache.character_name}_ARKit_Proxy_Head", slot_type="KEY", clear=True, reuse=True)
                 arm_action = utils.make_action(f"{chr_cache.character_name}_ARKit_Proxy", slot_type="OBJECT", clear=True, reuse=True)
                 key_channels = utils.get_action_channels(key_action, slot_type="KEY")
-                for key in keys:
-                    fcurve = key_channels.fcurves.new(f"key_blocks[\"{key}\"].value")
-                    for tcurve in tcurves:
-                        if tcurve.name.lower() == key.lower():
-                            tcurve.to_fcurve(fcurve)
-                            break
+                if key_channels:
+                    for key in keys:
+                        fcurve = key_channels.fcurves.new(f"key_blocks[\"{key}\"].value")
+                        for tcurve in tcurves:
+                            if tcurve.name.lower() == key.lower():
+                                tcurve.to_fcurve(fcurve)
+                                break
                 utils.safe_set_action(proxy_mesh.data.shape_keys, key_action)
             bone_channels = utils.get_action_channels(arm_action, slot_type="OBJECT")
-            for tcurve_name, bone_def in facerig_data.ARK_BONE_TARGETS.items():
-                for tcurve in tcurves:
-                    if tcurve.name.lower() == tcurve_name.lower():
-                        bone_name = bone_def["bone"]
-                        bone = proxy_rig.pose.bones[bone_name]
-                        bone.rotation_mode = "XYZ"
-                        axis = bone_def["axis"]
-                        rotation = bone_def["rotation"] * math.pi / 180
-                        prop, var, index = facerig_data.ROT_AXES[axis]
-                        data_path = bone.path_from_id(prop)
-                        fcurve = bone_channels.fcurves.new(data_path, index=index)
-                        tcurve.to_fcurve(fcurve, rotation)
+            if bone_channels:
+                for tcurve_name, bone_def in facerig_data.ARK_BONE_TARGETS.items():
+                    for tcurve in tcurves:
+                        if tcurve.name.lower() == tcurve_name.lower():
+                            bone_name = bone_def["bone"]
+                            bone = proxy_rig.pose.bones[bone_name]
+                            bone.rotation_mode = "XYZ"
+                            axis = bone_def["axis"]
+                            rotation = bone_def["rotation"] * math.pi / 180
+                            prop, var, index = facerig_data.ROT_AXES[axis]
+                            data_path = bone.path_from_id(prop)
+                            fcurve = bone_channels.fcurves.new(data_path, index=index)
+                            tcurve.to_fcurve(fcurve, rotation)
             utils.safe_set_action(proxy_rig, arm_action)
 
 

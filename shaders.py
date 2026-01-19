@@ -607,10 +607,13 @@ def func_export_eye_depth(cc, depth):
     return (depth) * 3.0
 
 def func_set_eye_depth(cc, depth):
-    return depth * 1.5
+    return depth * 1.0
 
 def func_set_parallax_iris_depth(cc, depth):
-    return depth * 1.5 + 0.1
+    return depth * 1.0
+
+def func_set_parallax_pupil_scale(cc, scale):
+    return scale * 0.6666
 
 def func_index_f0(cc, v: list):
     return v[0]

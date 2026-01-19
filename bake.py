@@ -56,6 +56,10 @@ def prep_bake(context, mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image
 
     # cycles settings
     bake_state["samples"] = context.scene.cycles.samples
+    if utils.B500():
+        bake_state["use_bake_multires"] = context.scene.render.bake.use_multires
+    else:
+        bake_state["use_bake_multires"] = context.scene.render.use_bake_multires
     # Blender 3.0
     if utils.B300():
         bake_state["preview_samples"] = context.scene.cycles.preview_samples
@@ -68,7 +72,6 @@ def prep_bake(context, mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image
     bake_state["file_format"] = context.scene.render.image_settings.file_format
     bake_state["color_depth"] = context.scene.render.image_settings.color_depth
     bake_state["color_mode"] = context.scene.render.image_settings.color_mode
-    bake_state["use_bake_multires"] = context.scene.render.use_bake_multires
     bake_state["use_selected_to_active"] = context.scene.render.bake.use_selected_to_active
     bake_state["use_pass_direct"] = context.scene.render.bake.use_pass_direct
     bake_state["use_pass_indirect"] = context.scene.render.bake.use_pass_indirect
@@ -87,7 +90,10 @@ def prep_bake(context, mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image
 
     context.scene.cycles.samples = samples
     context.scene.render.image_settings.file_format = image_format
-    context.scene.render.use_bake_multires = False
+    if utils.B500():
+        context.scene.render.bake.use_multires = False
+    else:
+        context.scene.render.use_bake_multires = False
     context.scene.render.bake.use_selected_to_active = False
     context.scene.render.bake.use_pass_direct = False
     context.scene.render.bake.use_pass_indirect = False
@@ -126,7 +132,10 @@ def prep_bake(context, mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image
     bake_state["engine"] = context.scene.render.engine
     context.scene.render.engine = 'CYCLES'
     bake_state["cycles_bake_type"] = context.scene.cycles.bake_type
-    bake_state["render_bake_type"] = context.scene.render.bake_type
+    if utils.B500():
+        bake_state["render_bake_type"] = context.scene.render.bake.type
+    else:
+        bake_state["render_bake_type"] = context.scene.render.bake_type
     context.scene.cycles.bake_type = "COMBINED"
 
 
@@ -184,7 +193,10 @@ def post_bake(context, state):
     context.scene.render.image_settings.file_format = state["file_format"]
     context.scene.render.image_settings.color_depth = state["color_depth"]
     context.scene.render.image_settings.color_mode = state["color_mode"]
-    context.scene.render.use_bake_multires = state["use_bake_multires"]
+    if utils.B500():
+        context.scene.render.bake.use_multires = state["use_bake_multires"]
+    else:
+        context.scene.render.use_bake_multires = state["use_bake_multires"]
     context.scene.render.bake.use_selected_to_active = state["use_selected_to_active"]
     context.scene.render.bake.use_pass_direct = state["use_pass_direct"]
     context.scene.render.bake.use_pass_indirect = state["use_pass_indirect"]
@@ -209,7 +221,10 @@ def post_bake(context, state):
 
     # bake type
     context.scene.cycles.bake_type = state["cycles_bake_type"]
-    context.scene.render.bake_type = state["render_bake_type"]
+    if utils.B500():
+        context.scene.render.bake.type = state["render_bake_type"]
+    else:
+        context.scene.render.bake_type = state["render_bake_type"]
 
     # remove the bake surface
     if "bake_surface" in state:

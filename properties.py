@@ -2222,7 +2222,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_object_cache(self, obj, include_disabled=False, by_id=None, strict=False) -> CC3ObjectCache:
         """Returns the object cache for this object.
         """
-        if obj:
+        if utils.object_exists(obj):
             # by object
             if not strict and not by_id:
                 by_id = utils.get_rl_object_id(obj)

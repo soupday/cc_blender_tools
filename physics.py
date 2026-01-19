@@ -1024,12 +1024,6 @@ def delete_selected_weight_map(chr_cache, obj, mat):
             obj.modifiers.remove(mix_mod)
 
 
-def cloth_physics_point_cache_override(mod):
-    override = bpy.context.copy()
-    override["point_cache"] = mod.point_cache
-    return override
-
-
 def get_context_physics_objects(context, from_selected=False):
     props = vars.props()
     chr_cache = props.get_context_character_cache(context)
@@ -1118,7 +1112,21 @@ def reset_physics_cache(obj, start, end):
     return False
 
 
-def reset_cache(context, all_objects = False):
+def reset_physics(context: bpy.types.Context, all_objects=False):
+    # stop any playing animation
+    if context.screen.is_animation_playing:
+        bpy.ops.screen.animation_cancel(restore_frame=False)
+    # jump to end
+    bpy.ops.screen.frame_jump(end=True)
+    # reset the physics
+    reset_cache(context, all_objects=all_objects)
+    # reset the animation
+    bpy.ops.screen.frame_jump(end=False)
+    # set to no frame skip
+    context.scene.sync_mode = "NONE"
+
+
+def reset_cache(context, all_objects=False):
     if bpy.context.scene.use_preview_range:
         start = bpy.context.scene.frame_preview_start
         end = bpy.context.scene.frame_preview_end
@@ -1142,12 +1150,7 @@ def free_cache(obj):
         # free the baked cache
         if cloth_mod.point_cache.is_baked:
             utils.log_info("Freeing point cache...")
-            if utils.B320():
-                with bpy.context.temp_override(point_cache=cloth_mod.point_cache):
-                    bpy.ops.ptcache.free_bake()
-            else:
-                context_override = cloth_physics_point_cache_override(cloth_mod)
-                bpy.ops.ptcache.free_bake(context_override)
+            utils.safe_free_bake(cloth_mod.point_cache)
 
 
 def separate_physics_materials(chr_cache, obj):
@@ -1394,10 +1397,11 @@ def remove_all_physics(chr_cache):
         utils.log_indent()
         objects_processed = []
         for obj in chr_cache.get_cache_objects():
-            obj_cache = chr_cache.get_object_cache(obj)
-            if obj_cache and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
-                remove_all_physics_mods(obj)
-            remove_collision_proxy(chr_cache, obj)
+            if utils.object_exists(obj):
+                obj_cache = chr_cache.get_object_cache(obj)
+                if obj_cache and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
+                    remove_all_physics_mods(obj)
+                remove_collision_proxy(chr_cache, obj)
         chr_cache.physics_applied = False
         utils.log_recess()
 
@@ -1490,6 +1494,7 @@ def set_physics_settings(op, context, param):
         restore_collision_proxy_view(context, chr_cache)
         for obj in context.selected_objects:
             enable_cloth_physics(chr_cache, obj, True)
+            reset_physics(context)
 
     elif param == "PHYSICS_REMOVE_CLOTH":
         restore_collision_proxy_view(context, chr_cache)
@@ -1502,6 +1507,7 @@ def set_physics_settings(op, context, param):
         for obj in objects:
             enable_collision_physics(chr_cache, obj)
         show_hide_collision_proxies(context, chr_cache, False)
+        reset_physics(context, all_objects=True)
 
     elif param == "PHYSICS_REMOVE_COLLISION":
         restore_collision_proxy_view(context, chr_cache)
@@ -1509,6 +1515,7 @@ def set_physics_settings(op, context, param):
         for obj in objects:
             disable_collision_physics(chr_cache, obj)
         show_hide_collision_proxies(context, chr_cache, False)
+        reset_physics(context, all_objects=True)
 
     elif param == "PHYSICS_ADD_WEIGHTMAP":
         if obj:
@@ -1599,6 +1606,7 @@ def set_physics_settings(op, context, param):
         if chr_cache:
             restore_collision_proxy_view(context, chr_cache)
             enable_physics(chr_cache)
+            reset_physics(context)
             op.report({'INFO'}, f"Physics enabled for {chr_cache.character_name}")
 
     elif param == "REMOVE_PHYSICS":
@@ -1611,6 +1619,7 @@ def set_physics_settings(op, context, param):
         if chr_cache:
             restore_collision_proxy_view(context, chr_cache)
             apply_all_physics(chr_cache)
+            reset_physics(context)
             op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
 
     elif param == "PHYSICS_INC_STRENGTH":

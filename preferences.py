@@ -552,7 +552,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("LOCAL","Local Machine","Connect to a DataLink server running on the local machine"),
                         ("REMOTE","Remote Host","Connect to a DataLink server running on a remote machine"),
                     ], default="LOCAL", name = "DataLink Target")
-    datalink_auto_lighting: bpy.props.BoolProperty(default=True,
+    datalink_auto_lighting: bpy.props.BoolProperty(default=False,
                                           description="Use automatic lighting from CC/iC Go-B")
 
 

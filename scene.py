@@ -2641,7 +2641,7 @@ def cycles_setup(context):
         pass
 
     try:
-        context.scene.cycles.preview_denoiser = 'OPTIX'
+        context.scene.cycles.preview_denoiser = 'OPENIMAGEDENOISE'
         context.scene.cycles.denoiser = 'OPTIX'
     except:
         pass
@@ -2682,7 +2682,7 @@ class CC3Scene(bpy.types.Operator):
             # reset the physics
             physics.reset_cache(context)
             # reset the animation
-            bpy.ops.screen.frame_jump(end = False)
+            bpy.ops.screen.frame_jump(end=False)
 
         elif self.param == "PHYSICS_PREP_RBW":
             # stop any playing animation
@@ -2691,20 +2691,20 @@ class CC3Scene(bpy.types.Operator):
             # reset the physics
             rigidbody.reset_cache(context)
             # reset the animation
-            bpy.ops.screen.frame_jump(end = False)
+            bpy.ops.screen.frame_jump(end=False)
 
         elif self.param == "PHYSICS_PREP_ALL":
             # stop any playing animation
             if context.screen.is_animation_playing:
                 bpy.ops.screen.animation_cancel(restore_frame=False)
             # jump to end
-            bpy.ops.screen.frame_jump(end = True)
+            bpy.ops.screen.frame_jump(end=True)
             # reset the physics
             physics.reset_cache(context, all_objects=True)
             rigidbody.reset_cache(context)
             bpy.ops.ptcache.free_bake_all()
             # reset the animation
-            bpy.ops.screen.frame_jump(end = False)
+            bpy.ops.screen.frame_jump(end=False)
             context.view_layer.update()
 
         elif self.param == "CYCLES_SETUP":

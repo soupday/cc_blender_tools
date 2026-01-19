@@ -1375,8 +1375,14 @@ def store_expression_set(chr_cache, cc3_rig, rigify_rig=None, rigify_data=None):
                         if rigify_rig and cc3_rig and rigify_data:
                             rigify_bone_name = bones.get_rigify_control_bone(rigify_rig, rigify_data.bone_mapping, bone_name, extra_mapping=expression_meta_bone_map)
                             offset_bone_name = offset_bone_map[bone_name] if bone_name in offset_bone_map else ""
-                            tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
-                            rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
+                            try:
+                                tra = utils.array_to_vector(expression_def["Bones"][bone_name]["Translate"])
+                            except:
+                                tra = Vector((0,0,0))
+                            try:
+                                rot = utils.array_to_quaternion(expression_def["Bones"][bone_name]["Rotation"])
+                            except:
+                                rot = Quaternion((1,0,0,0))
                             R, tra_local = bones.convert_relative_transform(cc3_rig, bone_name, rigify_rig, rigify_bone_name, tra, rot, True)
                             if R:
                                 rot_euler = rot.to_euler("XYZ")
@@ -2772,7 +2778,7 @@ def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None
         rigutils.add_motion_set_data(armature_action, set_id, set_generation, rl_arm_id=rl_arm_id)
         armature_action.use_fake_user = props.rigify_retarget_use_fake_user if use_ui_options else True
         utils.log_info(f"Renaming armature action to: {armature_action.name}")
-        for obj_id, key_action in key_actions.items():
+        for obj_id, (key_action, old_key_action) in key_actions.items():
             rigutils.set_key_action_name(key_action, rig_id, motion_id, obj_id, motion_prefix)
             rigutils.add_motion_set_data(key_action, set_id, set_generation, obj_id=obj_id)
             utils.log_info(f"Renaming key action ({obj_id}) to: {key_action.name}")

@@ -67,7 +67,12 @@ def apply_multi_res_shape(body):
         mod = modifiers.get_object_modifier(body, modifiers.MOD_MULTIRES, modifiers.MOD_MULTIRES_NAME)
         if mod and utils.set_only_active_object(body):
             utils.log_info("Applying base shape")
-            bpy.ops.object.multires_base_apply(modifier=mod.name)
+            if utils.B500():
+                # apply_heuristic=True applies base assuming it will be used subdivided
+                # apply_heuristic=False applies base to level 0
+                bpy.ops.object.multires_base_apply(modifier=mod.name, apply_heuristic=False)
+            else:
+                bpy.ops.object.multires_base_apply(modifier=mod.name)
 
 
 def displacement_map_func(value):
@@ -128,7 +133,10 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
     utils.set_only_active_object(ao_body)
     set_multi_res_level(ao_body, view_level=9, sculpt_level=9, render_level=9)
     utils.log_info(f"Baking {layer_target} AO...")
-    bpy.context.scene.render.use_bake_multires = False
+    if utils.B500():
+        bpy.context.scene.render.bake.use_multires = False
+    else:
+        bpy.context.scene.render.use_bake_multires = False
     # *cycles* bake type to AO
     bpy.context.scene.cycles.bake_type = "AO"
     if prefs.bake_use_gpu:
@@ -141,7 +149,10 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
     # Displacement Baking
     select_bake_images(multires_mesh, BAKE_TYPE_DISPLACEMENT, layer_target)
 
-    bpy.context.scene.render.use_bake_multires = True
+    if utils.B500():
+        bpy.context.scene.render.bake.use_multires = True
+    else:
+        bpy.context.scene.render.use_bake_multires = True
     bake.set_cycles_samples(context, samples=2)
 
     # copy the body for displacement baking
@@ -167,7 +178,10 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
         set_multi_res_level(obj, view_level=0, sculpt_level=9, render_level=9)
         # bake the displacement mask
         utils.log_info(f"Baking {layer_target} sub displacement {obj.name}")
-        bpy.context.scene.render.bake_type = BAKE_TYPE_DISPLACEMENT
+        if utils.B500():
+            bpy.context.scene.render.bake.type = BAKE_TYPE_DISPLACEMENT
+        else:
+            bpy.context.scene.render.bake_type = BAKE_TYPE_DISPLACEMENT
         bpy.ops.object.bake_image()
         utils.delete_mesh_object(obj)
 
@@ -191,13 +205,14 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
 
     # bake the normals
     utils.log_info(f"Baking {layer_target} normals...")
-    bpy.context.scene.render.bake_type = BAKE_TYPE_NORMALS
+    if utils.B500():
+        bpy.context.scene.render.bake.type = BAKE_TYPE_NORMALS
+    else:
+        bpy.context.scene.render.bake_type = BAKE_TYPE_NORMALS
     bpy.ops.object.bake_image()
 
     utils.log_recess()
     utils.log_info("Baking complete!")
-
-    utils.delete_mesh_object(norm_body)
 
     if layer_target == LAYER_TARGET_SCULPT and apply_shape and source_body:
 
@@ -205,12 +220,16 @@ def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shap
 
         utils.unhide(multires_mesh)
         utils.unhide(source_body)
-        copy_base_shape(multires_mesh, source_body, layer_target, True)
+        if norm_body and source_body:
+            copy_base_shape(norm_body, source_body, layer_target, True)
 
-        # if there is a detail sculpt body, update that with the new base shape too
-        detail_body = chr_cache.get_detail_body(context_object=source_body)
-        if detail_body:
-            copy_base_shape(multires_mesh, detail_body, layer_target, True)
+            # if there is a detail sculpt body, update that with the new base shape too
+            detail_body = chr_cache.get_detail_body(context_object=source_body)
+            if detail_body:
+                # the base shape has only been applied to the norm_body so far ...
+                copy_base_shape(norm_body, detail_body, layer_target, True)
+
+    utils.delete_mesh_object(norm_body)
 
     # restore render engine
     bake.post_bake(context, bake_state)

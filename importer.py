@@ -1720,12 +1720,15 @@ class CC3Import(bpy.types.Operator):
         elif self.param == "BUILD" or self.param == "BUILD_REBUILD":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
+                bm = props.build_mode
+                props.build_mode = "IMPORTED"
                 mode_selection = utils.store_mode_selection_state()
                 utils.object_mode()
                 self.build_materials(context)
                 self.build_drivers(context)
                 self.do_import_report(context, stage = 1)
                 utils.restore_mode_selection_state(mode_selection)
+                props.build_mode = bm
 
         elif self.param == "BUILD_DRIVERS":
             chr_cache = props.get_context_character_cache(context)
@@ -1764,32 +1767,41 @@ class CC3Import(bpy.types.Operator):
             if chr_cache:
                 utils.object_mode()
                 if chr_cache.get_render_target() != "EEVEE":
+                    bm = props.build_mode
+                    props.build_mode = "IMPORTED"
                     prefs.refractive_eyes = "PARALLAX"
                     utils.log_info("Character is currently build for Cycles Rendering.")
                     utils.log_info("Rebuilding Character for Eevee Rendering...")
                     self.build_materials(context, render_target="EEVEE")
                     self.build_drivers(context)
+                    props.build_mode = bm
 
         elif self.param == "REBUILD_BAKE":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 utils.object_mode()
                 props.wrinkle_mode = False
+                bm = props.build_mode
+                props.build_mode = "IMPORTED"
                 prefs.refractive_eyes = "PARALLAX"
                 utils.log_info("Rebuilding Character for Eevee Bake...")
                 self.build_materials(context, render_target="EEVEE")
                 self.build_drivers(context)
+                props.build_mode = bm
 
         elif self.param == "REBUILD_CYCLES":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 utils.object_mode()
-                prefs.refractive_eyes = "SSR"
                 if chr_cache.get_render_target() != "CYCLES":
+                    bm = props.build_mode
+                    props.build_mode = "IMPORTED"
+                    prefs.refractive_eyes = "SSR"
                     utils.log_info("Character is currently build for Eevee Rendering.")
                     utils.log_info("Rebuilding Character for Cycles Rendering...")
                     self.build_materials(context, render_target="CYCLES")
                     self.build_drivers(context)
+                    props.build_mode = bm
 
         return {"FINISHED"}
 

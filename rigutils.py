@@ -53,8 +53,8 @@ def name_in_data_paths(action, name, slot_type=None):
 
 def name_in_pose_bone_data_paths_regex(action, name, slot_type=None):
     channels = utils.get_action_channels(action, slot_type=slot_type)
-    name = ".*" + name
     if channels:
+        name = ".*" + name
         for fcurve in channels.fcurves:
             if re.match(name, fcurve.data_path):
                 return True
@@ -428,6 +428,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
         if obj.type == "MESH":
             if utils.object_has_shape_keys(obj):
                 obj_id = get_action_obj_id(obj)
+                old_action = utils.safe_get_action(obj.data.shape_keys)
                 if (obj_id in source_actions["keys"] and
                     obj_has_action_shape_keys(obj, source_actions["keys"][obj_id])):
                     action = source_actions["keys"][obj_id]
@@ -440,7 +441,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
                     utils.log_info(f" - Applying action: {action.name} to {obj_id}")
                     utils.safe_set_action(obj.data.shape_keys, action)
                     obj_used.append(obj)
-                    key_actions[obj_id] = action
+                    key_actions[obj_id] = (action, old_action)
                 else:
                     utils.safe_set_action(obj.data.shape_keys, None)
 
@@ -452,6 +453,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
             if filter and obj not in filter: continue
             if obj not in obj_used and utils.object_has_shape_keys(obj):
                 obj_id = get_action_obj_id(obj)
+                old_action = utils.safe_get_action(obj.data.shape_keys)
                 if body_action:
                     if obj_has_action_shape_keys(obj, body_action):
                         action = body_action
@@ -464,7 +466,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
                         utils.log_info(f" - Applying action: {action.name} to {obj_id}")
                         utils.safe_set_action(obj.data.shape_keys, action)
                         obj_used.append(obj)
-                        key_actions[obj_id] = action
+                        key_actions[obj_id] = (action, old_action)
     return key_actions
 
 
@@ -2877,21 +2879,22 @@ class CCICActionImportOptions(bpy.types.Operator):
             column.row().prop(props, "action_mode")
             column.row().prop(props, "frame_mode")
             column.row().prop(props, "use_masking")
-            row = column.row()
-            row.template_list("CCIC_RigMixBones_UL_List", "rig_mix_bones_list",
-                                       arm.data, "bones",
-                                       props, "rig_mix_bones_list_index",
-                                       rows=8, maxrows=8)
-            col = row.column()
-            col.separator(factor=4.0)
-            col.operator("ccic.action_import_functions", text="", icon="PLAY").param = "ADD_BONE"
-            col.separator(factor=4.0)
-            col.operator("ccic.action_import_functions", text="", icon="PLAY_REVERSE").param = "REMOVE_BONE"
-            col.separator(factor=4.0)
-            row.template_list("CCIC_ImportMixBones_UL_List", "import_mix_bones_list",
-                                       props, "import_mix_bones",
-                                       props, "import_mix_bones_list_index",
-                                       rows=8, maxrows=8)
+            if props.use_masking:
+                row = column.row()
+                row.template_list("CCIC_RigMixBones_UL_List", "rig_mix_bones_list",
+                                        arm.data, "bones",
+                                        props, "rig_mix_bones_list_index",
+                                        rows=8, maxrows=8)
+                col = row.column()
+                col.separator(factor=4.0)
+                col.operator("ccic.action_import_functions", text="", icon="PLAY").param = "ADD_BONE"
+                col.separator(factor=4.0)
+                col.operator("ccic.action_import_functions", text="", icon="PLAY_REVERSE").param = "REMOVE_BONE"
+                col.separator(factor=4.0)
+                row.template_list("CCIC_ImportMixBones_UL_List", "import_mix_bones_list",
+                                        props, "import_mix_bones",
+                                        props, "import_mix_bones_list_index",
+                                        rows=8, maxrows=8)
         else:
             column.label(text="No Character!")
 
@@ -2911,3 +2914,89 @@ class CCICActionImportOptions(bpy.types.Operator):
     @classmethod
     def description(cls, context, properties):
         return "Description"
+
+
+def shift_actions(action, to_frame, frame_start = 1):
+    if to_frame == frame_start:
+        return
+    fcurves = utils.get_action_fcurves(action)
+    fcurve: bpy.types.FCurve = None
+    for fcurve in fcurves:
+        num_points = len(fcurve.keyframe_points)
+        points_data = [0.0,0.0]*num_points
+        fcurve.keyframe_points.foreach_get('co', points_data)
+        for i in range(0, num_points):
+            frame = points_data[i*2]
+            points_data[i*2] = frame - frame_start + to_frame
+        fcurve.keyframe_points.foreach_set('co', points_data)
+
+
+def mix_actions(src_action, dst_action, frame_start):
+    src_fcurves = utils.get_action_fcurves(src_action)
+    dst_fcurves = utils.get_action_fcurves(dst_action)
+    fcurve_map = {}
+    for i, src_curve in enumerate(src_fcurves):
+        for j, dst_curve in enumerate(dst_fcurves):
+            if src_curve.data_path == dst_curve.data_path:
+                fcurve_map[i] = j
+                break
+    for i, src_curve in enumerate(src_fcurves):
+        if i in fcurve_map:
+            j = fcurve_map[i]
+            dst_curve = dst_fcurves[j]
+            mix_fcurve(src_curve, dst_curve, frame_start)
+
+
+def mix_fcurve(src_curve: bpy.types.FCurve, dst_curve: bpy.types.FCurve, frame_start):
+    src_curve.keyframe_points.foreach_get()
+
+    num_src_points = len(src_curve.keyframe_points)
+    src_data = [0.0,0.0]*num_src_points
+    src_curve.keyframe_points.foreach_get('co', src_data)
+
+    num_dst_points = len(dst_curve.keyframe_points)
+    dst_data = [0.0,0.0]*num_dst_points
+    dst_curve.keyframe_points.foreach_get('co', dst_data)
+
+    src_start_frame = src_data[0]
+    src_end_frame = src_data[-2]
+
+    num_pre_points = 0
+    num_post_points = 0
+    src_index = -1
+    post_index = -1
+
+    for i in range(0, num_dst_points):
+        dst_frame = dst_data[i*2]
+        if dst_frame < src_start_frame:
+            num_pre_points += 1
+        if dst_frame > src_end_frame:
+            if post_index < 0:
+                post_index = i
+            num_post_points += 1
+        if src_start_frame >= dst_frame and src_index < 0:
+            src_index = i
+
+    num_result_points = num_pre_points + num_src_points + num_post_points
+    result_data = [0.0, 0.0]*num_result_points
+
+    # copy pre destination range
+    for i in range(0, num_pre_points * 2):
+        result_data[i] = dst_data[i]
+
+    # copy the source range
+    offset = src_index * 2
+    for i in range(0, num_src_points * 2):
+        result_data[i + offset] = src_data[i]
+
+    # copy the post destination range
+    offset = post_index * 2
+    for i in range(0, num_post_points * 2):
+        result_data[i + offset] = dst_data[i]
+
+    dst_curve.keyframe_points.clear()
+    dst_curve.keyframe_points.add(num_result_points)
+    dst_curve.keyframe_points.foreach_set('co', result_data)
+
+
+
