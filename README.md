@@ -33,8 +33,18 @@ Links
 
 ## Changelog
 
-### 2.3.5
--
+### 2.4.0
+- Displacement update for Skin and Pbr materials.
+- Displacement added for Teeth and Hair.
+- Motion imports use actions slots for single action for all character objects (optional).
+    - Depending on action options, motions will refactor into Single action or multiple actions for each object.
+    - Refactoring will also strip key-frames from bones and keys that have drivers.
+    - Unused bones and shape-key tracks will be placed into unassigned slots or actions.
+- Add empty keyframes for non-animated shape keys (optional).
+- Clean empty shape-keys and vertex groups on import (optional).
+- Fix to Facerig following root position.
+- Fix to shape key export baking.
+- Fix to bad vertex weights when skinning the rigify face rig on SubD 1/2 characters.
 
 ### 2.3.4
 - Add / apply physics resets physics to frame 1.
