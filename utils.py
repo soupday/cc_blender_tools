@@ -25,6 +25,7 @@ import traceback
 from mathutils import Vector, Quaternion, Matrix, Euler, Color
 from hashlib import md5
 import bpy
+from typing import List
 
 from . import vars
 
@@ -411,6 +412,26 @@ def object_exists(obj: bpy.types.Object):
     try:
         name = obj.name
         return len(obj.users_scene) > 0
+    except:
+        return False
+
+
+def action_exists(action: bpy.types.Action):
+    if action is None:
+        return False
+    try:
+        name = action.name
+        return True
+    except:
+        return False
+
+
+def id_exists(item):
+    if item is None:
+        return False
+    try:
+        id = item.id_data
+        return True
     except:
         return False
 
@@ -830,33 +851,43 @@ def pose_mode_to(arm):
     return False
 
 
-def duplicate_object(obj, include_action=False) -> bpy.types.Object:
+def duplicate_object(obj, duplicate_actions=False, keep_actions=False) -> bpy.types.Object:
     if object_exists(obj) and set_mode("OBJECT"):
         if try_select_object(obj, True) and set_active_object(obj):
 
             obj_action = None
-            shape_key_action = None
+            obj_slot = None
+            key_action = None
+            key_slot = None
 
             # store existing actions
-            obj_action = safe_get_action(obj)
-            if not include_action:
+            obj_action, obj_slot = safe_get_action_slot(obj)
+            if not duplicate_actions:
                 safe_set_action(obj, None, create=False)
             if obj.type == "MESH":
-                shape_key_action = safe_get_action(obj.data.shape_keys)
-                if not include_action:
+                key_action, key_slot = safe_get_action_slot(obj.data.shape_keys)
+                if not duplicate_actions:
                     safe_set_action(obj.data.shape_keys, None, create=False)
 
             # duplicate object
             bpy.ops.object.duplicate()
+            duplicate = get_active_object()
 
             # restore non-duplicated actions
-            if not include_action:
-                if shape_key_action:
-                    safe_set_action(obj.data.shape_keys, shape_key_action)
+            if not duplicate_actions:
+                if key_action:
+                    safe_set_action(obj.data.shape_keys, key_action, slot=key_slot)
                 if obj_action:
-                    safe_set_action(obj, obj_action)
+                    safe_set_action(obj, obj_action, slot=obj_slot)
 
-            return get_active_object()
+            # restore actions on duplicate
+            if keep_actions:
+                if key_action:
+                    safe_set_action(duplicate.data.shape_keys, key_action, slot=key_slot)
+                if obj_action:
+                    safe_set_action(duplicate, obj_action, slot=obj_slot)
+
+            return duplicate
     return None
 
 
@@ -925,6 +956,19 @@ def force_material_name(mat, name):
             existing.name = old_name
     else:
         mat.name = name
+
+
+def force_action_name(action, name):
+    if name in bpy.data.actions:
+        existing = bpy.data.actions[name]
+        if existing != action:
+            old_name = action.name
+            rnd_id = generate_random_id(10)
+            existing.name = existing.name + "_" + rnd_id
+            action.name = name
+            existing.name = old_name
+    else:
+        action.name = name
 
 
 def s2lin(x):
@@ -1961,7 +2005,29 @@ def align_object_to_view(obj, context):
         set_transform_rotation(obj, rot)
 
 
-def copy_action(action: bpy.types.Action, new_name):
+def has_data_path(obj: bpy.types.Object, path: str):
+    try:
+        prop = obj.path_resolve(path)
+        return True
+    except:
+        return False
+
+
+def get_data_path_object_name(data_path: str):
+    if data_path.startswith("pose.bones["):
+        start = data_path.find('"', 0) + 1
+        end = data_path.find('"', start)
+        return data_path[start:end]
+    elif data_path.startswith("key_blocks["):
+        start = data_path.find('"', 0) + 1
+        end = data_path.find('"', start)
+        return data_path[start:end]
+    return ""
+
+
+def copy_action(action: bpy.types.Action, new_name, reuse=False):
+    if reuse and new_name in bpy.data.actions:
+        bpy.data.actions.remove(bpy.data.actions[new_name])
     new_action = action.copy()
     new_action.name = new_name
     return new_action
@@ -2002,6 +2068,21 @@ def get_action_slot(action, slot_type):
         for slot in action.slots:
             if slot.target_id_type == slot_type:
                 return slot
+    return None
+
+
+def find_action_slot(action, slot_type=None, slot_name=None):
+    if B440():
+        for slot in action.slots:
+            if slot_type and slot_name:
+                if slot.target_id_type == slot_type and slot.name_display == slot_name:
+                    return slot
+            elif slot_name:
+                if slot.name_display == slot_name:
+                    return slot
+            elif slot_type:
+                if slot.target_id_type == slot_type:
+                    return slot
     return None
 
 
@@ -2054,6 +2135,18 @@ def safe_get_action(obj) -> bpy.types.Action:
     return None
 
 
+def safe_get_action_slot(obj) -> bpy.types.Action:
+    if obj:
+        try:
+            if obj.animation_data:
+                if B440():
+                    return obj.animation_data.action, obj.animation_data.action_slot
+                return obj.animation_data.action, None
+        except:
+            log_warn(f"Unable to get action from {obj.name}")
+    return None, None
+
+
 def safe_set_action(obj, action, create=True, slot=None):
     result = False
     if obj:
@@ -2092,8 +2185,20 @@ def clear_action(action, slot_type=None, slot_name=None):
     return False
 
 
-def get_all_action_channels(action: bpy.types.Action):
+def get_action_channelbags_list(action: bpy.types.Action):
     channels = []
+    if action:
+        if B440():
+            channelbags = get_action_channelbags(action)
+            if channelbags:
+                for channelbag in channelbags:
+                    channels.append(channelbag)
+        else:
+            channels.append(action)
+    return channels
+
+
+def get_action_channelbags(action: bpy.types.Action):
     if action:
         if B440():
             if not action.layers:
@@ -2104,23 +2209,37 @@ def get_all_action_channels(action: bpy.types.Action):
                 strip = layer.strips.new(type='KEYFRAME')
             else:
                 strip = layer.strips[0]
-            for channelbag in strip.channelbags:
-                channels.append(channelbag)
-        else:
-            channels.append(action)
-    return channels
+            return strip.channelbags
+    return None
 
 
-def get_action_fcurves(action: bpy.types.Action):
+def get_action_groups(action: bpy.types.Action) -> List[bpy.types.ActionGroup]:
+    groups = []
+    if B440():
+        channels = get_action_channelbags_list(action)
+        for channel in channels:
+            for group in channel.groups:
+                groups.append(group)
+    else:
+        for group in action.groups:
+            groups.append(group)
+    return groups
+
+
+def get_action_fcurves(action: bpy.types.Action) -> List[bpy.types.FCurve]:
     fcurves = []
-    channels = get_all_action_channels(action)
-    for channel in channels:
-        for fcurve in channel.fcurves:
+    if B440():
+        channels = get_action_channelbags_list(action)
+        for channel in channels:
+            for fcurve in channel.fcurves:
+                fcurves.append(fcurve)
+    else:
+        for fcurve in action.fcurves:
             fcurves.append(fcurve)
     return fcurves
 
 
-def get_action_channels(action: bpy.types.Action, slot=None, slot_type=None):
+def get_action_channelbag(action: bpy.types.Action, slot=None, slot_type=None):
     if not action:
         return None
     if B440() and (slot or slot_type):
@@ -2145,7 +2264,16 @@ def get_action_channels(action: bpy.types.Action, slot=None, slot_type=None):
         return action
 
 
-def index_of_collection(item, collection):
+def get_object_action_channelbag(obj):
+    action, slot = safe_get_action_slot(obj)
+    channels = get_action_channelbags_list(action)
+    for channel in channels:
+        if channel.slot == slot:
+            return channel
+    return None
+
+
+def index_in_collection(item, collection):
     for i, o in enumerate(collection):
         if o == item:
             return i
@@ -2280,28 +2408,36 @@ def B440():
 def B500():
     return is_blender_version("5.0.0")
 
-
+VER_CACHE = {}
 def is_blender_version(version: str, test = "GTE"):
     """e.g. is_blender_version("3.0.0", "GTE")"""
+
+    global VER_CACHE
+    cid = (version, test)
+    if cid in VER_CACHE:
+        return VER_CACHE[cid]
+
     major, minor, subversion = version.split(".")
     blender_version = bpy.app.version
 
     v_test = int(major) * 1000000 + int(minor) * 1000 + int(subversion)
     v_blender = blender_version[0] * 1000000 + blender_version[1] * 1000 + blender_version[2]
 
+    result = False
     if test == "GTE" and v_blender >= v_test:
-        return True
+        result = True
     elif test == "GT" and v_blender > v_test:
-        return True
+        result = True
     elif test == "LT" and v_blender < v_test:
-        return True
+        result = True
     elif test == "LTE" and v_blender <= v_test:
-        return True
+        result = True
     elif test == "EQ" and v_blender == v_test:
-        return True
+        result = True
     elif test == "NE" and v_blender != v_test:
-        return True
-    return False
+        result = True
+    VER_CACHE[cid] = result
+    return result
 
 
 def is_addon_version(version: str, test = "GTE"):
@@ -2540,6 +2676,9 @@ def restore_object_state(obj_state):
 
 def reset_shape_keys(objects, exclude=None):
     """Unlock and reset object shape keys to zero."""
+    T = type(objects)
+    if T is not list and T is not tuple:
+        objects = [objects]
     for obj in objects:
         if obj.type == "MESH":
             # disable shape key lock
@@ -2810,6 +2949,12 @@ def get_prop(obj, prop_name, default_value = None):
     return default_value
 
 
+def del_prop(obj, prop_name):
+    try:
+        del obj[prop_name]
+    except: ...
+
+
 def set_rl_link_id(obj, link_id=None):
     if link_id is None:
         link_id = generate_random_id(20)
@@ -2850,12 +2995,6 @@ def get_rl_object_id(obj):
         if "rl_object_id" in obj:
             return obj["rl_object_id"]
     return None
-
-
-def prop(obj, prop_name, default=None):
-    if obj and prop_name in obj:
-        return obj[prop_name]
-    return default
 
 
 def merge(a: list, b: list):
@@ -2929,8 +3068,12 @@ def datetimes():
     return time.strftime("%Y%m%d%H%M%S")
 
 
-def json_dumps(json_data):
-    print(json.dumps(json_data, indent=4))
+def json_dumps(json_data, file_path=None, indent=4):
+    if file_path:
+        with open(file_path, "w") as f:
+            f.write(json.dumps(json_data, indent=indent))
+    else:
+        print(json.dumps(json_data, indent=indent))
 
 
 def open_folder(folder_path):

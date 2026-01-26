@@ -291,10 +291,10 @@ def init_shape_key_range(obj):
             # the shapekey action to update to the new ranges:
             try:
                 action = utils.safe_get_action(shape_keys)
-                channels = utils.get_action_channels(action, slot_type="KEY")
-                if channels:
-                    co = channels.fcurves[0].keyframe_points[0].co
-                    channels.fcurves[0].keyframe_points[0].co = co
+                channel = utils.get_action_channelbag(action, slot_type="KEY")
+                if channel:
+                    co = channel.fcurves[0].keyframe_points[0].co
+                    channel.fcurves[0].keyframe_points[0].co = co
             except:
                 pass
 
@@ -431,6 +431,7 @@ def purge_imported_object(obj, imported_images):
 
 
 def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
+    prefs = vars.prefs()
     key_map = {}
     num_keys = 0
 
@@ -447,6 +448,7 @@ def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
     # find all motions for this armature
     armature_actions = []
     shapekey_actions = []
+    slotted_actions = []
     motion_ids = set()
     motion_sets = {}
     for action in actions:
@@ -463,14 +465,18 @@ def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
     # determine how each shape key id relates to each object in the import
     for obj in objects:
         if obj.type == "MESH":
-            obj_id = rigutils.get_action_obj_id(obj)
+            obj_id = rigutils.get_obj_id(obj)
             if obj.data.shape_keys:
                 obj_action = utils.safe_get_action(obj.data.shape_keys)
                 if obj_action:
-                    actions.append(obj_action)
-                    key_map[obj_id] = obj.data.shape_keys.name
-                    utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {obj_id}")
-                    num_keys += 1
+                    if obj_action in armature_actions:
+                        if obj_action not in slotted_actions:
+                            slotted_actions.append(obj_action)
+                    else:
+                        actions.append(obj_action)
+                        key_map[obj_id] = obj.data.shape_keys.name
+                        utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {obj_id}")
+                        num_keys += 1
 
     # rename all actions associated with this armature and it's motions
     for action in actions:
@@ -480,10 +486,15 @@ def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
         if motion_id in motion_ids:
             set_id, set_generation = motion_sets[motion_id]
             if action in armature_actions:
-                action_name = rigutils.make_armature_action_name(rig_id, motion_id, motion_prefix)
+                if prefs.use_action_slots():
+                    action_name = rigutils.make_slotted_action_name(rig_id, motion_id, motion_prefix)
+                else:
+                    action_name = rigutils.make_armature_action_name(rig_id, motion_id, motion_prefix)
                 utils.log_info(f"Renaming action: {action.name} to {action_name}")
                 action.name = action_name
-                rigutils.add_motion_set_data(action, set_id, set_generation, rl_arm_id=rl_arm_id)
+                rigutils.add_motion_set_data(action, set_id, set_generation,
+                                             arm_id=rl_arm_id,
+                                             slotted=(action in slotted_actions))
                 armature_actions.append(action)
             else:
                 for obj_id, key_name in key_map.items():
@@ -1080,6 +1091,17 @@ class CC3Import(bpy.types.Operator):
                     imported.remove(obj)
                     purge_imported_object(obj, self.imported_images)
 
+                # clean empty shape keys from character objects
+                if prefs.clean_empty_mesh_data:
+                    for obj in imported:
+                        if obj.parent and obj.parent.type == "ARMATURE":
+                            arm = obj.parent
+                            characters.remove_empty_shapekeys_vertex_groups(arm, obj)
+
+                # combine actions (B440 action slots)
+                if prefs.use_action_slots():
+                    actions = rigutils.refactor_to_slotted_action(imported, actions)
+
                 for action in actions:
                     action.use_fake_user = self.use_fake_user
 
@@ -1351,6 +1373,8 @@ class CC3Import(bpy.types.Operator):
             # update character data props
             chr_cache.check_ids()
 
+            rig = chr_cache.get_armature()
+
             if chr_cache.cache_type() != "AVATAR": continue
 
             if chr_cache.rigified:
@@ -1366,7 +1390,10 @@ class CC3Import(bpy.types.Operator):
                 utils.log_info(f"Facial Profile: {facial_name}")
                 utils.log_info(f"Viseme Profile: {viseme_name}")
                 rigging.store_expression_set(chr_cache, chr_cache.get_armature())
-                if facial_profile == "STD" or facial_profile == "EXT" or facial_profile == "TRA":
+                if (facial_profile == "STD" or
+                    facial_profile == "EXT" or
+                    facial_profile == "TRA" or
+                    facial_profile == "MH"):
                     drivers.add_facial_shape_key_bone_drivers(chr_cache,
                                                prefs.build_shape_key_bone_drivers_jaw,
                                                prefs.build_shape_key_bone_drivers_eyes,
@@ -1376,6 +1403,10 @@ class CC3Import(bpy.types.Operator):
                                                        of_type="MESH",
                                                        only_selected=(props.build_mode=="SELECTED"))
             drivers.add_body_shape_key_drivers(chr_cache, prefs.build_body_key_drivers, driver_objects)
+
+            # reload motion set as this will cull any driven shapekeys from the action channels
+            action = utils.safe_get_action(rig)
+            rigutils.load_motion_set(rig, action)
 
             if rebuild_wrinkle:
                 wrinkle.build_wrinkle_drivers(chr_cache, chr_json, wrinkle_shader_name=wrinkle.WRINKLE_SHADER_NAME)
@@ -1899,6 +1930,8 @@ class CC3ImportAnimations(bpy.types.Operator):
     )
 
     def import_animation_fbx(self, dir, file):
+        prefs = vars.prefs()
+
         path = os.path.join(dir, file)
         name = file[:-4]
 
@@ -1914,6 +1947,10 @@ class CC3ImportAnimations(bpy.types.Operator):
         actions = utils.get_set_new(bpy.data.actions, old_actions)
         images = utils.get_set_new(bpy.data.images, old_images)
         materials = utils.get_set_new(bpy.data.materials, old_materials)
+
+        # combine actions (B440 action slots)
+        if prefs.use_action_slots():
+            actions = rigutils.refactor_to_slotted_action(objects, actions)
 
         for action in actions:
             action.use_fake_user = self.use_fake_user
@@ -1937,6 +1974,7 @@ class CC3ImportAnimations(bpy.types.Operator):
                 arm.data.name = name
             shapekey_actions = remap_action_names(arm, armature_objects, actions, source_id,
                                                   motion_prefix=self.motion_prefix)[1]
+
         utils.log_recess()
 
         utils.log_info("Cleaning up:")

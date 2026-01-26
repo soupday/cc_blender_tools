@@ -93,11 +93,11 @@ def duplicate_character(chr_cache):
                 utils.set_rl_object_id(obj, new_id)
                 obj_cache.object = obj
                 if obj.type == "ARMATURE":
-                    action = utils.safe_get_action(old_obj)
-                    utils.safe_set_action(obj, action)
+                    action, slot = utils.safe_get_action_slot(old_obj)
+                    utils.safe_set_action(obj, action, slot=slot)
                 elif obj.type == "MESH" and utils.object_has_shape_keys(obj):
-                    action = utils.safe_get_action(old_obj.data.shape_keys)
-                    utils.safe_set_action(obj.data.shape_keys, action)
+                    action, slot = utils.safe_get_action_slot(old_obj.data.shape_keys)
+                    utils.safe_set_action(obj.data.shape_keys, action, slot=slot)
 
     all_mat_cache = chr_cache.get_all_materials_cache(include_disabled=True)
     for mat_cache in all_mat_cache:
@@ -1766,6 +1766,7 @@ def apply_weight_blend(obj, bm_obj, vert_map, layer_map,
 
 
 def calc_key_delta(arm, obj, key: bpy.types.ShapeKey, basis: bpy.types.ShapeKey):
+    """B410"""
     delta = 0
     scale = obj.scale * arm.scale if arm else obj.scale
     if len(key.points) == len(basis.points):
@@ -1776,7 +1777,52 @@ def calc_key_delta(arm, obj, key: bpy.types.ShapeKey, basis: bpy.types.ShapeKey)
     return delta
 
 
-def remove_empty_shapekeys_vertex_groups(chr_cache):
+def is_empty_key_delta(arm, obj, key: bpy.types.ShapeKey, basis: bpy.types.ShapeKey, threshold=0.001):
+    """B410"""
+    delta = 0
+    scale = obj.scale * arm.scale if arm else obj.scale
+    if len(key.points) == len(basis.points):
+        for i in range(0, len(key.points)):
+            key_co: Vector = key.points[i].co
+            basis_co: Vector = basis.points[i].co
+            delta += abs(((key_co - basis_co) * scale).length)
+            if delta > threshold:
+                return False
+    return True
+
+
+def remove_empty_shapekeys_vertex_groups(arm, obj):
+    if not utils.B410():
+        return
+    key_count = 0
+    group_count = 0
+    empty_keys = []
+    empty_groups = []
+    if obj.data.shape_keys:
+        key_blocks = obj.data.shape_keys.key_blocks
+        if key_blocks and len(key_blocks) >= 2 and "Basis" in key_blocks:
+            basis = key_blocks["Basis"]
+            for key in key_blocks:
+                if key != basis:
+                    if is_empty_key_delta(arm, obj, key, basis, threshold=0.001):
+                        empty_keys.append(key.name)
+        for key_name in empty_keys:
+            key = key_blocks[key_name]
+            utils.log_info(f" - Removing empty shape key: {obj.name} - {key.name}")
+            key.driver_remove("value")
+            obj.shape_key_remove(key)
+            key_count += 1
+    for vg in obj.vertex_groups:
+        if meshutils.is_empty_vertex_group(obj, vg, threshold=0.001):
+            empty_groups.append(vg)
+    for vg in empty_groups:
+        utils.log_info(f" - Removing empty vertex group: {obj.name} - {vg.name}")
+        obj.vertex_groups.remove(vg)
+        group_count += 1
+    return key_count, group_count
+
+
+def remove_all_empty_shapekeys_vertex_groups(chr_cache):
     key_count = 0
     group_count = 0
     if chr_cache:
@@ -1786,33 +1832,10 @@ def remove_empty_shapekeys_vertex_groups(chr_cache):
         arm = chr_cache.get_armature()
         obj: bpy.types.Object
         for obj in objects:
-            empty_keys = []
-            empty_groups = []
             if obj not in body_objects and obj.type == "MESH":
-                if obj.data.shape_keys:
-                    key_blocks = obj.data.shape_keys.key_blocks
-                    if key_blocks and len(key_blocks) >= 2 and "Basis" in key_blocks:
-                        basis = key_blocks["Basis"]
-                        for key in key_blocks:
-                            if key != basis:
-                                delta = calc_key_delta(arm, obj, key, basis)
-                                # if overall vertex delta sum is less than 1mm, consider it empty
-                                if delta < 0.001:
-                                    empty_keys.append(key.name)
-                    for key_name in empty_keys:
-                        key = key_blocks[key_name]
-                        utils.log_info(f" - Removing empty shape key: {obj.name} - {key.name}")
-                        key.driver_remove("value")
-                        obj.shape_key_remove(key)
-                        key_count += 1
-                for vg in obj.vertex_groups:
-                    w = meshutils.total_vertex_group_weight(obj, vg)
-                    if w < 0.001:
-                        empty_groups.append(vg)
-                for vg in empty_groups:
-                    obj.vertex_groups.remove(vg)
-                    group_count += 1
-
+                kc, gc = remove_empty_shapekeys_vertex_groups(arm, obj)
+                key_count += kc
+                group_count += gc
     return key_count, group_count
 
 
@@ -2044,7 +2067,7 @@ class CC3OperatorCharacter(bpy.types.Operator):
 
         elif self.param == "CLEAN_SHAPE_KEYS":
             chr_cache = props.get_context_character_cache(context)
-            key_count, group_count = remove_empty_shapekeys_vertex_groups(chr_cache)
+            key_count, group_count = remove_all_empty_shapekeys_vertex_groups(chr_cache)
             report = ""
             if key_count > 0:
                 report += f"{key_count} empty shape keys removed."

@@ -114,7 +114,7 @@ from . import rlx
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 3, 4),
+    "version": (2, 4, 0),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -141,6 +141,7 @@ classes = (
     properties.CC3ArmatureList,
     properties.CCIC_UI_MixItem,
     properties.CCIC_UI_MixList,
+    properties.CCICActionStore,
     properties.CCICActionOptions,
     properties.CC3HeadParameters,
     properties.CC3SkinParameters,
@@ -166,7 +167,6 @@ classes = (
     properties.CC3SSSMaterialCache,
     properties.CCICExpressionData,
     properties.CC3ObjectCache,
-    properties.CCICActionStore,
     properties.CC3CharacterCache,
     properties.CC3ImportProps,
 
@@ -202,6 +202,7 @@ classes = (
     link.CCICLinkTest,
     characters.CCICCharacterLink,
     proportion.CCICCharacterProportions,
+    rigutils.CCICMotionSetFunctions,
     rigutils.CCICMotionSetRename,
     rigutils.CCICMotionSetInfo,
     rigutils.CCICRigUtils,

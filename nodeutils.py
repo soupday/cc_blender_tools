@@ -867,7 +867,7 @@ def get_shader_node(nodes):
         if n.type == "GROUP" and "(rl_" in n.name and "_shader)" in n.name:
             name = n.node_tree.name
             if ((vars.NODE_PREFIX in name or
-                 utils.prop(n.node_tree, "RL_Node_Group")) and
+                 utils.get_prop(n.node_tree, "RL_Node_Group")) and
                  "_rl_" in name and
                  "_shader_" in name):
                 return n

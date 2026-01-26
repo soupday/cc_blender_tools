@@ -1465,7 +1465,7 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
 
         pack_r_g_b_a(mat, bake_dir, vars.PACK_WRINKLEDISPLACEMENT_NAME, wrinkle_node, vars.PACK_WRINKLEDISPLACEMENT_ID,
                     "WRINKLEDISPLACEMENT1", "WRINKLEDISPLACEMENT2", "WRINKLEDISPLACEMENT3", "DISPLACE",
-                    "Height Map 1", "Height Map 2", "Height Map 3", "Height Map",
+                    "Displacement Map 1", "Displacement Map 2", "Displacement Map 3", "Displacement Map",
                     0.5, 0.5, 0.5, 0.5,
                     reuse_existing = reuse,
                     max_size=pack_max_tex_size)
@@ -2325,7 +2325,7 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
     if nodeutils.has_connected_input(bsdf_node, bsdf_socket):
         if "Bump" in bake_maps and props.allow_bump_maps:
             if can_bake_from_shader_node(shader_node, bsdf_node, bsdf_socket):
-                bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, ["Height Map", "Bump Map"])
+                bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, ["Bump Map"])
                 bump_distance = nodeutils.get_node_input_value(shader_node, "Bump Strength", 0.01)
                 # note: there is not shader node bump output, so only bake the input
                 if bump_node:

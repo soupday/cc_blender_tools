@@ -677,7 +677,9 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
             (key_name == "Ah" and not jaw) or
             (key_name == "Oh" and not jaw) or
             (key_name.startswith("Eye_") and not eye_look) or
-            (key_name.startswith("Head_") and not head)):
+            (key_name.startswith("Head_") and not head) or
+            # do *not* add bone drivers from constraints
+            (key_name.startswith("C_"))):
             continue
 
         # find the bone specified from the list of possible bones in the shape_key driver def
@@ -788,35 +790,53 @@ def add_body_shape_key_drivers(chr_cache, add_drivers, only_objects=None):
 
     arm = chr_cache.get_armature()
     body = meshutils.get_head_body_object(chr_cache)
+    tongue = meshutils.get_tongue_object(chr_cache)
+    eye = meshutils.get_eye_object(chr_cache)
 
-    if not body:
+    if not body and not tongue:
         return
 
     utils.log_info(f"Using head mesh: {body.name} for driver source")
 
+    key_sources = {}
+    if utils.object_has_shape_keys(eye):
+        for key in eye.data.shape_keys.key_blocks:
+            if key.name.startswith("Eye_Pupil_"):
+                print(f"EYE: {key.name}")
+                key_sources[key.name] = eye
+    if utils.object_has_shape_keys(tongue):
+        for key in tongue.data.shape_keys.key_blocks:
+            if key.name.startswith("V_Tongue_") or key.name.startswith("Tongue_"):
+                print(f"TONGUE: {key.name}")
+                key_sources[key.name] = tongue
     if utils.object_has_shape_keys(body):
-        body_keys = [ key_block.name for key_block in body.data.shape_keys.key_blocks ]
-        for obj in chr_cache.get_cache_objects():
-            if only_objects and obj not in only_objects:
-                continue
-            if obj != body and utils.object_has_shape_keys(obj):
-                obj_key : bpy.types.ShapeKey
-                for obj_key in obj.data.shape_keys.key_blocks:
-                    if obj_key.name in body_keys:
-                        obj_key.driver_remove("value")
-                        if add_drivers:
-                            # make driver
-                            utils.log_detail(f"Adding driver to {obj.name} for expression key: {obj_key.name}")
-                            driver = make_driver(obj_key, "value", "SUM")
-                            # make driver var
-                            if driver:
-                                data_path = f"shape_keys.key_blocks[\"{obj_key.name}\"].value"
-                                make_driver_var(driver,
-                                                "SINGLE_PROP",
-                                                "key_value",
-                                                body.data,
-                                                target_type="MESH",
-                                                data_path=data_path)
+        for key in body.data.shape_keys.key_blocks:
+            if key.name not in key_sources:
+                print(f"BODY: {key.name}")
+                key_sources[key.name] = body
+
+    for obj in chr_cache.get_cache_objects():
+        if only_objects and obj not in only_objects:
+            continue
+        if utils.object_has_shape_keys(obj):
+            obj_key : bpy.types.ShapeKey
+            for obj_key in obj.data.shape_keys.key_blocks:
+                if obj_key.name in key_sources and key_sources[obj_key.name] != obj:
+                    src_obj = key_sources[obj_key.name]
+                    obj_key.driver_remove("value")
+                    if add_drivers:
+                        # make driver
+                        utils.log_detail(f"Adding driver to {obj.name} for expression key: {obj_key.name}")
+                        driver = make_driver(obj_key, "value", "SUM")
+                        # make driver var
+                        if driver:
+                            data_path = f"shape_keys.key_blocks[\"{obj_key.name}\"].value"
+                            make_driver_var(driver,
+                                            "SINGLE_PROP",
+                                            "key_value",
+                                            src_obj.data,
+                                            target_type="MESH",
+                                            data_path=data_path)
 
 
 def get_id_type(obj):

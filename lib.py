@@ -40,7 +40,7 @@ def get_object(object_names,
             for i, object_name in enumerate(object_names):
                 if ((obj.name.startswith(object_name) or
                     (obj.name.startswith(names[i]))) and
-                    utils.prop(obj, lib_tag) and
+                    utils.get_prop(obj, lib_tag) and
                     is_version(obj)):
                     appended_objects[i] = obj
                     found += 1
@@ -86,7 +86,7 @@ def get_object(object_names,
 def get_image(image_name, lib_tag="RL_Library_Image"):
     for img in bpy.data.images:
         if (img.name.startswith(image_name) and
-            utils.prop(img, lib_tag) and
+            utils.get_prop(img, lib_tag) and
             is_version(img)):
             if not img.packed_file:
                 img.pack()
@@ -122,7 +122,7 @@ def get_image(image_name, lib_tag="RL_Library_Image"):
 def get_node_group(group_name, lib_tag="RL_Node_Group"):
     for node_tree in bpy.data.node_groups:
         if (node_tree.name.startswith(group_name) and
-            utils.prop(node_tree, lib_tag) and
+            utils.get_prop(node_tree, lib_tag) and
             is_version(node_tree)):
             return node_tree
     path = os.path.dirname(os.path.realpath(__file__))
@@ -169,4 +169,4 @@ def rebuild_node_groups():
 
 def is_version(obj):
     return (vars.VERSION_STRING in obj.name or
-            utils.prop(obj, "RL_Addon_Version") == vars.VERSION_STRING)
+            utils.get_prop(obj, "RL_Addon_Version") == vars.VERSION_STRING)

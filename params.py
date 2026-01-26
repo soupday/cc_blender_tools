@@ -121,7 +121,7 @@ LINKED_MATERIAL_NAMES = [
 # shader definitions
 SHADER_MATRIX = [
 
-    # Tearline Shader
+    # region Tearline Shader
     #######################################
 
     {   "name": "rl_tearline_shader",
@@ -269,8 +269,9 @@ SHADER_MATRIX = [
             }
         },
     },
+    # endregion
 
-    # Eye Occlusion Shader
+    # region Eye Occlusion Shader
     #########################################
 
     {   "name": "rl_eye_occlusion_shader",
@@ -371,7 +372,7 @@ SHADER_MATRIX = [
             ["SPACER"],
             ["PROP", "Tear Duct Position", "eye_occlusion_tear_duct_position", True, "#EEVEE"],
             ["PROP", "*Tear Duct Width", "eye_occlusion_tear_duct_width", True, "#EEVEE"],
-            ["HEADER",  "Displacement", "MOD_DISPLACE"],
+            ["HEADER",  "Displacement", "MOD_DISPLACE", "Displacement Map"],
             ["PROP", "Displace", "eye_occlusion_displace", True],
             ["PROP", "Top", "eye_occlusion_top", True],
             ["PROP", "Bototm", "eye_occlusion_bottom", True],
@@ -395,8 +396,9 @@ SHADER_MATRIX = [
             }
         },
     },
+    # endregion
 
-    # Eye Occlusion Plus Shader
+    # region Eye Occlusion Plus Shader
     #########################################
 
     {   "name": "rl_eye_occlusion_plus_shader",
@@ -560,7 +562,7 @@ SHADER_MATRIX = [
             ["PAIR", "Contrast", "eye_occlusion_blur_outer_in", "eye_occlusion_blur_outer_out", True],
             ["SPACER"],
             ["PROP", "Edge Width", "eye_occlusion_edge_width", True],
-            ["HEADER",  "Displacement", "MOD_DISPLACE"],
+            ["HEADER",  "Displacement", "MOD_DISPLACE", "Displacement Map"],
             ["PROP", "Displace", "eye_occlusion_displace", True],
             ["PROP", "Top", "eye_occlusion_top", True],
             ["PROP", "Bottom", "eye_occlusion_bottom", True],
@@ -585,8 +587,9 @@ SHADER_MATRIX = [
             }
         },
     },
+    # endregion
 
-    # Skin Shader
+    # region Skin Shader
     ########################################
 
     {   "name": "rl_skin_shader",
@@ -610,8 +613,10 @@ SHADER_MATRIX = [
             ["Secondary Roughness", "", "skin_secondary_roughness_scale"],
             ["Normal Strength", "func_skin_normal_strength", "skin_normal_strength"],
             ["Micro Normal Strength", "func_micro_normal_strength", "skin_micro_normal_strength"],
-            ["Bump Scale", "", "skin_bump_scale"],
-            ["Height Scale", "", "skin_height_scale"],
+            ["Bump Strength", "", "skin_bump_strength"],
+            ["Displacement Strength", "", "skin_displacement_strength"],
+            ["Displacement Base", "", "skin_displacement_base"],
+            ["Displacement Multiplier", "", "skin_displacement_multiplier"],
             ["Subsurface Falloff", "func_sss_falloff_saturated", "skin_subsurface_falloff", "skin_subsurface_saturation"],
             ["Subsurface Radius", "func_sss_radius_skin_cycles", "skin_subsurface_radius"],
             ["Subsurface Scale", "func_sss_skin", "skin_subsurface_scale"],
@@ -646,11 +651,12 @@ SHADER_MATRIX = [
             ["Cavity Map", "", "CAVITY"],
             ["Normal Map", "", "NORMAL"],
             ["Normal Blend Map", "", "NORMALBLEND"],
+            ["Bump Map", "", "BUMP"],
+            ["Displacement Map", "", "DISPLACE"],
             ["Micro Normal Map", "", "MICRONORMAL", "OFFSET", "", "skin_micro_normal_tiling"],
             ["Micro Normal Mask", "", "MICRONMASK"],
             ["RGBA Map", "RGBA Alpha", "RGBAMASK"],
             ["Emission Map", "", "EMISSION"],
-            ["Height Map", "", "DISPLACE"],
         ],
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
@@ -672,13 +678,15 @@ SHADER_MATRIX = [
             ["skin_unmasked_scatter_scale", 1, "", "Custom/Unmasked Scatter Scale"],
             ["skin_ao_strength", 1, "", "Pbr/AO"],
             ["skin_normal_strength", 1, "", "Pbr/Normal"],
+            ["skin_bump_strength", 0.0, "Pbr/Bump"],
             ["skin_emission_strength", 0, "", "Pbr/Glow"],
             ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_bytes", "SSS/Falloff"],
             ["skin_subsurface_radius", 1.5, "", "SSS/Radius"],
             ["skin_original_roughness", 1, "", "Custom/Original Roughness Strength"],
             ["skin_cavity_strength", 0, "", "Custom/Cavity Strength"],
-            ["skin_height_scale", 0.0, "", "Pbr/Displacement"],
-            ["skin_bump_scale", 0.0, "DEF"],
+            ["skin_displacement_strength", 0.0, "", "Pbr/Displacement"],
+            ["skin_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
+            ["skin_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
             # non json properties (just defaults)
             ["skin_ao_power", 2.0, "DEF"],
             ["skin_diffuse_hue", 0.5, "", "/Diffuse Hue"],
@@ -738,10 +746,13 @@ SHADER_MATRIX = [
             ["PROP", "Unmasked Scatter Scale", "skin_unmasked_scatter_scale", True],
             ["HEADER",  "Normals", "NORMALS_FACE"],
             ["PROP", "Normal Strength", "skin_normal_strength", True, "Normal Map"],
+            ["PROP", "Bump Strength", "skin_bump_strength", True, "Bump Map"],
             ["PROP", "Micro Normal Strength", "skin_micro_normal_strength", True, "Micro Normal Map"],
             ["PROP", "Micro Normal Tiling", "skin_micro_normal_tiling", True, "Micro Normal Map"],
-            ["PROP", "Bump Scale", "skin_bump_scale", True, "Height Map"],
-            ["PROP", "Displacement Scale", "skin_height_scale", True, "Height Map"],
+            ["HEADER",  "Displacement", "MOD_DISPLACE", "Displacement Map"],
+            ["PROP", "Displacement", "skin_displacement_strength", True, "Displacement Map"],
+            ["PROP", "Base", "skin_displacement_base", True, "Displacement Map"],
+            ["PROP", "Multiplier", "skin_displacement_multiplier", True, "Displacement Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "*Emissive Color", "skin_emissive_color", False],
             ["PROP", "Emission Strength", "skin_emission_strength", True],
@@ -771,8 +782,9 @@ SHADER_MATRIX = [
             }
         },
     },
+    # endregion
 
-    # Head Shader
+    # region Head Shader
     ##########################################
 
     {   "name": "rl_head_shader",
@@ -830,9 +842,11 @@ SHADER_MATRIX = [
             ["Neck Roughness Mod", "", "skin_neck_roughness_mod"],
             ["Emissive Color", "", "skin_emissive_color"],
             ["Emission Strength", "func_emission_scale", "skin_emission_strength"],
-            ["Height Scale", "", "skin_height_scale"],
-            ["Bump Scale", "", "skin_bump_scale"],
-            ["Height Delta Scale", "", "skin_height_delta_scale"],
+            ["Bump Strength", "", "skin_bump_strength"],
+            ["Displacement Strength", "", "skin_displacement_strength"],
+            ["Displacement Base", "", "skin_displacement_base"],
+            ["Displacement Multiplier", "", "skin_displacement_multiplier"],
+            ["Displacement Delta Scale", "", "skin_displacement_delta_scale"],
             ["Caruncle Blend", "", "skin_caruncle_blend"],
             ["Caruncle Color", "", "skin_caruncle_color"],
             ["Caruncle Roughness", "", "skin_caruncle_roughness"],
@@ -857,20 +871,21 @@ SHADER_MATRIX = [
             ["Cavity Map", "", "CAVITY"],
             ["Normal Map", "", "NORMAL"],
             ["Normal Blend Map", "", "NORMALBLEND"],
+            ["Bump Map", "", "BUMP"],
+            ["Displacement Map", "", "DISPLACE"],
             ["Micro Normal Map", "", "MICRONORMAL", "OFFSET", "", "skin_micro_normal_tiling"],
             ["Micro Normal Mask", "", "MICRONMASK"],
             ["NMUIL Map", "NMUIL Alpha", "NMUILMASK"],
             ["CFULC Map", "CFULC Alpha", "CFULCMASK"],
             ["EN Map", "", "ENNASK"],
             ["Emission Map", "", "EMISSION"],
-            ["Height Map", "", "DISPLACE"],
         ],
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
-            ["skin_diffuse_color", (1,1,1,1), "func_color_bytes", "/Diffuse Color"],
-            ["skin_blend_overlay_strength", 0, "", "Custom/BaseColor Blend2 Strength"],
-            ["skin_normal_blend_strength", 0, "", "Custom/NormalMap Blend Strength"],
+            ["skin_diffuse_color", (1.0,1.0,1.0,1.0), "func_color_bytes", "/Diffuse Color"],
+            ["skin_blend_overlay_strength", 0.0, "", "Custom/BaseColor Blend2 Strength"],
+            ["skin_normal_blend_strength", 0.0, "", "Custom/NormalMap Blend Strength"],
             ["skin_micro_normal_tiling", 20, "", "Custom/MicroNormal Tiling"],
             ["skin_micro_normal_strength", 0.5, "", "Custom/MicroNormal Strength"],
             ["skin_micro_roughness_mod", 0.20, "", "Custom/Micro Roughness Scale"],
@@ -889,39 +904,41 @@ SHADER_MATRIX = [
             ["skin_mouth_ao", 2.5, "", "Custom/Inner Mouth Ao"],
             ["skin_nostril_ao", 2.5, "", "Custom/Nostril Ao"],
             ["skin_lips_ao", 2.5, "", "Custom/Lips Gap Ao"],
-            ["skin_nose_scatter_scale", 1, "", "Custom/Nose Scatter Scale"],
-            ["skin_mouth_scatter_scale", 1, "", "Custom/Mouth Scatter Scale"],
-            ["skin_upper_lid_scatter_scale", 1, "", "Custom/UpperLid Scatter Scale"],
-            ["skin_inner_lid_scatter_scale", 1, "", "Custom/InnerLid Scatter Scale"],
-            ["skin_ear_scatter_scale", 1, "", "Custom/Ear Scatter Scale"],
-            ["skin_neck_scatter_scale", 1, "", "Custom/Neck Scatter Scale"],
-            ["skin_cheek_scatter_scale", 1, "", "Custom/Cheek Scatter Scale"],
-            ["skin_forehead_scatter_scale", 1, "", "Custom/Forehead Scatter Scale"],
-            ["skin_upper_lip_scatter_scale", 1, "", "Custom/UpperLip Scatter Scale"],
-            ["skin_chin_scatter_scale", 1, "", "Custom/Chin Scatter Scale"],
-            ["skin_unmasked_scatter_scale", 1, "", "Custom/Unmasked Scatter Scale"],
-            ["skin_ao_strength", 1, "", "Pbr/AO"],
-            ["skin_normal_strength", 1, "", "Pbr/Normal"],
+            ["skin_nose_scatter_scale", 1.0, "", "Custom/Nose Scatter Scale"],
+            ["skin_mouth_scatter_scale", 1.0, "", "Custom/Mouth Scatter Scale"],
+            ["skin_upper_lid_scatter_scale", 1.0, "", "Custom/UpperLid Scatter Scale"],
+            ["skin_inner_lid_scatter_scale", 1.0, "", "Custom/InnerLid Scatter Scale"],
+            ["skin_ear_scatter_scale", 1.0, "", "Custom/Ear Scatter Scale"],
+            ["skin_neck_scatter_scale", 1.0, "", "Custom/Neck Scatter Scale"],
+            ["skin_cheek_scatter_scale", 1.0, "", "Custom/Cheek Scatter Scale"],
+            ["skin_forehead_scatter_scale", 1.0, "", "Custom/Forehead Scatter Scale"],
+            ["skin_upper_lip_scatter_scale", 1.0, "", "Custom/UpperLip Scatter Scale"],
+            ["skin_chin_scatter_scale", 1.0, "", "Custom/Chin Scatter Scale"],
+            ["skin_unmasked_scatter_scale", 1.0, "", "Custom/Unmasked Scatter Scale"],
+            ["skin_ao_strength", 1.0, "", "Pbr/AO"],
+            ["skin_normal_strength", 1.0, "", "Pbr/Normal"],
+            ["skin_bump_strength", 0.0, "", "Pbr/Bump"],
             ["skin_emission_strength", 0, "", "Pbr/Glow"],
             ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_bytes", "SSS/Falloff"],
             ["skin_subsurface_radius", 1.5, "", "SSS/Radius"],
-            ["skin_original_roughness", 1, "", "Custom/Original Roughness Strength"],
-            ["skin_cavity_strength", 0, "", "Custom/Cavity Strength"],
-            ["skin_height_scale", 0.0, "", "Pbr/Displacement"],
-            ["skin_bump_scale", 0.0, "DEF"],
+            ["skin_original_roughness", 1.0, "", "Custom/Original Roughness Strength"],
+            ["skin_cavity_strength", 0.0, "", "Custom/Cavity Strength"],
+            ["skin_displacement_strength", 0.0, "", "Pbr/Displacement"],
+            ["skin_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
+            ["skin_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
             # non json properties (just defaults)
             ["skin_ao_power", 2.0, "DEF"],
             ["skin_diffuse_hue", 0.5, "", "/Diffuse Hue"],
-            ["skin_diffuse_saturation", 1, "func_saturation_mod", "/Diffuse Saturation"],
-            ["skin_diffuse_brightness", 1, "func_brightness_mod", "/Diffuse Brightness"],
-            ["skin_diffuse_hsv_strength", 1, "DEF"],
+            ["skin_diffuse_saturation", 1.0, "func_saturation_mod", "/Diffuse Saturation"],
+            ["skin_diffuse_brightness", 1.0, "func_brightness_mod", "/Diffuse Brightness"],
+            ["skin_diffuse_hsv_strength", 1.0, "DEF"],
             ["skin_subsurface_saturation", 1.0, "DEF"],
             ["skin_roughness_power", 1.0, "DEF"],
-            ["skin_subsurface_scale", 1, "DEF"],
-            ["skin_emissive_color", (1,1,1,1), "DEF"],
+            ["skin_subsurface_scale", 1.0, "DEF"],
+            ["skin_emissive_color", (1.0,1.0,1.0,1.0), "DEF"],
             ["skin_secondary_specular_ratio", 0.2, "DEF"],
             ["skin_secondary_roughness_scale", 0.5, "DEF"],
-            ["skin_height_delta_scale", 1.0, "DEF"],
+            ["skin_displacement_delta_scale", 1.0, "DEF"],
             ["skin_caruncle_blend", 0.0, "DEF"],
             ["skin_caruncle_color", (0.5, 0.375, 0.375, 1.0), "DEF"],
             ["skin_caruncle_roughness", 0.1, "DEF"],
@@ -992,14 +1009,18 @@ SHADER_MATRIX = [
             ["PROP", "Upper Lip Scatter Scale", "skin_upper_lip_scatter_scale", True, "CFULC Map"],
             ["PROP", "Chin Scatter Scale", "skin_chin_scatter_scale", True, "CFULC Map"],
             ["PROP", "Unmasked Scatter Scale", "skin_unmasked_scatter_scale", True],
+
             ["HEADER",  "Normals", "NORMALS_FACE"],
             ["PROP", "Normal Strength", "skin_normal_strength", True, "Normal Map"],
             ["PROP", "Normal Blend", "skin_normal_blend_strength", True, "Normal Blend Map"],
+            ["PROP", "Bump Strength", "skin_bump_strength", True, "Bump Map"],
             ["PROP", "Micro Normal Strength", "skin_micro_normal_strength", True, "Micro Normal Map"],
             ["PROP", "Micro Normal Tiling", "skin_micro_normal_tiling", True, "Micro Normal Map"],
-            ["PROP", "Bump Scale", "skin_bump_scale", True, "Height Map"],
-            ["PROP", "Displacement Scale", "skin_height_scale", True, "Height Map"],
-            ["PROP", "Wrinkle Displacement", "skin_height_delta_scale", True, "Height Delta"],
+            ["HEADER",  "Displacement", "MOD_DISPLACE", "Displacement Map"],
+            ["PROP", "Displacement", "skin_displacement_strength", True, "Displacement Map"],
+            ["PROP", "Base", "skin_displacement_base", True, "Displacement Map"],
+            ["PROP", "Multiplier", "skin_displacement_multiplier", True, "Displacement Map"],
+            ["PROP", "Wrinkle Displacement", "skin_displacement_delta_scale", True, "Displacement Delta"],
             #["OP", "Build Displacement", "cc3.bake", "PLAY", "BUILD_DISPLACEMENT", "Normal Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "*Emissive Color", "skin_emissive_color", False],
@@ -1030,8 +1051,9 @@ SHADER_MATRIX = [
             }
         },
     },
+    # endregion
 
-    # Tongue Shader
+    # region Tongue Shader
     #########################################
 
     {   "name": "rl_tongue_shader",
@@ -1158,8 +1180,9 @@ SHADER_MATRIX = [
             }
         },
     },
+    # endregion
 
-    # Teeth Shader
+    # region Teeth Shader
     ########################################
 
     {   "name": "rl_teeth_shader",
@@ -1187,9 +1210,13 @@ SHADER_MATRIX = [
             ["Front Roughness", "", "teeth_front_roughness"],
             ["Rear Roughness", "", "teeth_rear_roughness"],
             ["Normal Strength", "func_normal_strength", "teeth_normal_strength"],
+            ["Bump Strength", "", "teeth_bump_strength"],
             ["Micro Normal Strength", "func_micro_normal_strength", "teeth_micro_normal_strength"],
             ["Emissive Color", "", "teeth_emissive_color"],
             ["Emission Strength", "func_emission_scale", "teeth_emission_strength"],
+            ["Displacement Strength", "", "teeth_displacement_strength"],
+            ["Displacement Base", "", "teeth_displacement_base"],
+            ["Displacement Multiplier", "", "teeth_displacement_multiplier"],
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
@@ -1205,6 +1232,8 @@ SHADER_MATRIX = [
             ["Metallic Map", "", "METALLIC"],
             ["Roughness Map", "", "ROUGHNESS"],
             ["Normal Map", "", "NORMAL"],
+            ["Bump Map", "", "BUMP"],
+            ["Displacement Map", "", "DISPLACE"],
             ["Micro Normal Map", "", "MICRONORMAL", "OFFSET", "", "teeth_micro_normal_tiling"],
             ["Emission Map", "", "EMISSION"],
         ],
@@ -1227,6 +1256,10 @@ SHADER_MATRIX = [
             ["teeth_teeth_subsurface_scatter", 0.5, "", "Custom/Teeth Scatter"],
             ["teeth_ao_strength", 1, "", "Pbr/AO"],
             ["teeth_normal_strength", 1, "", "Pbr/Normal"],
+            ["teeth_bump_strength", 0.0, "", "Pbr/Bump"],
+            ["teeth_displacement_strength", 0, "", "Pbr/Displacement"],
+            ["teeth_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
+            ["teeth_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
             ["teeth_emission_strength", 0, "", "Pbr/Glow"],
             ["teeth_subsurface_falloff", (0.381, 0.198, 0.13, 1.0), "func_color_bytes", "SSS/Falloff"],
             ["teeth_subsurface_radius", 1, "", "SSS/Radius"],
@@ -1269,8 +1302,13 @@ SHADER_MATRIX = [
             ["PROP", "Subsurface Radius", "teeth_subsurface_radius", True],
             ["HEADER",  "Normals", "NORMALS_FACE"],
             ["PROP", "Normal Strength", "teeth_normal_strength", True, "Normal Map"],
+            ["PROP", "Bump Strength", "teeth_bump_strength", True, "Bump Map"],
             ["PROP", "Micro Normal Strength", "teeth_micro_normal_strength", True, "Micro Normal Map"],
             ["PROP", "Micro Normal Tiling", "teeth_micro_normal_tiling", True, "Micro Normal Map"],
+            ["HEADER",  "Displacement", "MOD_DISPLACE", "Displacement Map"],
+            ["PROP", "Displacement", "teeth_displacement_strength", True, "Displacement Map"],
+            ["PROP", "Base", "teeth_displacement_base", True, "Displacement Map"],
+            ["PROP", "Multiplier", "teeth_displacement_multiplier", True, "Displacement Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "*Emissive Color", "teeth_emissive_color", False],
             ["PROP", "Emission Strength", "teeth_emission_strength", True],
@@ -1300,8 +1338,9 @@ SHADER_MATRIX = [
             }
         },
     },
+    # endregion
 
-    # Eye Shader
+    # region Eye Shader
     ##################################
 
     {   "name": ["rl_cornea_shader", "rl_eye_shader"],
@@ -1550,8 +1589,9 @@ SHADER_MATRIX = [
             }
         },
     },
+    # endregion
 
-    # PBR Shader
+    # region PBR Shader
     ############################################################
 
     {   "name": "rl_pbr_shader",
@@ -1575,11 +1615,12 @@ SHADER_MATRIX = [
             ["Alpha Strength", "", "default_alpha_strength"],
             ["Opacity", "", "default_opacity"],
             ["Normal Strength", "func_normal_strength", "default_normal_strength"],
-            ["Bump Strength", "func_divide_100", "default_bump_strength"],
+            ["Bump Strength", "", "default_bump_strength"],
             ["Emissive Color", "", "default_emissive_color"],
             ["Emission Strength", "func_emission_scale", "default_emission_strength"],
-            ["Displacement Strength", "func_divide_200", "default_displacement_strength"],
+            ["Displacement Strength", "", "default_displacement_strength"],
             ["Displacement Base", "", "default_displacement_base"],
+            ["Displacement Multiplier", "", "default_displacement_multiplier"],
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
@@ -1610,10 +1651,11 @@ SHADER_MATRIX = [
             ["default_alpha_strength", 1, "", "Pbr/Opacity"],
             ["default_opacity", 1, "", "Base/Opacity"],
             ["default_normal_strength", 1, "", "Pbr/Normal"],
-            ["default_emission_strength", 0, "", "Pbr/Glow"],
+            ["default_bump_strength", 0.0, "", "Pbr/Bump"],
             ["default_displacement_strength", 0, "", "Pbr/Displacement"],
             ["default_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
-            ["default_bump_strength", 1, "func_divide_2", "Pbr/Bump"],
+            ["default_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
+            ["default_emission_strength", 0, "", "Pbr/Glow"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             ["default_metallic", 0, "", "Pbr/Metallic"],
             ["default_reflection_strength", 0, "", "Reflection/Reflection Strength"],
@@ -1632,7 +1674,6 @@ SHADER_MATRIX = [
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
             ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "default_diffuse_color"],
-            ["Pbr/Bump", 1.0, "func_mul_2", "default_bump_strength"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1658,8 +1699,10 @@ SHADER_MATRIX = [
             ["HEADER",  "Normals", "NORMALS_FACE"],
             ["PROP", "Normal Strength", "default_normal_strength", True, "Normal Map"],
             ["PROP", "Bump Strength", "default_bump_strength", True, "Bump Map"],
+            ["HEADER",  "Displacement", "MOD_DISPLACE", "Displacement Map"],
             ["PROP", "Displacement", "default_displacement_strength", True, "Displacement Map"],
-            ["PROP", "Displacement Base", "default_displacement_base", True, "Displacement Map"],
+            ["PROP", "Base", "default_displacement_base", True, "Displacement Map"],
+            ["PROP", "Multiplier", "default_displacement_multiplier", True, "Displacement Map"],
             ["OP", "Convert Bump", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "!Normal Map"],
             ["OP", "Combine Normals", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "Normal Map"],
             ["HEADER",  "Emission", "LIGHT"],
@@ -1678,8 +1721,9 @@ SHADER_MATRIX = [
             "Textures": {}
         },
     },
+    # endregion
 
-    # SSS Shader
+    # region SSS Shader
     #########################################
 
     {   "name": "rl_sss_shader",
@@ -1703,11 +1747,12 @@ SHADER_MATRIX = [
             ["Alpha Strength", "", "default_alpha_strength"],
             ["Opacity", "", "default_opacity"],
             ["Normal Strength", "func_normal_strength", "default_normal_strength"],
-            ["Bump Strength", "func_divide_100", "default_bump_strength"],
+            ["Bump Strength", "", "default_bump_strength"],
             ["Emissive Color", "", "default_emissive_color"],
             ["Emission Strength", "func_emission_scale", "default_emission_strength"],
-            ["Displacement Strength", "func_divide_200", "default_displacement_strength"],
+            ["Displacement Strength", "", "default_displacement_strength"],
             ["Displacement Base", "", "default_displacement_base"],
+            ["Displacement Multiplier", "", "default_displacement_multiplier"],
             ["Micro Normal Strength", "func_micro_normal_strength", "default_micro_normal_strength"],
             ["Subsurface Scale", "func_sss_default", "default_subsurface_scale"],
             ["Unmasked Scatter Scale", "", "default_unmasked_scatter_scale"],
@@ -1745,8 +1790,8 @@ SHADER_MATRIX = [
             ["Alpha Map", "", "ALPHA"],
             ["Normal Map", "", "NORMAL"],
             ["Bump Map", "", "BUMP"],
-            ["Emission Map", "", "EMISSION"],
             ["Displacement Map", "", "DISPLACE"],
+            ["Emission Map", "", "EMISSION"],
             ["Subsurface Map", "", "SSS"],
             ["Transmission Map", "", "TRANSMISSION"],
             ["Micro Normal Map", "", "MICRONORMAL", "OFFSET", "", "default_micro_normal_tiling"],
@@ -1784,9 +1829,10 @@ SHADER_MATRIX = [
             ["default_suburface_radius", 1.5, "", "SSS/Radius"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             ["default_metallic", 0, "", "Pbr/Metallic"],
+            ["default_bump_strength", 0.0, "", "Pbr/Bump"],
             ["default_displacement_strength", 0, "", "Pbr/Displacement"],
             ["default_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
-            ["default_bump_strength", 1, "func_divide_2", "Pbr/Bump"],
+            ["default_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
             ["default_reflection_strength", 0, "", "Reflection/Reflection Strength"],
             ["default_reflection_blur", 0, "", "Reflection/Reflection Blur"],
             # non json properties (just defaults)
@@ -1811,7 +1857,6 @@ SHADER_MATRIX = [
             ["/Diffuse Brightness", 1.0, "func_export_brightness_mod", "default_brightness"],
             ["/Diffuse Saturation", 1.0, "func_export_saturation_mod", "default_saturation"],
             ["SSS/Falloff", [255.0, 255.0, 255.0], "func_export_byte3", "default_subsurface_falloff"],
-            ["Pbr/Bump", 1.0, "func_mul_2", "default_bump_strength"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1856,8 +1901,10 @@ SHADER_MATRIX = [
             ["HEADER",  "Normals", "NORMALS_FACE"],
             ["PROP", "Normal Strength", "default_normal_strength", True, "Normal Map"],
             ["PROP", "Bump Strength", "default_bump_strength", True, "Bump Map"],
+            ["HEADER",  "Displacement", "MOD_DISPLACE", "Displacement Map"],
             ["PROP", "Displacement", "default_displacement_strength", True, "Displacement Map"],
-            ["PROP", "Displacement Base", "default_displacement_base", True, "Displacement Map"],
+            ["PROP", "Base", "default_displacement_base", True, "Displacement Map"],
+            ["PROP", "Multiplier", "default_displacement_multiplier", True, "Displacement Map"],
             ["OP", "Convert Bump", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "!Normal Map"],
             ["OP", "Combine Normals", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "Normal Map"],
             ["SPACER"],
@@ -1892,8 +1939,9 @@ SHADER_MATRIX = [
             }
         },
     },
+    # endregion
 
-    # Hair Shader
+    # region Hair Shader
     #####################################
 
     {   "name": "rl_hair_shader",
@@ -1954,10 +2002,12 @@ SHADER_MATRIX = [
             ["Alpha Power", "", "hair_alpha_power"],
             ["Opacity", "", "hair_opacity"],
             ["Normal Strength", "func_normal_strength", "hair_normal_strength"],
-            ["Bump Strength", "func_divide_100", "hair_bump_strength"],
+            ["Bump Strength", "", "hair_bump_strength"],
+            ["Displacement Strength", "", "hair_displacement_strength"],
+            ["Displacement Base", "", "hair_displacement_base"],
+            ["Displacement Multiplier", "", "hair_displacement_multiplier"],
             ["Emissive Color", "", "hair_emissive_color"],
             ["Emission Strength", "func_emission_scale", "hair_emission_strength"],
-            ["Displacement Strength", "func_divide_100", "hair_displacement_strength"],
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
@@ -1976,8 +2026,8 @@ SHADER_MATRIX = [
             ["Alpha Map", "", "ALPHA"],
             ["Normal Map", "", "NORMAL"],
             ["Bump Map", "", "BUMP"],
+            ["Displacement Map", "", "DISPLACE"],
             ["Emission Map", "", "EMISSION"],
-            ["Displacement Map", "", "DISPLACE"], # use displacement for bump map in hair
             ["Root Map", "", "HAIRROOT"],
             ["ID Map", "", "HAIRID"],
             ["Flow Map", "", "HAIRFLOW"],
@@ -2026,7 +2076,10 @@ SHADER_MATRIX = [
             ["hair_alpha_strength", 1, "", "Pbr/Opacity"],
             ["hair_opacity", 1, "", "Base/Opacity"],
             ["hair_normal_strength", 1.0, "", "Pbr/Normal"],
-            ["hair_bump_strength", 1.0, "", "Pbr/Normal"],
+            ["hair_bump_strength", 0.0, "", "Pbr/Bump"],
+            ["hair_displacement_strength", 0, "", "Pbr/Displacement"],
+            ["hair_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
+            ["hair_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
             ["hair_emission_strength", 0, "", "Pbr/Glow"],
             ["hair_displacement_strength", 1, "", "Pbr/Displacement"],
             # non json properties (just defaults)
@@ -2121,9 +2174,12 @@ SHADER_MATRIX = [
             ["PROP", "Opacity", "hair_opacity", True, "Alpha Map"],
             ["HEADER",  "Normals", "NORMALS_FACE"],
             ["PROP", "Normal Strength", "hair_normal_strength", True, "Normal Map"],
-            ["PROP", "*Bump Strength", "hair_bump_strength", True, "Bump Map"],
-            ["PROP", "Displacement", "hair_displacement_strength", True, "Displacement Map"],
+            ["PROP", "Bump Strength", "hair_bump_strength", True, "Bump Map"],
             ["OP", "Generate Normal Map", "cc3.bake", "PLAY", "BAKE_FLOW_NORMAL", "Flow Map"], #, "!Normal Map"],
+            ["HEADER",  "Displacement", "MOD_DISPLACE", "Displacement Map"],
+            ["PROP", "Displacement", "hair_displacement_strength", True, "Displacement Map"],
+            ["PROP", "Base", "hair_displacement_base", True, "Displacement Map"],
+            ["PROP", "Multiplier", "hair_displacement_multiplier", True, "Displacement Map"],
             #["PROP", "Tangent Vector", "hair_tangent_vector", False, "Flow Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "Emissive Color", "hair_emissive_color", False],
@@ -2152,8 +2208,9 @@ SHADER_MATRIX = [
 
 
     },
+    # endregion
 
-    # Wrinkle Shader
+    # region Wrinkle Shader
     #####################################
 
     {   "name": "rl_wrinkle_shader",
@@ -2172,7 +2229,7 @@ SHADER_MATRIX = [
             ["Diffuse Map", "", "DIFFUSE"],
             ["Roughness Map", "", "ROUGHNESS"],
             ["Normal Map", "", "NORMAL"],
-            ["Height Map", "", "DISPLACE"],
+            ["Displacement Map", "", "DISPLACE"],
             ["Diffuse Blend Map 1", "", "WRINKLEDIFFUSE1"],
             ["Diffuse Blend Map 2", "", "WRINKLEDIFFUSE2"],
             ["Diffuse Blend Map 3", "", "WRINKLEDIFFUSE3"],
@@ -2185,9 +2242,9 @@ SHADER_MATRIX = [
             ["Flow Map 1", "", "WRINKLEFLOW1"],
             ["Flow Map 2", "", "WRINKLEFLOW2"],
             ["Flow Map 3", "", "WRINKLEFLOW3"],
-            ["Height Map 1", "", "WRINKLEDISPLACEMENT1"],
-            ["Height Map 2", "", "WRINKLEDISPLACEMENT2"],
-            ["Height Map 3", "", "WRINKLEDISPLACEMENT3"],
+            ["Displacement Map 1", "", "WRINKLEDISPLACEMENT1"],
+            ["Displacement Map 2", "", "WRINKLEDISPLACEMENT2"],
+            ["Displacement Map 3", "", "WRINKLEDISPLACEMENT3"],
             ["Mask 1A RGB", "Mask 1A A", "WRINKLEMASK1A"],
             ["Mask 1B RGB", "Mask 1B A", "WRINKLEMASK1B"],
             ["Mask 2 RGB", "Mask 2 A", "WRINKLEMASK2"],
@@ -2209,6 +2266,7 @@ SHADER_MATRIX = [
         "json_template": {
         },
     },
+    # endregion
 ]
 
 # material_type, rl_shader, blender_shader

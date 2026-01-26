@@ -18,11 +18,11 @@
 
 import bpy
 
-VERSION_STRING = "v2.3.4"
+VERSION_STRING = "v2.4.0"
 DEV = False
 #DEV = True
 PLUGIN_COMPATIBLE = [
-    "2.3.4",
+    "2.4.0",
 ]
 
 def set_version_string(bl_info):

@@ -1248,34 +1248,11 @@ def set_T_pose(arm, chr_json):
     return False
 
 
-def clear_animation_data(obj: bpy.types.Object):
-    if obj.type == "ARMATURE" or obj.type == "MESH":
-        # remove action
-        utils.safe_set_action(obj, None)
-        # remove strips
-        # this removes drivers too...
-        #obj.animation_data_clear()
-        ad = obj.animation_data
-        if ad:
-            while ad.nla_tracks:
-                ad.nla_tracks.remove(ad.nla_tracks[0])
-    if obj.type == "MESH":
-        # remove shape key action
-        utils.safe_set_action(obj.data.shape_keys, None)
-        # remove shape key strips
-        if obj.data.shape_keys and obj.data.shape_keys.animation_data:
-            obj.data.shape_keys.animation_data_clear()
-            ad = obj.data.shape_keys.animation_data
-            if ad:
-                while ad.nla_tracks:
-                    ad.nla_tracks.remove(ad.nla_tracks[0])
-
-
 def create_T_pose_action(arm, objects, export_strips):
 
     # remove all actions from objects
     for obj in objects:
-        clear_animation_data(obj)
+        rigutils.clear_animation_data(obj)
 
     bpy.context.scene.frame_start = 1
     bpy.context.scene.frame_end = 2
@@ -2258,32 +2235,30 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
     export_actions = False
     export_strips = True
     baked_actions = []
+    clone_id = utils.generate_random_id(10)
 
-    export_rig, vertex_group_map, t_pose_action = rigging.prep_rigify_export(chr_cache,
-                                                            export_anim, baked_actions,
-                                                            include_t_pose=prefs.rigify_export_t_pose,
-                                                            objects=objects,
-                                                            bone_naming = prefs.rigify_export_naming)
-
-    if export_rig:
-        rigify_rig = chr_cache.get_armature()
-        objects.remove(rigify_rig)
-        objects.append(export_rig)
+    export_rig, export_objects, \
+    vertex_group_map, t_pose_action = rigging.prep_rigify_export(chr_cache,
+                                                export_anim, baked_actions,
+                                                include_t_pose=prefs.rigify_export_t_pose,
+                                                objects=objects,
+                                                bone_naming = prefs.rigify_export_naming,
+                                                clone_id=clone_id)
 
     use_anim = export_anim
     if prefs.rigify_export_t_pose:
         use_anim = True
 
     # remove custom material modifiers
-    remove_modifiers_for_export(chr_cache, objects, True, rig=export_rig)
+    remove_modifiers_for_export(chr_cache, export_objects, True, rig=export_rig)
 
-    prep_export(context, chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir,
+    prep_export(context, chr_cache, name, export_objects, json_data, chr_cache.get_import_dir(), dir,
                 include_textures, False, False, False, False)
 
     # for motion only exports, select armature and any mesh objects that have shape key animations
     if prefs.rigify_export_mode == "MOTION":
         utils.clear_selected_objects()
-        rigging.select_motion_export_objects(objects)
+        rigging.select_motion_export_objects(export_objects)
 
     armature_object, armature_data = rigutils.rename_armature(export_rig, name)
 
@@ -2329,18 +2304,19 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
 
     rigutils.restore_armature_names(armature_object, armature_data, name)
 
-    restore_modifiers(chr_cache, objects)
+    #restore_modifiers(chr_cache, objects)
 
     # clean up rigify export
     rigging.finish_rigify_export(chr_cache, export_rig, baked_actions, vertex_group_map,
-                                 objects=objects, bone_naming=prefs.rigify_export_naming)
+                                 objects=export_objects, bone_naming=prefs.rigify_export_naming,
+                                 clone_id=clone_id)
 
     utils.log_recess()
     utils.log_info("")
 
     if json_data:
         utils.log_info("Writing Json Data.")
-        update_facial_profile_json(chr_cache, objects, json_data, name)
+        update_facial_profile_json(chr_cache, export_objects, json_data, name)
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
 

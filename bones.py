@@ -924,6 +924,7 @@ def store_armature_settings(rig, include_pose=False, include_selection=False):
                    "display_type": rig.display_type,
                    "pose_position": rig.data.pose_position,
                    "action": utils.safe_get_action(rig),
+                   "slot": utils.safe_get_action_slot(rig)[1],
                    "location": rig.location }
 
     if include_pose:
@@ -958,7 +959,7 @@ def restore_armature_settings(rig, visibility, include_pose=False, include_selec
     rig.show_in_front = visibility["show_in_front"]
     rig.display_type = visibility["display_type"]
     rig.data.pose_position = visibility["pose_position"]
-    utils.safe_set_action(rig, visibility["action"])
+    utils.safe_set_action(rig, visibility["action"], slot=visibility["slot"])
     rig.location = visibility["location"]
 
     if include_pose:

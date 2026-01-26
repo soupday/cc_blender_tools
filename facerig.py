@@ -887,7 +887,9 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                                               description="Overall strength of the expression rig bone movements")
         data_path = facerig_bone.path_from_id("[\"head_follow\"]")
         bones.clear_constraints(rigify_rig, "MCH-facerig")
-        child_con = bones.add_child_of_constraint(rigify_rig, rigify_rig, "root", "MCH-facerig", 1.0)
+        child_con_1 = bones.add_copy_location_constraint(rigify_rig, rigify_rig, "root", "MCH-facerig", 1.0, axes="XY")
+        child_con_2 = bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, "root", "MCH-facerig", 1.0, use_z=True, use_x=False, use_y=False)
+        #child_con = bones.add_child_of_constraint(rigify_rig, rigify_rig, "root", "MCH-facerig", 1.0)
         loc_con = bones.add_copy_location_constraint(rigify_rig, rigify_rig, "MCH-facerig_parent", "MCH-facerig", 0.2)
         rot_con1 = bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, "MCH-facerig_parent", "MCH-facerig", 0.6,
                                                      use_x=False, use_y=False, use_z=True)
@@ -895,7 +897,10 @@ def build_facerig_drivers(chr_cache, rigify_rig):
                                                      use_x=True, use_y=True, use_z=False)
         bones.add_constraint_influence_driver(rigify_rig, "MCH-facerig",
                                               rigify_rig, data_path, "rf",
-                                              constraint=child_con, expression="(1.0 if rf else 0.0)")
+                                              constraint=child_con_1, expression="(1.0 if rf else 0.0)")
+        bones.add_constraint_influence_driver(rigify_rig, "MCH-facerig",
+                                              rigify_rig, data_path, "rf",
+                                              constraint=child_con_2, expression="(1.0 if rf else 0.0)")
         bones.add_constraint_influence_driver(rigify_rig, "MCH-facerig",
                                               rigify_rig, data_path, "rf",
                                               loc_con)
@@ -1955,7 +1960,7 @@ def get_arkit_proxy(chr_cache):
     if chr_cache and chr_cache.rigified and utils.object_exists_is_armature(chr_cache.arkit_proxy):
         proxy_rig = chr_cache.arkit_proxy
         for child in proxy_rig.children:
-            if utils.prop(child, "arkit_proxy") == "fDsOJtp42n68X0e4ETVP":
+            if utils.get_prop(child, "arkit_proxy") == "fDsOJtp42n68X0e4ETVP":
                 proxy_mesh = child
                 return proxy_rig, proxy_mesh
     return None, None
@@ -2012,17 +2017,17 @@ def load_csv(chr_cache, file_path):
                 keys = facerig_data.ARKIT_SHAPE_KEY_TARGETS[facial_profile].keys()
                 key_action = utils.make_action(f"{chr_cache.character_name}_ARKit_Proxy_Head", slot_type="KEY", clear=True, reuse=True)
                 arm_action = utils.make_action(f"{chr_cache.character_name}_ARKit_Proxy", slot_type="OBJECT", clear=True, reuse=True)
-                key_channels = utils.get_action_channels(key_action, slot_type="KEY")
-                if key_channels:
+                key_channel = utils.get_action_channelbag(key_action, slot_type="KEY")
+                if key_channel:
                     for key in keys:
-                        fcurve = key_channels.fcurves.new(f"key_blocks[\"{key}\"].value")
+                        fcurve = key_channel.fcurves.new(f"key_blocks[\"{key}\"].value")
                         for tcurve in tcurves:
                             if tcurve.name.lower() == key.lower():
                                 tcurve.to_fcurve(fcurve)
                                 break
                 utils.safe_set_action(proxy_mesh.data.shape_keys, key_action)
-            bone_channels = utils.get_action_channels(arm_action, slot_type="OBJECT")
-            if bone_channels:
+            bone_channel = utils.get_action_channelbag(arm_action, slot_type="OBJECT")
+            if bone_channel:
                 for tcurve_name, bone_def in facerig_data.ARK_BONE_TARGETS.items():
                     for tcurve in tcurves:
                         if tcurve.name.lower() == tcurve_name.lower():
@@ -2033,7 +2038,7 @@ def load_csv(chr_cache, file_path):
                             rotation = bone_def["rotation"] * math.pi / 180
                             prop, var, index = facerig_data.ROT_AXES[axis]
                             data_path = bone.path_from_id(prop)
-                            fcurve = bone_channels.fcurves.new(data_path, index=index)
+                            fcurve = bone_channel.fcurves.new(data_path, index=index)
                             tcurve.to_fcurve(fcurve, rotation)
             utils.safe_set_action(proxy_rig, arm_action)
 

@@ -94,12 +94,11 @@ def prep_rig(chr_cache):
         rigutils.select_rig(rig)
         if rig:
             chr_cache.proportion_editing_in_front = rig.show_in_front
-            rig_action = utils.safe_get_action(rig)
+            rig_action, rig_slot = utils.safe_get_action_slot(rig)
             chr_cache.proportion_editing_actions.clear()
             if rig_action:
                 action_store = chr_cache.proportion_editing_actions.add()
-                action_store.object = rig
-                action_store.action = rig_action
+                action_store.store(rig, "PROPSTORE")
                 utils.safe_set_action(rig, None)
             rig.pose.use_mirror_x = True
             bones.clear_pose(rig)
@@ -111,16 +110,11 @@ def prep_rig(chr_cache):
                                                 include_children=True,
                                                 of_type="MESH")
             for obj in objects:
-                if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                    key_action = utils.safe_get_action(obj.data.shape_keys)
-                    if key_action:
-                        action_store = chr_cache.proportion_editing_actions.add()
-                        action_store.object = obj
-                        action_store.action = key_action
-                        utils.safe_set_action(obj.data.shape_keys, None)
-                    key: bpy.types.ShapeKey
-                    for key in obj.data.shape_keys.key_blocks:
-                        key.value = 0.0
+                if utils.object_has_shape_keys(obj):
+                    action_store = chr_cache.proportion_editing_actions.add()
+                    action_store.store(obj, "PROPSTORE")
+                    utils.safe_set_action(obj.data.shape_keys, None)
+                    utils.reset_shape_keys(obj)
 
 
 def restore_rig(chr_cache):
@@ -129,12 +123,7 @@ def restore_rig(chr_cache):
         if rig:
             # restore actions
             for action_store in chr_cache.proportion_editing_actions:
-                obj = action_store.object
-                action = action_store.action
-                if utils.object_exists_is_armature(obj):
-                    utils.safe_set_action(obj, action)
-                elif utils.object_exists_is_mesh(obj):
-                    utils.safe_set_action(obj.data.shape_keys, action)
+                action_store.restore()
             chr_cache.proportion_editing_actions.clear()
             # restore rig
             utils.object_mode_to(rig)

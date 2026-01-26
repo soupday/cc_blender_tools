@@ -933,7 +933,7 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
     arm_settings = bones.store_armature_settings(arm)
     bones.make_bones_visible(arm)
 
-    old_action = utils.safe_get_action(arm)
+    old_action, old_slot = utils.safe_get_action_slot(arm)
     old_pose = arm.data.pose_position
 
     if use_bind_data:
@@ -1054,7 +1054,7 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
         chr_cache.write_json_data(json_data)
 
     # restore the original action
-    utils.safe_set_action(arm, old_action)
+    utils.safe_set_action(arm, old_action, old_slot)
     arm.data.pose_position = old_pose
     bones.restore_armature_settings(arm, arm_settings)
     utils.restore_render_visibility_state(RV)

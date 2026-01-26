@@ -135,11 +135,10 @@ def prep_rlx_actions(obj, name, motion_id, reuse_existing=False, timestamp=False
         motion_id = "DataLink"
     if timestamp:
         motion_id += f"_{utils.datetimes()}"
-    f_prefix = rigutils.get_formatted_prefix(motion_prefix)
     # generate names
     T = utils.get_slot_type_for(obj.data)
-    ob_name = f"{f_prefix}{name}|O|{motion_id}"
-    data_name = f"{f_prefix}{name}|{T[0]}|{motion_id}"
+    ob_name = rigutils.generate_action_name(name, "O", "", motion_id, motion_prefix)
+    data_name = rigutils.generate_action_name(name, T[0], "", motion_id, motion_prefix)
     # find existing actions
     ob_action = utils.safe_get_action(obj)
     data_action = utils.safe_get_action(obj.data)
@@ -429,16 +428,16 @@ def add_cache_rotation_fcurves(obj, action: bpy.types.Action, cache, num_frames,
 
 
 def add_cache_fcurves(action: bpy.types.Action, data_path, cache, num_frames, group_name=None, slot=None, interpolation="LINEAR"):
-    channels = utils.get_action_channels(action, slot)
+    channel = utils.get_action_channelbag(action, slot)
     num_curves = len(cache)
-    if channels:
+    if channel:
         fcurve: bpy.types.FCurve = None
-        if group_name not in channels.groups:
-            channels.groups.new(group_name)
+        if group_name not in channel.groups:
+            channel.groups.new(group_name)
         for i in range(0, num_curves):
-            fcurve = channels.fcurves.new(data_path, index=i)
+            fcurve = channel.fcurves.new(data_path, index=i)
             fcurve.auto_smoothing = "NONE"
-            fcurve.group = channels.groups[group_name]
+            fcurve.group = channel.groups[group_name]
             reduced = reduce_cache(cache[i], interpolation)
             num_reduced = int(len(reduced) / 2)
             fcurve.keyframe_points.add(num_reduced)
@@ -535,8 +534,8 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
     darkness = light_data["darkness"]
     light_type = get_light_type(type, is_rectangle, is_tube)
 
-    ob_action = utils.safe_get_action(light) if light else None
-    light_action = utils.safe_get_action(light.data) if light else None
+    ob_action, ob_slot = utils.safe_get_action_slot(light) if light else (None, None)
+    light_action, light_slot = utils.safe_get_action_slot(light.data) if light else (None, None)
 
     if light and (light.type != "LIGHT" or light.data.type != light_type):
         utils.delete_light_object(light)
@@ -553,8 +552,8 @@ def decode_rlx_light(light_data, light: bpy.types.Object=None, container=None):
             light = add_spot_light(light_data["name"], container)
         utils.set_rl_link_id(light, link_id)
 
-    utils.safe_set_action(light, ob_action)
-    utils.safe_set_action(light.data, light_action)
+    utils.safe_set_action(light, ob_action, slot=ob_slot)
+    utils.safe_set_action(light.data, light_action, light_slot)
 
     light.location = loc
     utils.set_transform_rotation(light, rot)
@@ -667,8 +666,8 @@ def decode_rlx_camera(camera_data, camera):
     dof_min_blend_distance = camera_data["dof_min_blend_distance"] # 0.0 - 1.0
     active = camera_data["active"]
 
-    ob_action = utils.safe_get_action(camera) if camera else None
-    cam_action = utils.safe_get_action(camera.data) if camera else None
+    ob_action, ob_slot = utils.safe_get_action_slot(camera) if camera else (None, None)
+    cam_action, cam_slot = utils.safe_get_action_slot(camera.data) if camera else (None, None)
 
     if camera and camera.type != "CAMERA":
         utils.delete_object(camera)
@@ -678,8 +677,8 @@ def decode_rlx_camera(camera_data, camera):
         camera = add_camera(name)
         utils.set_rl_link_id(camera, link_id)
 
-    utils.safe_set_action(camera, ob_action)
-    utils.safe_set_action(camera.data, cam_action)
+    utils.safe_set_action(camera, ob_action, slot=ob_slot)
+    utils.safe_set_action(camera.data, cam_action, slot=cam_slot)
 
     camera.location = loc
     utils.set_transform_rotation(camera, rot)

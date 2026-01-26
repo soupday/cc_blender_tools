@@ -33,6 +33,9 @@ Links
 
 ## Changelog
 
+### 2.3.5
+-
+
 ### 2.3.4
 - Add / apply physics resets physics to frame 1.
 - Reset all dynamics added to cloth physics panel.
@@ -46,6 +49,7 @@ Links
     - ARKit Proxy CSV load error in Blender 5.0.
     - Receive Pose/Sequence error in Blender 5.0.
     - Material bake in Blender 5.0.
+    - Sculpt bake base shape copy.
 
 ### 2.3.3
 - Blender 5.0 update.

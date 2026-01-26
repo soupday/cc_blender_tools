@@ -89,7 +89,6 @@ def reset_rigify():
     prefs.rigify_export_naming = "METARIG"
     prefs.rigify_expression_rig = "META"
     prefs.rigify_auto_retarget = True
-    prefs.rigify_preview_shape_keys = True
     prefs.rigify_limit_control_range = False
     prefs.rigify_bake_shape_keys = True
     prefs.rigify_preview_retarget_fk_ik = "BOTH"
@@ -155,6 +154,11 @@ def reset_preferences():
     prefs.build_armature_preserve_volume = False
     prefs.physics_weightmap_curve = 5.0
     prefs.convert_non_standard_type = "PROP"
+    prefs.action_use_action_slots = True
+    prefs.action_add_empty_key_channels = False
+    prefs.action_add_key_slots_per_obj = True
+    prefs.action_clean_actions = False
+    prefs.clean_empty_mesh_data = True
     reset_cycles()
     reset_rigify()
     reset_datalink()
@@ -265,6 +269,23 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("ERRORS","Just Errors","Log only errors to console."),
                         ("DETAILS","Details","All including details."),
                     ], default="ERRORS", name = "(Debug) Log Level")
+
+    action_use_action_slots: bpy.props.BoolProperty(default=True,
+                                             description="When importing and retargeting animations, use action slots to combine armature and shape key actions into a single action",
+                                             name="Use Action Slots")
+    action_add_key_slots_per_obj: bpy.props.BoolProperty(default=True,
+                                             description="When using action slots, generate an slot channel specifically for each object's shape keys. " \
+                                                         "Otherwise, use only a single shapekey channel for all mesh obejcts",
+                                             name="Action Key Slots Per Obj")
+    action_clean_actions: bpy.props.BoolProperty(default=False,
+                                             description="When loading motions onto character, clean up (remove redundant) action keyframes",
+                                             name="Clean Actions")
+    action_add_empty_key_channels: bpy.props.BoolProperty(default=False,
+                                             description="Add single zero keyframe for empty shape_key channels",
+                                             name="Add Empty Channels")
+    clean_empty_mesh_data: bpy.props.BoolProperty(default=True,
+                                             description="Clean up empty shape-keys and vertex groups from all character meshes",
+                                             name="Clean Empty Mesh Data")
 
     hair_hint: bpy.props.StringProperty(default="hair,scalp,beard,mustache,sideburns,ponytail,braid,!bow,!band,!tie,!ribbon,!ring,!butterfly,!flower", name="Hair detection keywords")
     hair_scalp_hint: bpy.props.StringProperty(default="scalp,base,skullcap", name="Scalp detection keywords")
@@ -458,8 +479,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                                      description="Power curve used to convert PhysX weightmaps to blender vertex pin weights.")
 
     # rigify prefs
-    rigify_preview_shape_keys: bpy.props.BoolProperty(default=True, name="Retarget Shape Keys",
-                                                        description="Retarget any facial expression and viseme shape key actions on the source character rig to the current character meshes on the rigify rig")
     rigify_bake_shape_keys: bpy.props.BoolProperty(default=True, name="Bake Shape Keys",
                                                 description="Bake facial expression and viseme shape keys to new shapekey actions on the character")
     rigify_export_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
@@ -599,6 +618,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 		)
 
 
+    def use_action_slots(self):
+        return self.action_use_action_slots and BV(4,4,0)
+
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -619,6 +642,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         grid.prop(self, "build_shape_key_bone_drivers_eyes")
         grid.prop(self, "build_shape_key_bone_drivers_head")
         grid.prop(self, "build_body_key_drivers")
+        grid.prop(self, "action_use_action_slots")
+        grid.prop(self, "clean_empty_mesh_data")
+
 
         layout.label(text="Rendering:")
         layout.prop(self, "bake_use_gpu")
@@ -653,7 +679,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Rigify:")
 
         grid = layout.grid_flow(row_major=True, columns=2)
-        grid.prop(self, "rigify_preview_shape_keys")
         grid.prop(self, "rigify_bake_shape_keys")
         grid.prop(self, "rigify_export_t_pose")
         grid.prop(self, "rigify_auto_retarget")
@@ -700,3 +725,11 @@ class MATERIAL_UL_weightedmatslots(bpy.types.UIList):
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
+
+
+def BV(major, minor, sub):
+    """e.g. is_blender_version("3.0.0", "GTE")"""
+    blender_version = bpy.app.version
+    v_test = int(major) * 1000000 + int(minor) * 1000 + int(sub)
+    v_blender = blender_version[0] * 1000000 + blender_version[1] * 1000 + blender_version[2]
+    return v_blender >= v_test

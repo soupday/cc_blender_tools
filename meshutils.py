@@ -90,6 +90,22 @@ def total_vertex_group_weight(obj, vertex_group: bpy.types.VertexGroup):
     return weight
 
 
+def is_empty_vertex_group(obj, vertex_group: bpy.types.VertexGroup, threshold = 0.001):
+    if type(vertex_group) is str or type(vertex_group) is list:
+        vertex_group = get_vertex_group(obj, vertex_group)
+    weight = 0.0
+    if vertex_group:
+        vg_idx = vertex_group.index
+        for vert in obj.data.vertices:
+            for g in vert.groups:
+                if g.group == vg_idx:
+                    weight += g.weight
+                    break
+            if weight > threshold:
+                return False
+    return True
+
+
 def generate_eye_occlusion_vertex_groups(obj, mat_left, mat_right):
 
     vertex_group_inner_l = add_vertex_group(obj, vars.OCCLUSION_GROUP_INNER + "_L")
@@ -545,14 +561,18 @@ def get_head_body_object_quick(chr_cache):
 def get_eye_object(chr_cache):
     # TODO merged expressions and morphs....
     if chr_cache:
-        return chr_cache.get_objects_of_type("EYE")
+        eyes = chr_cache.get_objects_of_type("EYE")
+        if eyes:
+            return eyes[0]
     return None
 
 
 def get_tongue_object(chr_cache):
     # TODO merged expressions and morphs....
     if chr_cache:
-        return chr_cache.get_objects_of_type("TONGUE")
+        tongues = chr_cache.get_objects_of_type("TONGUE")
+        if tongues:
+            return tongues[0]
     return None
 
 
