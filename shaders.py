@@ -813,6 +813,8 @@ def init_character_property_defaults(chr_cache, chr_json, only:list=None):
     else:
         utils.log_info("(No Json Data)")
 
+    ext_eyelash = jsonutils.has_node_type(chr_json, "Eyelash")
+
     # Advanced properties
     for obj in chr_cache.get_cache_objects():
         obj_cache = chr_cache.get_object_cache(obj)
@@ -847,8 +849,7 @@ def init_character_property_defaults(chr_cache, chr_json, only:list=None):
                                 mat_cache.parameters.default_ao_strength = 0.4
                                 mat_cache.parameters.default_ao_power = 1.0
                                 mat_cache.parameters.default_specular_scale = 0.4
-                            except:
-                                pass
+                            except: ...
 
                         if mat_cache.source_name.startswith("Ga_Skin_"):
                             try:
@@ -856,8 +857,13 @@ def init_character_property_defaults(chr_cache, chr_json, only:list=None):
                                     mat_cache.parameters.default_roughness_power = 0.5
                                 else:
                                     mat_cache.parameters.default_roughness_power = 0.75
-                            except:
-                                pass
+                            except: ...
+
+                        if mat_cache.is_eyelash() and ext_eyelash:
+                            try:
+                                utils.log_info(f"Disabling standard eyelash ...")
+                                mat_cache.parameters.default_opacity = 0.0
+                            except: ...
 
                         utils.log_recess()
             utils.log_recess()
@@ -1303,7 +1309,7 @@ def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
         mat.use_sss_translucency = True
 
 
-def connect_pbr_shader(obj_cache, obj, mat: bpy.types.Material, mat_json, processed_images):
+def connect_pbr_shader(obj_cache, obj, mat: bpy.types.Material, mat_json, processed_images, ext_eyelash):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -1328,6 +1334,10 @@ def connect_pbr_shader(obj_cache, obj, mat: bpy.types.Material, mat_json, proces
     materials.set_material_alpha(mat, method)
 
     if mat_cache.is_eyelash():
+        if ext_eyelash:
+            mat_cache.parameters.default_opacity = 0.0
+            nodeutils.set_node_input_value(group, "Opacity", 0.0)
+        nodeutils.set_node_input_value(group, "Specular Scale", 0.25)
         nodeutils.set_node_input_value(group, "Specular Scale", 0.25)
         nodeutils.set_node_input_value(bsdf, "Subsurface", 0.001)
         fix_sss_method(bsdf, is_scalp=True)

@@ -212,6 +212,16 @@ def set_facial_profile_categories_json(json_data, character_id, categories_json)
         return False
 
 
+def has_node_type(chr_json, node_type):
+    meshes_json = chr_json["Meshes"]
+    for obj_name, obj_json in meshes_json.items():
+        if obj_json and "Materials" in obj_json:
+            for mat_name, mat_json in obj_json["Materials"].items():
+                if "Node Type" in mat_json and mat_json["Node Type"] == node_type:
+                    return True
+    return False
+
+
 def get_object_json(chr_json, obj):
     if not chr_json:
         return None

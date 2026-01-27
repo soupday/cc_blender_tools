@@ -36,12 +36,13 @@ def delete_import(chr_cache):
     utils.clean_up_unused()
 
 
-def process_material(chr_cache, obj_cache, obj, mat, obj_json, processed_images):
+def process_material(chr_cache, chr_json, obj_cache, obj, mat, obj_json, processed_images):
     props = vars.props()
     prefs = vars.prefs()
 
     mat_cache = chr_cache.get_material_cache(mat)
     mat_json = jsonutils.get_material_json(obj_json, mat)
+    ext_eyelash = jsonutils.has_node_type(chr_json, "Eyelash")
 
     if not mat_cache: return
 
@@ -83,7 +84,7 @@ def process_material(chr_cache, obj_cache, obj, mat, obj_json, processed_images)
             shaders.connect_sss_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         else:
-            shaders.connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images)
+            shaders.connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images, ext_eyelash)
 
         # optional pack channels
         if prefs.build_limit_textures or prefs.build_pack_texture_channels:
@@ -179,7 +180,7 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
                 utils.log_info("Processing Material: " + mat.name)
                 utils.log_indent()
 
-                process_material(chr_cache, obj_cache, obj, mat, obj_json, processed_images)
+                process_material(chr_cache, chr_json, obj_cache, obj, mat, obj_json, processed_images)
                 if processed_materials is not None:
                     first = materials.find_duplicate_material(chr_cache, mat, processed_materials)
                     if first:
