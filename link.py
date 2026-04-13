@@ -1885,6 +1885,9 @@ class LinkService():
         elif op_code == OpCodes.MORPH_UPDATE:
             self.receive_morph(data, update=True)
 
+        elif op_code == OpCodes.REPLACE_MESH:
+            self.receive_actor_import_prop(data)
+
         elif op_code == OpCodes.CHARACTER:
             self.receive_actor_import(data)
 
@@ -3908,6 +3911,67 @@ class LinkService():
         # force frame update (for actions to apply)
         bpy.context.scene.frame_current = bpy.context.scene.frame_current
 
+    def receive_actor_import_prop(self, data):
+        """Import actor OBJ file as a prop"""
+        props = vars.props()
+        prefs = vars.prefs()
+        global LINK_DATA
+
+        props.validate_and_clean_up()
+
+        # decode prop import data
+        json_data = decode_to_json(data)
+        file_path = json_data.get("path")
+        remote_id = json_data.get("remote_id")
+        file_path = self.get_remote_file(remote_id, file_path)
+        name = json_data.get("name")
+        link_id = json_data.get("link_id")
+
+        utils.log_info(f"Receive Prop Import: {name} / {link_id} / {file_path}")
+
+        if not os.path.exists(file_path):
+            update_link_status(f"Invalid Import Path!")
+            return
+
+        actor = LinkActor.find_actor(link_id, search_name=name, search_type="PROP")
+        if actor:
+            update_link_status(f"Prop: {name} exists!")
+            utils.log_info(f"Prop {name} ({link_id}) already exists!")
+            if prefs.datalink_confirm_replace:
+                bpy.ops.ccic.link_confirm_dialog("INVOKE_DEFAULT",
+                                                 message=f"Prop {name} already exists in the scene. Do you want to replace it?",
+                                                 mode="REPLACE",
+                                                 name=name,
+                                                 filepath=file_path,
+                                                 link_id=link_id,
+                                                 start_frame=0,
+                                                 character_type="PROP",
+                                                 prefs="datalink_confirm_replace")
+            else:
+                self.do_update_replace(name, link_id, file_path, "PROP", True, 0,
+                                       objects_to_replace_names=None,
+                                       replace_actions=False, scale_prop=True)
+        else:
+            update_link_status(f"Receiving Prop Import: {name}")
+            try:
+                old_objects = utils.get_set(bpy.data.objects)
+                bpy.ops.cc3.importer(param="IMPORT", filepath=file_path, link_id=link_id,
+                                     zoom=False, no_rigify=True)
+                imported_objects = utils.get_set_new(bpy.data.objects, old_objects)
+
+                # Scale down from 100 to 1 (0.01 = 1/100) - but not armatures
+                for obj in imported_objects:
+                    if obj.type != "ARMATURE":
+                        obj.scale = (0.01, 0.01, 0.01)
+                
+            except Exception as e:
+                utils.log_error(f"Error importing {file_path}", e)
+                return
+
+            actor = LinkActor.find_actor(link_id, search_name=name, search_type="PROP")
+            if actor:
+                update_link_status(f"Prop Imported: {actor.name}")
+
     def receive_camera_fbx_import(self, data):
         props = vars.props()
         prefs = vars.prefs()
@@ -4272,7 +4336,7 @@ class LinkService():
                                objects_to_replace_names)
 
     def do_update_replace(self, name, link_id, fbx_path, character_type, replace_all, start_frame,
-                          objects_to_replace_names=None, replace_actions=False):
+                          objects_to_replace_names=None, replace_actions=False, scale_prop=False):
         props = vars.props()
         global LINK_DATA
         context_chr_cache = props.get_context_character_cache()
@@ -4289,11 +4353,19 @@ class LinkService():
         fps = self.get_link_fps()
         utils.log_info(f"Importing replacement with temp link_id: {temp_link_id}")
         try:
+            old_objects = utils.get_set(bpy.data.objects)
             bpy.ops.cc3.importer(param="IMPORT",
                                  filepath=fbx_path,
                                  link_id=temp_link_id,
                                  process_only=process_only,
                                  start_frame=start_frame)
+            imported_objects = utils.get_set_new(bpy.data.objects, old_objects)
+            
+            # Scale down non-armature objects if requested
+            if scale_prop:
+                for obj in imported_objects:
+                    if obj.type != "ARMATURE":
+                        obj.scale = (0.01, 0.01, 0.01)
         except Exception as e:
             utils.log_error(f"Error importing {fbx_path}", e)
 
