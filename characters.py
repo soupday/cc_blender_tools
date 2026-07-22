@@ -68,7 +68,7 @@ def duplicate_character(chr_cache):
     # duplicate materials
     dup_mats = {}
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             mat: bpy.types.Material
             for mat in obj.data.materials:
                 if mat not in dup_mats:
@@ -92,10 +92,10 @@ def duplicate_character(chr_cache):
             if utils.get_rl_id(obj) == old_id:
                 utils.set_rl_id(obj, new_id)
                 obj_cache.object = obj
-                if obj.type == "ARMATURE":
+                if utils.object_exists_is_armature(obj):
                     action, slot = utils.safe_get_action_slot(old_obj)
                     utils.safe_set_action(obj, action, slot=slot)
-                elif obj.type == "MESH" and utils.object_has_shape_keys(obj):
+                elif utils.object_exists_has_shape_keys(obj):
                     action, slot = utils.safe_get_action_slot(old_obj.data.shape_keys)
                     utils.safe_set_action(obj.data.shape_keys, action, slot=slot)
 
@@ -105,7 +105,7 @@ def duplicate_character(chr_cache):
         new_id = utils.generate_random_id(20)
         mat_cache.material_id = new_id
         for obj in objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 for mat in obj.data.materials:
                     if "rl_material_id" in mat and mat["rl_material_id"] == old_id:
                         mat["rl_material_id"] = new_id
@@ -235,7 +235,7 @@ def make_prop_armature(objects):
 
     obj : bpy.types.Object
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             if obj.parent and obj.parent.name in arm.data.bones:
                 parent_name = obj.parent.name
                 parent_bone : bpy.types.Bone = arm.data.bones[parent_name]
@@ -727,7 +727,7 @@ def parent_to_rig(rig, obj):
     """For if the object is not parented to the rig and/or does not have an armature modifier set to the rig.
     """
 
-    if rig and obj and rig.type == "ARMATURE" and obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj) and utils.object_exists_is_armature(rig):
 
         if obj.parent != rig:
 
@@ -918,7 +918,7 @@ def make_accessory(chr_cache, objects):
     # store parent objects (as the parenting is destroyed when adding objects to character)
     obj_data = {}
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             obj_data[obj] = {
                     "parent_object": obj.parent,
                     "matrix_world": obj.matrix_world.copy()
@@ -959,7 +959,7 @@ def make_accessory(chr_cache, objects):
                 accessory_root.parent = default_parent
 
                 for obj in objects:
-                    if obj.type == "MESH":
+                    if utils.object_exists_is_mesh(obj):
 
                         # add object bone to rig
                         obj_bone = rig.data.edit_bones.new(obj.name)
@@ -980,7 +980,7 @@ def make_accessory(chr_cache, objects):
 
                 # parent the object bone to the accessory bone (or object transform parent bone)
                 for obj in objects:
-                    if obj.type == "MESH" and obj in obj_data.keys():
+                    if utils.object_exists_is_mesh(obj) and obj in obj_data.keys():
                         # fetch the object's bone
                         obj_bone = obj_data[obj]["bone"]
                         # find the parent bone to the object (if exists)
@@ -1040,7 +1040,7 @@ def has_missing_materials(chr_cache):
 def add_missing_materials_to_character(chr_cache, obj, obj_cache):
     props  = vars.props()
 
-    if chr_cache and obj and obj_cache and obj.type == "MESH":
+    if chr_cache and obj_cache and utils.object_exists_is_mesh(obj):
 
         obj_name = obj.name
 
@@ -1581,7 +1581,7 @@ def transfer_skin_weights(chr_cache, objects, body_override=None):
     else:
 
         for obj in objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
 
                 # remove all bone vertex groups from obj
                 for bone in arm.data.bones:
@@ -1799,7 +1799,7 @@ def remove_empty_shapekeys_vertex_groups(arm, obj):
     group_count = 0
     empty_keys = []
     empty_groups = []
-    if obj.data.shape_keys:
+    if utils.object_has_shape_keys(obj):
         key_blocks = obj.data.shape_keys.key_blocks
         if key_blocks and len(key_blocks) >= 2 and "Basis" in key_blocks:
             basis = key_blocks["Basis"]
@@ -1833,7 +1833,7 @@ def remove_all_empty_shapekeys_vertex_groups(chr_cache):
         arm = chr_cache.get_armature()
         obj: bpy.types.Object
         for obj in objects:
-            if obj not in body_objects and obj.type == "MESH":
+            if obj not in body_objects and utils.object_exists_has_shape_keys(obj):
                 kc, gc = remove_empty_shapekeys_vertex_groups(arm, obj)
                 key_count += kc
                 group_count += gc

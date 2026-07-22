@@ -149,7 +149,7 @@ class LinkActor():
         if self.object:
             if self.actor_cache.cache_type() in ["AVATAR", "PROP"]:
                 return self.actor_cache
-            if self.object.type == "ARMATURE" or self.object.type == "MESH":
+            if utils.object_exists_is_armature(self.object) or utils.object_exists_is_mesh(self.object):
                 self.actor_cache = props.get_character_cache(self.object)
                 return self.actor_cache
         return None
@@ -301,7 +301,7 @@ class LinkActor():
         return objects
 
     def object_has_sequence_shape_keys(self, obj):
-        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+        if utils.object_has_shape_keys(obj):
             for expression_name in self.expressions:
                 if expression_name in obj.data.shape_keys.key_blocks:
                     return True
@@ -317,7 +317,7 @@ class LinkActor():
         objects.sort(key=utils.key_count, reverse=True)
         # collect dictionary of shape keys and their primary key block
         for obj in objects:
-            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            if utils.object_has_shape_keys(obj):
                 for key in obj.data.shape_keys.key_blocks:
                     if key.name not in self.shape_keys:
                         self.shape_keys[key.name] = key
@@ -783,19 +783,21 @@ def set_actor_expression_weight(objects, expression_name, weight):
     if objects:
         obj: bpy.types.Object
         for obj in objects:
-            if expression_name in obj.data.shape_keys.key_blocks:
-                if obj.data.shape_keys.key_blocks[expression_name].value != weight:
-                    obj.data.shape_keys.key_blocks[expression_name].value = weight
+            if utils.object_has_shape_keys(obj):
+                if expression_name in obj.data.shape_keys.key_blocks:
+                    if obj.data.shape_keys.key_blocks[expression_name].value != weight:
+                        obj.data.shape_keys.key_blocks[expression_name].value = weight
 
 
 def set_actor_viseme_weight(objects, viseme_name, weight):
     global LINK_DATA
     if objects and LINK_DATA.preview_shape_keys:
         for obj in objects:
-            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                if viseme_name in obj.data.shape_keys.key_blocks:
-                    if obj.data.shape_keys.key_blocks[viseme_name].value != weight:
-                        obj.data.shape_keys.key_blocks[viseme_name].value = weight
+            if utils.object_has_shape_keys(obj):
+                if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                    if viseme_name in obj.data.shape_keys.key_blocks:
+                        if obj.data.shape_keys.key_blocks[viseme_name].value != weight:
+                            obj.data.shape_keys.key_blocks[viseme_name].value = weight
 
 
 def ensure_current_frame(current_frame):
@@ -2345,7 +2347,7 @@ class LinkService():
     def get_actor_mesh_selection(self):
         selection = {}
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH" or obj.type == "ARMATURE":
+            if utils.object_exists_is_armature(obj) or utils.object_exists_is_mesh(obj):
                 actor = self.get_actor_from_object(obj)
                 chr_cache = actor.get_chr_cache()
                 selection.setdefault(chr_cache, {"meshes": [], "armatures": []})
@@ -2481,7 +2483,7 @@ class LinkService():
         objects = utils.get_selected_meshes(selection=LINK_DATA.sequence_selection)
         count = 0
         for obj in objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 if utils.get_prop(obj, "rl_mesh_modify"):
                     link_id = utils.get_prop(obj, "rl_link_id")
                     type = utils.get_prop(obj, "rl_type")
@@ -2527,7 +2529,7 @@ class LinkService():
         self.send_pose()
         count = 0
         for obj in objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 actor = self.get_actor_from_object(obj)
                 if actor:
                     obj_cache = actor.get_chr_cache().get_object_cache(obj)
@@ -4543,7 +4545,7 @@ class LinkService():
                                         "name": obj.name,
                                         "object_id": obj_cache.object_id
                                     }
-                                if obj.type == "MESH":
+                                if utils.object_exists_is_mesh(obj):
                                     for mat in obj.data.materials:
                                         if chr_cache.count_material(mat) <= 1:
                                             mat_cache = chr_cache.get_material_cache(mat)
@@ -4565,13 +4567,12 @@ class LinkService():
                                         "name": child.name,
                                         "object_id": obj_cache.object_id
                                     }
-                                if child.type == "MESH":
-                                    for mat in child.data.materials:
-                                        if chr_cache.count_material(mat) <= 1:
-                                            mat_cache = chr_cache.get_material_cache(mat)
-                                            if mat_cache:
-                                                mat_cache.invalidate()
-                                                mat_cache.delete()
+                                for mat in child.data.materials:
+                                    if chr_cache.count_material(mat) <= 1:
+                                        mat_cache = chr_cache.get_material_cache(mat)
+                                        if mat_cache:
+                                            mat_cache.invalidate()
+                                            mat_cache.delete()
                                 to_delete.append(child)
 
                 utils.delete_objects(to_delete, log=True)

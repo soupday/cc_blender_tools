@@ -66,7 +66,7 @@ def eye_close_update(self, context):
                 if (obj_cache.object_type == "BODY" or
                     obj_cache.object_type == "EYE_OCCLUSION" or
                     obj_cache.object_type == "TEARLINE"):
-                    if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                    if utils.object_has_shape_keys(obj):
                         for key in BLINK_SHAPES:
                             if key in obj.data.shape_keys.key_blocks:
                                 try:
@@ -2727,25 +2727,28 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         Fetches or creates an object cache for the object. Always returns an object cache collection.
         """
 
-        obj_cache: CC3ObjectCache = self.get_object_cache(obj)
-        if obj_cache is None:
-            utils.log_info(f"Creating Object Cache for: {obj.name}")
-            obj_cache = self.object_cache.add()
-            obj_cache.object_id = utils.generate_random_id(20)
-            if copy_from:
-                utils.log_info(f"Copying object cache from: {copy_from}")
-                utils.copy_property_group(copy_from, obj_cache)
-                if user:
-                    obj_cache.user_added = True
-                    obj_cache.object_id = utils.generate_random_id(20)
-            obj_cache.set_object(obj)
-            obj_cache.source_name = utils.strip_name(obj.name)
-            obj_cache.check_id()
-            if obj.type == "MESH":
-                obj_cache.vertex_count = len(obj.data.vertices)
-                obj_cache.face_count = len(obj.data.polygons)
-                obj_cache.edge_count = len(obj.data.edges)
-        return obj_cache
+        if utils.object_exists(obj):
+            obj_cache: CC3ObjectCache = self.get_object_cache(obj)
+            if obj_cache is None:
+                utils.log_info(f"Creating Object Cache for: {obj.name}")
+                obj_cache = self.object_cache.add()
+                obj_cache.object_id = utils.generate_random_id(20)
+                if copy_from:
+                    utils.log_info(f"Copying object cache from: {copy_from}")
+                    utils.copy_property_group(copy_from, obj_cache)
+                    if user:
+                        obj_cache.user_added = True
+                        obj_cache.object_id = utils.generate_random_id(20)
+                obj_cache.set_object(obj)
+                obj_cache.source_name = utils.strip_name(obj.name)
+                obj_cache.check_id()
+                if obj.type == "MESH":
+                    obj_cache.vertex_count = len(obj.data.vertices)
+                    obj_cache.face_count = len(obj.data.polygons)
+                    obj_cache.edge_count = len(obj.data.edges)
+            return obj_cache
+        else:
+            return None
 
     def has_material(self, mat):
         return (self.get_material_cache(mat) is not None)
@@ -2767,7 +2770,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         for obj_cache in self.object_cache:
             objects = self.get_split_objects(obj_cache)
             for obj in objects:
-                if obj and obj.type == "MESH":
+                if utils.object_exists_is_mesh(obj):
                     for m in obj.data.materials:
                         if m == mat:
                             count += 1
@@ -3590,7 +3593,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         if search_materials:
             materials = []
             for obj in objects:
-                if obj.type == "MESH":
+                if utils.object_exists_is_mesh(obj):
                     for mat in obj.data.materials:
                         materials.append(mat)
             if materials:

@@ -1612,10 +1612,10 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig, remove_meta = False):
 
 
 def is_face_object(obj_cache, obj):
-    if obj and obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
         if obj_cache and obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
             return True
-        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+        if utils.object_has_shape_keys(obj):
             for shape_key in obj.data.shape_keys.key_blocks:
                 if shape_key.name in rigify_mapping_data.FACE_TEST_SHAPEKEYS:
                     return True
@@ -1630,11 +1630,10 @@ def is_face_def_bone(bvg):
 
 
 def has_facial_expression_shape_keys(obj):
-    if obj and obj.type == "MESH":
-        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-            for shape_key in obj.data.shape_keys.key_blocks:
-                if shape_key.name in rigify_mapping_data.FACE_TEST_SHAPEKEYS:
-                    return True
+    if utils.object_has_shape_keys(obj):
+        for shape_key in obj.data.shape_keys.key_blocks:
+            if shape_key.name in rigify_mapping_data.FACE_TEST_SHAPEKEYS:
+                return True
     return False
 
 
@@ -3591,21 +3590,20 @@ def get_motion_export_objects(objects):
         for obj in objects:
             if utils.object_exists_is_armature(obj):
                 motion_objects.append(obj)
-            elif utils.object_exists_is_mesh(obj):
-                if utils.object_has_shape_keys(obj):
-                    #action = utils.safe_get_action(obj.data.shape_keys)
-                    #include = False
-                    #if action:
-                    #    # if there is a shape key action on this mesh, include it
-                    #    include = True
-                    #else:
-                    #    # if no action, but shape keys are set, include it
-                    #    for key in obj.data.shape_keys.key_blocks:
-                    #        if key.value != 0.0:
-                    #            include = True
-                    #            break
-                    #if include:
-                    motion_objects.append(obj)
+            elif utils.object_exists_has_shape_keys(obj):
+                #action = utils.safe_get_action(obj.data.shape_keys)
+                #include = False
+                #if action:
+                #    # if there is a shape key action on this mesh, include it
+                #    include = True
+                #else:
+                #    # if no action, but shape keys are set, include it
+                #    for key in obj.data.shape_keys.key_blocks:
+                #        if key.value != 0.0:
+                #            include = True
+                #            break
+                #if include:
+                motion_objects.append(obj)
     return motion_objects
 
 
@@ -3782,7 +3780,7 @@ def bake_shape_key_animation(rig, objects):
     prefs = vars.prefs()
     rig_action, rig_slot = utils.safe_get_action_slot(rig)
     shape_key_actions = {}
-    shape_key_objects = [ o for o in objects if o.type == "MESH" and utils.object_has_shape_keys(o) ]
+    shape_key_objects = [ o for o in objects if utils.object_exists_has_shape_keys(o) ]
     object_names = [ o.name for o in shape_key_objects ]
 
     if shape_key_objects:
@@ -4313,9 +4311,9 @@ class CC3Rigifier(bpy.types.Operator):
                 if bpy.context.selected_objects:
                     obj = rig = None
                     for o in bpy.context.selected_objects:
-                        if o.type == "ARMATURE":
+                        if utils.object_exists_is_armature(o):
                             rig = o
-                        elif o.type == "MESH":
+                        elif utils.object_exists_is_mesh(o):
                             obj = o
                     if rig and obj:
                         report_uv_face_targets(obj, rig)

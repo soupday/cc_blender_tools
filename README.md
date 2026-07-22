@@ -33,6 +33,9 @@ Links
 
 ## Changelog
 
+### 2.4.3 Pre-release
+- Extra checks for mesh objects with shape keys.
+
 ### 2.4.2
 - Updated Morph export for Blender 5.1
 - Fix to constraint driver setup with missing shape keys.
@@ -45,7 +48,7 @@ Links
     - Motion sets updated for lights and cameras.
     - Motion blending for light & camera motion sets.
     - Motion blending always generates a new motion (non-destructive)
-    - Motion loading will factor bone rotations if different on rig.
+    - Motion loading & blending will refactor action's bone rotation mode if different from the rig bone.
         - (And not already keyframed for that rotation type)
     - Motion blending now also blends scale.
     - Datalink Pose and Sequence now write onto current motion.

@@ -131,7 +131,7 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
     props = vars.props()
     prefs = vars.prefs()
 
-    if obj is None or obj in objects_processed:
+    if not utils.object_exists(obj) or obj in objects_processed:
         return
 
     objects_processed.append(obj)
@@ -143,7 +143,7 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
     utils.log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
     utils.log_indent()
 
-    if obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
 
         mesh : bpy.types.Mesh = obj.data
 
@@ -216,13 +216,13 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
 def cache_object_materials(chr_cache, obj, chr_json, processed):
     props = vars.props()
 
-    if obj is None or obj in processed:
+    if not utils.object_exists(obj) or obj in processed:
         return
 
     obj_json = jsonutils.get_object_json(chr_json, obj)
     obj_cache = chr_cache.add_object_cache(obj)
 
-    if obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
 
         utils.log_info(f"Caching Object: {obj.name}")
         utils.log_indent()
@@ -255,49 +255,38 @@ def apply_edit_shapekeys(obj):
     """
     # shapekeys data path:
     #   utils.get_active_object().data.shape_keys.key_blocks['Basis']
-    if obj.type == "MESH":
-        shape_keys = obj.data.shape_keys
-        if shape_keys is not None:
-            blocks = shape_keys.key_blocks
-            if blocks is not None:
-                # if the object has shape keys
-                if len(blocks) > 0:
-                    try:
-                        # set the active shapekey to the basis and apply shape keys in edit mode.
-                        obj.active_shape_key_index = 0
-                        obj.show_only_shape_key = False
-                        obj.use_shape_key_edit_mode = True
-                    except Exception as e:
-                        utils.log_error("Unable to set shape key edit mode!", e)
+    if utils.object_has_shape_keys(obj):
+        try:
+            # set the active shapekey to the basis and apply shape keys in edit mode.
+            obj.active_shape_key_index = 0
+            obj.show_only_shape_key = False
+            obj.use_shape_key_edit_mode = True
+        except Exception as e:
+            utils.log_error("Unable to set shape key edit mode!", e)
 
 
 def init_shape_key_range(obj):
     #utils.get_active_object().data.shape_keys.key_blocks['Basis']
-    if obj.type == "MESH":
-        shape_keys: bpy.types.Key = obj.data.shape_keys
-        if shape_keys is not None:
-            blocks = shape_keys.key_blocks
-            if blocks is not None:
-                if len(blocks) > 0:
-                    for block in blocks:
-                        # expand the range of the shape key slider to include negative values...
-                        if "Eye" in block.name and "_Look_" in block.name:
-                            block.slider_min = -2.0
-                            block.slider_max = 2.0
-                        else:
-                            block.slider_min = -1.5
-                            block.slider_max = 1.5
+    if utils.object_has_shape_keys(obj):
+        for key in obj.data.shape_keys.key_blocks:
+            # expand the range of the shape key slider to include negative values...
+            if "Eye" in key.name and "_Look_" in key.name:
+                key.slider_min = -2.0
+                key.slider_max = 2.0
+            else:
+                key.slider_min = -1.5
+                key.slider_max = 1.5
 
-            # re-set a value in the shapekey action keyframes to force
-            # the shapekey action to update to the new ranges:
-            try:
-                action = utils.safe_get_action(shape_keys)
-                channel = utils.get_action_channelbag(action, slot_type="KEY")
-                if channel:
-                    co = channel.fcurves[0].keyframe_points[0].co
-                    channel.fcurves[0].keyframe_points[0].co = co
-            except:
-                pass
+        # re-set a value in the shapekey action keyframes to force
+        # the shapekey action to update to the new ranges:
+        try:
+            action = utils.safe_get_action(obj.data.shape_keys)
+            channel = utils.get_action_channelbag(action, slot_type="KEY")
+            if channel:
+                co = channel.fcurves[0].keyframe_points[0].co
+                channel.fcurves[0].keyframe_points[0].co = co
+        except:
+            pass
 
 # region detect_generation
 def detect_generation(chr_cache, rig, json_data, character_id):
@@ -472,19 +461,18 @@ def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
 
     # determine how each shape key id relates to each object in the import
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_has_shape_keys(obj):
             obj_id = rigutils.get_obj_id(obj)
-            if obj.data.shape_keys:
-                obj_action = utils.safe_get_action(obj.data.shape_keys)
-                if obj_action:
-                    if obj_action in armature_actions:
-                        if obj_action not in slotted_actions:
-                            slotted_actions.append(obj_action)
-                    else:
-                        actions.append(obj_action)
-                        key_map[obj_id] = obj.data.shape_keys.name
-                        utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {obj_id}")
-                        num_keys += 1
+            obj_action = utils.safe_get_action(obj.data.shape_keys)
+            if obj_action:
+                if obj_action in armature_actions:
+                    if obj_action not in slotted_actions:
+                        slotted_actions.append(obj_action)
+                else:
+                    actions.append(obj_action)
+                    key_map[obj_id] = obj.data.shape_keys.name
+                    utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {obj_id}")
+                    num_keys += 1
 
     # rename all actions associated with this armature and it's motions
     for action in actions:
@@ -633,7 +621,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             # add child objects to object_cache
             character_meshes = []
             for obj in objects:
-                if obj.type == "MESH" and obj.parent and obj.parent == arm:
+                if utils.object_exists_is_mesh(obj) and obj.parent and obj.parent == arm:
                     if only_objects:
                         source_name = utils.strip_name(obj.name)
                         if source_name not in only_objects:
@@ -681,7 +669,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
 
             # set preserve volume on armature modifiers
             for obj in objects:
-                if obj.type == "MESH":
+                if utils.object_exists_is_mesh(obj):
                     arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
                     if arm_mod:
                         arm_mod.use_deform_preserve_volume = False
@@ -756,7 +744,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
 
             # add child objects to object_cache
             for obj in objects:
-                if obj.type == "MESH" and obj.parent and obj.parent == arm:
+                if utils.object_exists_is_mesh(obj) and obj.parent and obj.parent == arm:
                     chr_cache.add_object_cache(obj)
 
             # remame actions
@@ -1135,7 +1123,8 @@ class CC3Import(bpy.types.Operator):
                 # clean empty shape keys from character objects
                 if prefs.clean_empty_mesh_data:
                     for obj in imported:
-                        if obj.parent and obj.parent.type == "ARMATURE":
+                        if (utils.object_exists_has_shape_keys(obj) and
+                            obj.parent and obj.parent.type == "ARMATURE"):
                             arm = obj.parent
                             characters.remove_empty_shapekeys_vertex_groups(arm, obj)
 

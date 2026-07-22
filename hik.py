@@ -57,7 +57,7 @@ def generate_hik_profile(arm, name, path, hik_template):
     for pose_bone in arm.pose.bones:
         bone_list += pack_bone(arm, pose_bone)
     for child in arm.children:
-        if child.type == "MESH":
+        if utils.object_exists_is_mesh(child):
             bone_list += pack_rotation(child.name, child.rotation_quaternion)
     hik_template = hik_template.replace("$BONE_LIST", bone_list)
     with open(path, "w") as write_file:

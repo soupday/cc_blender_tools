@@ -344,7 +344,7 @@ def search_up_path(path, folder):
 
 def object_has_material(obj, name):
     name = name.lower()
-    if obj.type == "MESH":
+    if object_exists_is_mesh(obj):
         for mat in obj.data.materials:
             if mat and name in mat.name.lower():
                 return True
@@ -373,7 +373,7 @@ def object_exists_is_mesh(obj):
         return False
 
 
-def object_exists_has_shape_keys(obj):
+def object_exists_has_shape_keys(obj: bpy.types.Object):
     """Test if Object: obj still exists as an object in the scene, and is a mesh."""
     if obj is None:
         return False
@@ -749,9 +749,10 @@ def count_maps(*maps):
 
 
 def key_count(obj: bpy.types.Object):
-    if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+    try:
         return len(obj.data.shape_keys.key_blocks)
-    return 0
+    except:
+        return 0
 
 
 def dimensions(x):
@@ -928,7 +929,7 @@ def duplicate_object(obj, duplicate_actions=False, keep_actions=False) -> bpy.ty
             obj_action, obj_slot = safe_get_action_slot(obj)
             if not duplicate_actions:
                 safe_set_action(obj, None, create=False)
-            if obj.type == "MESH":
+            if object_has_shape_keys(obj):
                 key_action, key_slot = safe_get_action_slot(obj.data.shape_keys)
                 if not duplicate_actions:
                     safe_set_action(obj.data.shape_keys, None, create=False)
@@ -963,7 +964,7 @@ def remove_all_shape_keys(obj: bpy.types.Object):
     #    keys.reverse() # make sure basis is last to be removed...
     #    for key in keys:
     #        obj.shape_key_remove(key)
-    if obj and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+    if object_exists_has_shape_keys(obj):
         sms = store_mode_selection_state()
         set_active_object(obj, True)
         bpy.ops.object.shape_key_remove(all=True, apply_mix=False)
@@ -1285,7 +1286,7 @@ def try_select_child_objects(obj):
 
 def add_child_objects(obj, objects, follow_armatures=False, of_type=None):
     for child in obj.children:
-        if child not in objects:
+        if object_exists(child) and child not in objects:
             if child.type == "ARMATURE" and not follow_armatures:
                 continue
             if not of_type or child.type == of_type:
@@ -1296,17 +1297,19 @@ def add_child_objects(obj, objects, follow_armatures=False, of_type=None):
 
 def expand_with_child_objects(objects, follow_armatures=False, of_type=None):
     for obj in objects:
-        if obj.type == "ARMATURE" and not follow_armatures:
-            continue
-        add_child_objects(obj, objects, follow_armatures, of_type)
+        if object_exists(obj):
+            if obj.type == "ARMATURE" and not follow_armatures:
+                continue
+            add_child_objects(obj, objects, follow_armatures, of_type)
 
 
 def get_child_objects(obj, include_parent=False, follow_armatures=False, of_type=None):
     objects = []
-    if include_parent:
-        if not of_type or obj.type == of_type:
-            objects.append(obj)
-    add_child_objects(obj, objects, follow_armatures, of_type)
+    if object_exists(obj):
+        if include_parent:
+            if not of_type or obj.type == of_type:
+                objects.append(obj)
+        add_child_objects(obj, objects, follow_armatures, of_type)
     return objects
 
 
@@ -1379,12 +1382,14 @@ def get_armatures_from_objects(objects):
 
 
 def get_armature_from_object(obj):
-    arm = None
-    if obj.type == "ARMATURE":
-        arm = obj
-    elif obj.type == "MESH" and obj.parent and obj.parent.type == "ARMATURE":
-        arm = obj.parent
-    return arm
+    try:
+        if obj.type == "ARMATURE":
+            arm = obj
+        elif obj.type == "MESH" and obj.parent and obj.parent.type == "ARMATURE":
+            arm = obj.parent
+        return arm
+    except:
+        return None
 
 
 def is_child_of(obj, test):
@@ -1692,7 +1697,7 @@ def get_context_character(context, strict=False):
 
         # if the context object is an armature or child of armature that is not part of this chr_cache
         # clear the chr_cache, as this is a separate generic character.
-        if obj and not obj_cache:
+        if object_exists(obj) and not obj_cache:
             if not chr_cache.is_related_object(obj):
                 if obj.type == "ARMATURE" and obj != arm:
                     chr_cache = None
@@ -2239,15 +2244,15 @@ def safe_get_action_slot(obj) -> bpy.types.Action:
 def safe_set_action(obj, action, create=True, slot=None):
     result = False
     if obj:
-        #try:
+        try:
             if create and not obj.animation_data:
                 obj.animation_data_create()
             if obj.animation_data:
                 obj.animation_data.action = action
                 result = set_action_slot(obj, action, slot)
-        #except Exception as e:
-        #    action_name = action.name if action else "None"
-        #    log_error(f"Unable to set action {action_name} to {obj.name}", e)
+        except Exception as e:
+            action_name = action.name if action else "None"
+            log_error(f"Unable to set action {action_name} to {obj.name}", e)
     return result
 
 
@@ -2361,7 +2366,7 @@ def get_action_targets(obj):
     targets = []
     if object_exists_is_armature(obj):
         targets.append(obj)
-    elif object_exists_is_mesh(obj):
+    elif object_exists_has_shape_keys(obj):
         targets.append(obj.data.shape_keys)
     elif object_exists_is_light(obj) or object_exists_is_camera(obj):
         targets.append(obj)
@@ -2732,7 +2737,7 @@ def store_object_state(objects=None):
                 for mat in obj.data.materials:
                     if material_exists(mat) and mat not in obj_state:
                         obj_state[mat] = { "name": mat.name }
-                if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                if object_has_shape_keys(obj):
                     obj_state[obj]["action"] = safe_get_action(obj.data.shape_keys)
             if obj.type == "ARMATURE":
                 obj_state[obj]["action"] = safe_get_action(obj)
@@ -2779,7 +2784,7 @@ def reset_shape_keys(objects, exclude=None):
     if T is not list and T is not tuple:
         objects = [objects]
     for obj in objects:
-        if obj.type == "MESH":
+        if object_has_shape_keys(obj):
             # disable shape key lock
             obj.show_only_shape_key = False
             # reset all shape keys to zero

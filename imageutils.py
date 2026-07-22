@@ -382,7 +382,7 @@ def get_material_tex_dirs(chr_cache, obj, mat):
 
 def find_texture_folder_in_objects(objects):
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             for mat in obj.data.materials:
                 if mat.node_tree:
                     nodes = mat.node_tree.nodes

@@ -227,7 +227,7 @@ def add_wrinkle_mappings(mat, node, body_obj, mat_json):
 
     utils.log_info(f"Building Wrinkle map system drivers: {mat.name} / {node.name}")
 
-    if not body_obj.data.shape_keys or not body_obj.data.shape_keys.key_blocks:
+    if not utils.object_exists_has_shape_keys(body_obj):
         return
 
     wrinkle_defs = {}

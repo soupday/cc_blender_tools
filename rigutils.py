@@ -312,8 +312,8 @@ def find_source_actions(source_action, source_rig=None):
             utils.log_info(f" - Found armature action: {action.name}")
             actions["armature"] = action
         for obj in source_rig.children:
-            obj_id = get_obj_id(obj)
-            if obj.type == "MESH":
+            if utils.object_has_shape_keys(obj):
+                obj_id = get_obj_id(obj)
                 action = utils.safe_get_action(obj.data.shape_keys)
                 if action:
                     utils.log_info(f" - Found shape-key action: {action.name} for {obj_id}")
@@ -468,7 +468,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
 def obj_has_action_shape_keys(obj, action: bpy.types.Action):
     channel = utils.get_action_channelbag(action, slot_type="KEY")
     if channel:
-        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+        if utils.object_has_shape_keys(obj):
             for key in obj.data.shape_keys.key_blocks:
                 for fcurve in channel.fcurves:
                     if key.name in fcurve.data_path:
@@ -848,7 +848,7 @@ def new_motion_set(rig: bpy.types.Object, motion_id=None, motion_prefix=""):
     utils.safe_set_action(rig.data, None, create=False)
     if rig.type == "ARMATURE":
         for child in rig.children:
-            if utils.object_exists_is_mesh(child) and utils.object_has_shape_keys(child):
+            if utils.object_exists_has_shape_keys(child):
                 utils.safe_set_action(child, None, create=False)
                 utils.safe_set_action(child.data, None, create=False)
                 utils.safe_set_action(child.data.shape_keys, None, create=False)
@@ -876,11 +876,10 @@ def clear_motion_set(rig):
         utils.safe_set_action(rig.data, None, create=False)
     objects = utils.get_child_objects(rig)
     for obj in objects:
-        if obj.type == "MESH":
-            if utils.object_has_shape_keys(obj):
-                utils.safe_set_action(obj.data.shape_keys, None, create=False)
-                if not has_actions:
-                    reset_shape_keys(obj)
+        if utils.object_exists_has_shape_keys(obj):
+            utils.safe_set_action(obj.data.shape_keys, None, create=False)
+            if not has_actions:
+                reset_shape_keys(obj)
     utils.restore_mode_selection_state(mode_selection)
 
 
@@ -908,8 +907,8 @@ def push_motion_set(rig: bpy.types.Object, set_armature_action, push_index = 0):
     if rig.animation_data.nla_tracks:
         nla_data.append(rig.animation_data.nla_tracks)
     for obj in objects:
-        if obj.data.shape_keys and obj.data.shape_keys.animation_data:
-            if obj.data.shape_keys.animation_data.nla_tracks:
+        if utils.object_has_shape_keys(obj):
+            if obj.data.shape_keys.animation_data and obj.data.shape_keys.animation_data.nla_tracks:
                 nla_data.append(obj.data.shape_keys.animation_data.nla_tracks)
     # count the mininum number of shared tracks across all action objects
     min_tracks = 0
@@ -1000,7 +999,7 @@ def push_motion_set(rig: bpy.types.Object, set_armature_action, push_index = 0):
 
 
 def clear_animation_data(obj: bpy.types.Object):
-    if obj.type == "ARMATURE" or obj.type == "MESH":
+    if utils.object_exists_is_armature(obj) or utils.object_exists_is_mesh(obj):
         # remove action
         utils.safe_set_action(obj, None)
         # remove strips
@@ -1010,11 +1009,11 @@ def clear_animation_data(obj: bpy.types.Object):
         if ad:
             while ad.nla_tracks:
                 ad.nla_tracks.remove(ad.nla_tracks[0])
-    if obj.type == "MESH":
+    if utils.object_has_shape_keys(obj):
         # remove shape key action
         utils.safe_set_action(obj.data.shape_keys, None)
         # remove shape key strips
-        if obj.data.shape_keys and obj.data.shape_keys.animation_data:
+        if obj.data.shape_keys.animation_data:
             obj.data.shape_keys.animation_data_clear()
             ad = obj.data.shape_keys.animation_data
             if ad:
@@ -1024,7 +1023,7 @@ def clear_animation_data(obj: bpy.types.Object):
 
 def reset_nla_tracks(obj):
     track = None
-    if obj.type == "ARMATURE" or obj.type == "MESH":
+    if utils.object_exists_is_armature(obj) or utils.object_exists_is_mesh(obj):
         # remove action
         utils.safe_set_action(obj, None)
         # remove strips
@@ -1032,11 +1031,11 @@ def reset_nla_tracks(obj):
         if ad:
             while ad.nla_tracks:
                 ad.nla_tracks.remove(ad.nla_tracks[0])
-    if obj.type == "MESH":
+    if utils.object_has_shape_keys(obj):
         # remove shape key action
         utils.safe_set_action(obj.data.shape_keys, None)
         # remove shape key strips
-        if obj.data.shape_keys and obj.data.shape_keys.animation_data:
+        if obj.data.shape_keys.animation_data:
             ad = obj.data.shape_keys.animation_data
             if ad:
                 while ad.nla_tracks:
@@ -1164,7 +1163,7 @@ def restore_fast_key_proxies(store):
                 if utils.get_prop(obj.data, "key_proxy") == "WqebNXksi9wLQwco1hyFQMlIYcbqWGZF":
                     proxy_mesh = obj.data
                     obj.data = store[obj_name]
-                    if obj.data.shape_keys:
+                    if utils.object_has_shape_keys(obj):
                         action, slot = utils.safe_get_action_slot(proxy_mesh.shape_keys)
                         utils.safe_set_action(obj.data.shape_keys, action, slot=slot)
                     bpy.data.meshes.remove(proxy_mesh)
@@ -1198,11 +1197,10 @@ def get_all_nla_strips(data, obj, strips=None):
 def get_strips_by_sets(set_ids: set):
     all_strips = {}
     for obj in bpy.data.objects:
-        if utils.object_exists(obj):
-            if obj.type == "ARMATURE":
-                get_all_nla_strips(obj, obj, all_strips)
-            elif obj.type == "MESH":
-                get_all_nla_strips(obj.data.shape_keys, obj, all_strips)
+        if utils.object_exists_is_armature(obj):
+            get_all_nla_strips(obj, obj, all_strips)
+        elif utils.object_exists_has_shape_keys(obj):
+            get_all_nla_strips(obj.data.shape_keys, obj, all_strips)
     strip: bpy.types.NlaStrip
     strips = {}
     for strip in all_strips:
@@ -1219,11 +1217,10 @@ def get_strips_by_sets(set_ids: set):
 def unselect_all_but_strip(active_strip):
     all_strips = {}
     for obj in bpy.data.objects:
-        if utils.object_exists(obj):
-            if obj.type == "ARMATURE":
-                get_all_nla_strips(obj, obj, all_strips)
-            elif obj.type == "MESH":
-                get_all_nla_strips(obj.data.shape_keys, obj, all_strips)
+        if utils.object_exists_is_armature(obj):
+            get_all_nla_strips(obj, obj, all_strips)
+        elif utils.object_exists_has_shape_keys(obj):
+            get_all_nla_strips(obj.data.shape_keys, obj, all_strips)
     for strip in all_strips:
         if strip != active_strip and strip.select:
             strip.select = False
@@ -1879,7 +1876,7 @@ def reset_pose(rig, exceptions=None, use_selected=False):
 
 
 def reset_shape_keys(mesh):
-    if mesh and utils.object_has_shape_keys(mesh):
+    if utils.object_has_shape_keys(mesh):
         key: bpy.types.ShapeKey
         for key in mesh.data.shape_keys.key_blocks:
             key.value = 0.0
@@ -3106,7 +3103,7 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
         for smn in SOURCE_MESH_NAMES:
             for obj in rig.children:
                 if obj.name.startswith(smn):
-                    if utils.object_exists_is_mesh(obj) and utils.object_has_shape_keys(obj):
+                    if utils.object_exists_has_shape_keys(obj):
                         for key in obj.data.shape_keys.key_blocks:
                             source_keys.add(key.name)
 
@@ -3123,7 +3120,7 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
 
         for obj in rig.children:
 
-            if utils.object_exists_is_mesh(obj) and utils.object_has_shape_keys(obj):
+            if utils.object_exists_has_shape_keys(obj):
 
                 # if generating key actions per mesh
                 if prefs.action_add_key_slots_per_obj:
@@ -3463,7 +3460,7 @@ def load_separate_actions(rig: bpy.types.Object, action: bpy.types.Action, move=
         for smn in SOURCE_MESH_NAMES:
             for obj in rig.children:
                 if obj.name.startswith(smn):
-                    if utils.object_exists_is_mesh(obj) and utils.object_has_shape_keys(obj):
+                    if utils.object_exists_has_shape_keys(obj):
                         for key in obj.data.shape_keys.key_blocks:
                             source_keys.add(key.name)
 
@@ -3800,7 +3797,7 @@ def refactor_to_slotted_action(objects, actions):
                 "meshes": {},
             }
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_has_shape_keys(obj):
             action = utils.safe_get_action(obj.data.shape_keys)
             if action:
                 if action in actions:
@@ -4215,7 +4212,7 @@ def mix_motion_set(rig, action_store_id, frame_start, frame_end):
                                   target_slot(obj),
                                   action_store.object_action if action_store else None,
                                   action_store.object_slot_id if action_store else None))
-        elif utils.object_exists_is_mesh(obj):
+        elif utils.object_exists_has_shape_keys(obj):
             if obj.data.shape_keys.animation_data:
                 mix_pairs.append((obj, action_store, "KEY",
                                   target_action(obj.data.shape_keys),
@@ -4341,11 +4338,11 @@ def copy_channels_to_rig_motion(rig, obj, slot_type, src_action, src_slot, dst_a
     for fcurve in src_channelbag.fcurves:
         copy_fcurve_to_channel(fcurve, dst_channel)
 
-    if slot_type == "KEY":
+    if slot_type == "KEY" and utils.object_has_shape_keys(obj):
         utils.safe_set_action(obj.data.shape_keys, dst_action, slot=dst_slot)
     elif slot_type == "OBJECT":
         utils.safe_set_action(obj, dst_action, slot=dst_slot)
-    elif slot_type == "LIGHT" or slot_type == "CAMERA":
+    elif slot_type == "LIGHT" or slot_type == "CAMERA" and obj.data: # and obj.type == slot_type?
         utils.safe_set_action(obj.data, dst_action, slot=dst_slot)
     else:
         utils.log_error(f"Unknown slot target for {dst_action} {dst_slot} {dst_channel}")
@@ -6647,7 +6644,7 @@ class CCICMotionBlend(bpy.types.Operator):
 
                 keys = []
                 for obj in arm.children:
-                    if utils.object_exists_is_mesh(obj) and utils.object_has_shape_keys(obj):
+                    if utils.object_exists_has_shape_keys(obj):
                         for i, key in enumerate(obj.data.shape_keys.key_blocks):
                             if i > 0 and key.name not in keys:
                                 keys.append(key.name)

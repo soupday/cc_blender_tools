@@ -959,7 +959,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
 
         mesh_in_selection = False
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 mesh_in_selection = True
 
         box = layout.box()
@@ -1169,7 +1169,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         is_character = chr_cache is not None
         from_other_character = False
         for o in bpy.context.selected_objects:
-            if o.type == "MESH":
+            if utils.object_exists_is_mesh(o):
                 num_meshes_in_selection += 1
                 if chr_cache:
                     oc = chr_cache.get_object_cache(o)
@@ -1344,7 +1344,7 @@ class CC3WeightPaintPanel(bpy.types.Panel):
             row = column.row()
             row.scale_y = 1.5
             row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Diffuse Skinning").param = "VOXEL_HEAT_SKINNING"
-            row.enabled = chr_cache is not None and obj is not None and obj.type == "MESH"
+            row.enabled = chr_cache is not None and utils.object_exists_is_mesh(obj)
 
         column.separator()
 
@@ -3832,7 +3832,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
         prefs = vars.prefs()
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
-        selected_meshes = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
+        selected_meshes = [ obj for obj in bpy.context.selected_objects if utils.object_exists_is_mesh(obj)]
         mesh_modify_id = None
         for obj in bpy.context.selected_objects:
             if utils.get_prop(obj, "rl_mesh_modify"):

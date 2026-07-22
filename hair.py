@@ -32,7 +32,7 @@ def end_hair_sculpt(chr_cache):
 
 
 def find_obj_cache(chr_cache, obj):
-    if chr_cache and obj and obj.type == "MESH":
+    if chr_cache and utils.object_exists_is_mesh(obj):
         # try to find directly
         obj_cache = chr_cache.get_object_cache(obj)
         if obj_cache:

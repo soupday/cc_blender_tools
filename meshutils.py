@@ -461,7 +461,7 @@ def get_child_objects_with_vertex_groups(parent, group_names, objects = None):
 
 
 def has_vertex_color_data(obj):
-    if obj and obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
         if obj.data.vertex_colors and obj.data.vertex_colors.active:
             color_map = obj.data.vertex_colors.active
             for vcol_data in color_map.data:
@@ -537,7 +537,7 @@ def get_head_material_and_json(chr_cache, chr_json):
     # so we look in all the meshes for the head material
     for obj in chr_cache.get_cache_objects():
         obj_cache = chr_cache.get_object_cache(obj)
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             if head_mat.name in obj.data.materials:
                 mat_json = jsonutils.get_json(chr_json, f"Meshes/{obj_cache.source_name}/Materials/{head_mat_cache.source_name}")
                 if mat_json and jsonutils.get_json(mat_json, "Custom Shader/Shader Name") == "RLHead":

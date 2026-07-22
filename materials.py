@@ -659,7 +659,7 @@ def is_right_material(mat):
 def is_material_in_objects(mat, objects):
     if mat:
         for obj in objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 if mat.name in obj.data.materials:
                     return True
     return False
@@ -804,7 +804,7 @@ def test_for_material_uv_coords(obj, mat_slot, uvs):
 
 
 def get_material_slot_by_type(chr_cache, obj, material_type):
-    if obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
         for index, slot in enumerate(obj.material_slots):
             mat = slot.material
             if mat:
@@ -815,7 +815,7 @@ def get_material_slot_by_type(chr_cache, obj, material_type):
 
 
 def get_material_by_type(chr_cache, obj, material_type):
-    if obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
         for mat in obj.data.materials:
             mat_cache = chr_cache.get_material_cache(mat)
             if mat_cache and mat_cache.material_type == material_type:
@@ -979,7 +979,7 @@ def set_materials_setting(param, obj, context, objects_processed):
     props = vars.props()
     ob = context.object
 
-    if obj is not None and obj not in objects_processed:
+    if utils.object_exists(obj) and obj not in objects_processed:
         if obj.type == "MESH":
             objects_processed.append(obj)
 
