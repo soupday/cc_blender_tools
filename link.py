@@ -3998,7 +3998,7 @@ class LinkService():
         utils.log_info(f"Receive Character Import: {name} / {link_id} / {fbx_path}")
 
         if not os.path.exists(fbx_path):
-            update_link_status(f"Invalid Import Path!")
+            update_link_status(f"Invalid Import!")
             return
 
         self.get_actors_frame_range(None, frame, start_frame, end_frame, current_frame,

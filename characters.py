@@ -1793,13 +1793,12 @@ def is_empty_key_delta(arm, obj, key: bpy.types.ShapeKey, basis: bpy.types.Shape
 
 
 def remove_empty_shapekeys_vertex_groups(arm, obj):
-    if not utils.B410():
-        return
     key_count = 0
     group_count = 0
-    empty_keys = []
-    empty_groups = []
+    if not utils.B410():
+        return key_count, group_count
     if utils.object_has_shape_keys(obj):
+        empty_keys = []
         key_blocks = obj.data.shape_keys.key_blocks
         if key_blocks and len(key_blocks) >= 2 and "Basis" in key_blocks:
             basis = key_blocks["Basis"]
@@ -1813,13 +1812,15 @@ def remove_empty_shapekeys_vertex_groups(arm, obj):
             key.driver_remove("value")
             obj.shape_key_remove(key)
             key_count += 1
-    for vg in obj.vertex_groups:
-        if meshutils.is_empty_vertex_group(obj, vg, threshold=0.001):
-            empty_groups.append(vg)
-    for vg in empty_groups:
-        utils.log_info(f" - Removing empty vertex group: {obj.name} - {vg.name}")
-        obj.vertex_groups.remove(vg)
-        group_count += 1
+    if utils.object_exists_is_mesh(obj):
+        empty_groups = []
+        for vg in obj.vertex_groups:
+            if meshutils.is_empty_vertex_group(obj, vg, threshold=0.001):
+                empty_groups.append(vg)
+        for vg in empty_groups:
+            utils.log_info(f" - Removing empty vertex group: {obj.name} - {vg.name}")
+            obj.vertex_groups.remove(vg)
+            group_count += 1
     return key_count, group_count
 
 
