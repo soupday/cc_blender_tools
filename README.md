@@ -33,7 +33,7 @@ Links
 
 ## Changelog
 
-### 2.4.3 Pre-release
+### 2.4.3
 - Extra checks for mesh objects with shape keys.
 - Fix to DataLink avatar lookup.
 
