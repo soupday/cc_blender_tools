@@ -35,6 +35,7 @@ Links
 
 ### 2.4.3 Pre-release
 - Extra checks for mesh objects with shape keys.
+- Fix to DataLink avatar lookup.
 
 ### 2.4.2
 - Updated Morph export for Blender 5.1
