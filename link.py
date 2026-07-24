@@ -119,7 +119,7 @@ class LinkActor():
                 # force create an RLX Cache for staging cache
                 self.actor_cache = self.get_rlx_cache(create=True)
             else:
-                self.actor_cache = props.get_character_cache(self.object)
+                self.actor_cache = props.get_character_cache(self.object, None)
         else:
             self.object = obj_or_actor_cache.get_primary_object()
             self.actor_cache = obj_or_actor_cache
@@ -147,21 +147,25 @@ class LinkActor():
     def get_chr_cache(self):
         props = vars.props()
         if self.object:
-            if self.actor_cache.cache_type() in ["AVATAR", "PROP"]:
-                return self.actor_cache
-            if utils.object_exists_is_armature(self.object) or utils.object_exists_is_mesh(self.object):
-                self.actor_cache = props.get_character_cache(self.object)
-                return self.actor_cache
+            if self.actor_cache:
+                if self.actor_cache.cache_type() in ["AVATAR", "PROP"]:
+                    return self.actor_cache
+            else:
+                if utils.object_exists_is_armature(self.object) or utils.object_exists_is_mesh(self.object):
+                    self.actor_cache = props.get_character_cache(self.object, None)
+                    return self.actor_cache
         return None
 
     def get_rlx_cache(self, create=False):
         props = vars.props()
         if self.object:
-            if self.actor_cache and self.actor_cache.cache_type() in ["LIGHT", "CAMERA"]:
-                return self.actor_cache
-            if self.object.type == "LIGHT" or self.object.type == "CAMERA":
-                self.actor_cache = props.get_staging_cache(self.object, create=create)
-                return self.actor_cache
+            if self.actor_cache:
+                if self.actor_cache.cache_type() in ["LIGHT", "CAMERA"]:
+                    return self.actor_cache
+            else:
+                if self.object.type == "LIGHT" or self.object.type == "CAMERA":
+                    self.actor_cache = props.get_staging_cache(self.object, create=create)
+                    return self.actor_cache
         return None
 
     def get_link_id(self):
@@ -505,6 +509,16 @@ class LinkData():
             if link_id in actor.alias:
                 return actor
         return None
+
+    def remove_sequence_actor(self, link_id):
+        to_remove = []
+        actor: LinkActor = None
+        for actor in self.sequence_actors:
+            utils.log_warn(f"Removing sequence actor: {actor.name} / {actor.get_link_id()}")
+            if actor.get_link_id() == link_id:
+                to_remove.append(actor)
+        for actor in to_remove:
+            self.sequence_actors.remove(actor)
 
     def set_action_settings(self, prefix: str, fake_user, set_keyframes):
         self.motion_prefix = prefix.strip()
@@ -2976,8 +2990,9 @@ class LinkService():
             character_type = actor_data.get("type")
             new_link_id = actor_data.get("new_link_id")
             new_name = actor_data.get("new_name")
+            confirm = actor_data.get("confirm")
             actor = LINK_DATA.find_sequence_actor(link_id)
-            if actor:
+            if actor and confirm:
                 if new_link_id:
                     actor.update_link_id(new_link_id)
                 if new_name:
@@ -2985,15 +3000,18 @@ class LinkService():
                 actor.set_id_tree(actor_data.get("bones"),
                                   actor_data.get("ids"),
                                   actor_data.get("id_tree"))
+            else:
+                LINK_DATA.remove_sequence_actor(link_id)
 
-        if request_type == "POSE":
-            self.send_pose()
-        elif request_type == "SEQUENCE":
-            self.send_sequence()
-        elif request_type == "REPLACE_MESH":
-            self.send_replace_mesh()
-        elif request_type == "MESH_MODIFY":
-            self.send_mesh_modify()
+        if LINK_DATA.sequence_actors:
+            if request_type == "POSE":
+                self.send_pose()
+            elif request_type == "SEQUENCE":
+                self.send_sequence()
+            elif request_type == "REPLACE_MESH":
+                self.send_replace_mesh()
+            elif request_type == "MESH_MODIFY":
+                self.send_mesh_modify()
         return
 
     def send_pose(self):
