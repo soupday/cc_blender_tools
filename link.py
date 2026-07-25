@@ -4444,9 +4444,11 @@ class LinkService():
             mss = utils.store_mode_selection_state()
             # remove old mesh modify
             remove = []
+            obj: bpy.types.Object = None
             for obj in bpy.data.objects:
                 if utils.get_prop(obj, "rl_mesh_modify") and utils.get_prop(obj, "rl_link_id") == link_id:
                     remove.append(obj)
+            rvs = utils.store_render_visibility_state(remove)
             for obj in remove:
                 utils.delete_object(obj)
             # import new mesh modify
@@ -4460,6 +4462,7 @@ class LinkService():
                 utils.set_prop(source, "rl_name", name)
                 utils.set_prop(source, "rl_type", character_type)
                 source.scale = (0.01, 0.01, 0.01)
+            utils.restore_render_visibility_state(rvs)
             utils.restore_mode_selection_state(mss)
 
     def receive_update_replace(self, data):

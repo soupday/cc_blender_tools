@@ -1909,9 +1909,21 @@ def store_render_visibility_state(objects=None):
         objects = [objects]
     for obj in objects:
         if object_exists(obj):
-            visible = obj.visible_get()
-            render = not obj.hide_render
-            rv[obj.name] = [visible, render]
+            rv[obj.name] = {
+                "visible": obj.visible_get(),
+                "render": not obj.hide_render,
+                "show_name": obj.show_name,
+                "show_axis": obj.show_axis,
+                "show_wire": obj.show_wire,
+                "show_all_edges": obj.show_all_edges,
+                "show_texture_space": obj.show_texture_space,
+                "show_shadows": obj.display.show_shadows,
+                "show_in_front": obj.show_in_front,
+                "color": obj.color,
+                "display_type": obj.display_type,
+                "show_bounds": obj.show_bounds,
+                "display_bounds_type": obj.display_bounds_type,
+            }
     return rv
 
 
@@ -1921,10 +1933,21 @@ def restore_render_visibility_state(rv):
         if obj_name in bpy.data.objects:
             obj = bpy.data.objects[obj_name]
             if object_exists(obj):
-                visible, render = rv[obj.name]
+                vis = rv[obj.name]
                 try:
-                    obj.hide_render = not render
-                    hide(obj, not visible)
+                    obj.hide_render = not vis["render"]
+                    show(obj, vis["visible"])
+                    obj.show_name = vis["show_name"]
+                    obj.show_axis = vis["show_axis"]
+                    obj.show_wire = vis["show_wire"]
+                    obj.show_all_edges = vis["show_all_edges"]
+                    obj.show_texture_space = vis["show_texture_space"]
+                    obj.display.show_shadows = vis["show_shadows"]
+                    obj.show_in_front = vis["show_in_front"]
+                    obj.color = vis["color"]
+                    obj.display_type = vis["display_type"]
+                    obj.show_bounds = vis["show_bounds"]
+                    obj.display_bounds_type = vis["display_bounds_type"]
                 except:
                     pass
 
