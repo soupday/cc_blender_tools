@@ -3053,15 +3053,43 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
         row.prop(props, "lighting_brightness_all", toggle=True, text="", icon="OUTLINER_DATA_LIGHT")
     col.prop(props, "world_brightness", slider=True)
 
-    box = layout.box().label(text="Camera & World", icon="NODE_COMPOSITING")
+    box = layout.box().label(text="Camera & World", icon="WORLD")
 
     grid = layout.grid_flow(row_major=True, columns=1, align=True)
     grid.operator("cc3.scene", text="Targeting Camera", icon="CAMERA_DATA").param = "SETUP_CAMERA"
     grid.operator("cc3.scene", text="World Setup", icon="WORLD").param = "SETUP_WORLD"
-    grid.operator("cc3.scene", text="Compositor Setup", icon="NODE_COMPOSITING").param = "SETUP_COMPOSITOR"
     if vars.DEV:
         grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump Lights").param = "DUMP_SETUP"
         grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump Obj").param = "DUMP_OBJ"
+
+    box = layout.box().label(text="Compositor", icon="NODE_COMPOSITING")
+    grid = layout.grid_flow(row_major=True, columns=1, align=True)
+    row = grid.row()
+    row.scale_y = 2.0
+    row.operator("cc3.scene", text="Compositor Setup", icon="NODE_COMPOSITING").param = "SETUP_COMPOSITOR"
+
+    if utils.B500():
+        compositor = context.scene.compositing_node_group
+    else:
+        compositor = context.scene.node_tree
+
+    if compositor:
+        grid = layout.box().grid_flow(row_major=True, columns=1, align=True)
+        for node in compositor.nodes:
+            if node.type == "GROUP" and utils.get_prop(node, "rl_compositor_group"):
+                menu_on = False
+                for i, socket in enumerate(node.inputs):
+                    if i > 0:
+                        T = type(socket)
+                        if T == bpy.types.NodeSocketMenu:
+                            menu_on = socket.default_value == "On"
+                            row = grid.row()
+                            split = row.split(factor=0.7)
+                            split.column().label(text=socket.name)
+                            split.column().prop(socket, "default_value", text="")
+                        if menu_on and T == bpy.types.NodeSocketFloat or T == bpy.types.NodeSocketColor or T == bpy.types.NodeSocketInt:
+                            grid.prop(socket, "default_value", text=socket.name, slider=True)
+                break
 
     box = layout.box().label(text="Tools", icon="TOOL_SETTINGS")
 

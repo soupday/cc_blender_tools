@@ -164,6 +164,15 @@ def make_node_group_node(nodes, group, label, name):
     return group_node
 
 
+def make_compositor_node_group_node(nodes, group, label, name):
+    group_node = make_shader_node(nodes, "CompositorNodeGroup")
+    group_node.node_tree = group
+    group_node.label = label
+    group_node.width = 400
+    group_node.name = utils.unique_name("(" + name + ")")
+    return group_node
+
+
 def make_gltf_settings_node(nodes):
     gltf_group : bpy.types.NodeGroup = None
     for group in bpy.data.node_groups:
