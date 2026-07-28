@@ -1329,7 +1329,7 @@ def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
     fix_sss_method(bsdf, is_hair=True)
 
     materials.set_material_alpha(mat, "HASHED")
-    materials.set_thin_wall(mat)
+    materials.set_thin_wall(mat, use_thin_wall=False)
 
     if not utils.B420():
         mat.use_sss_translucency = True
