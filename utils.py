@@ -2535,6 +2535,12 @@ def B500():
 def B510():
     return is_blender_version("5.1.0")
 
+def B520():
+    return is_blender_version("5.2.0")
+
+def B530():
+    return is_blender_version("5.3.0")
+
 VER_CACHE = {}
 def is_blender_version(version: str, test = "GTE"):
     """e.g. is_blender_version("3.0.0", "GTE")"""

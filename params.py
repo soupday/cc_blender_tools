@@ -2089,7 +2089,7 @@ SHADER_MATRIX = [
             ["hair_diffuse_brightness", 1, "func_brightness_mod", "/Diffuse Brightness"],
             ["hair_subsurface_saturation", 1.0, "DEF"],
             ["hair_diffuse_hsv_strength", 1, "DEF"],
-            ["hair_subsurface_radius", 1.5, "DEF"],
+            ["hair_subsurface_radius", 0.5, "DEF"],
             ["hair_alpha_power", 1.0, "DEF"],
             ["hair_anisotropic_roughness", 0.0375, "DEF"],
             ["hair_specular_blend", 0.9, "DEF"],

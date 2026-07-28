@@ -787,6 +787,13 @@ def set_backface_culling(mat, backface_culling=True):
         mat.use_backface_culling_shadow = backface_culling
     except: ...
 
+
+def set_thin_wall(mat, use_thin_wall=True):
+    if mat:
+        bsdf_node = nodeutils.get_bsdf_node(mat)
+        if bsdf_node:
+            nodeutils.set_node_input_value(bsdf_node, "Thin Wall", use_thin_wall)
+
 def test_for_material_uv_coords(obj, mat_slot, uvs):
     mesh = obj.data
     ul = mesh.uv_layers[0]

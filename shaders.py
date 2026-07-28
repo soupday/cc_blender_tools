@@ -198,6 +198,7 @@ def fetch_prop_defaults(obj, mat_cache, mat_json):
             exec_var_param(var_def, mat_cache, mat_json)
     if shader == "rl_hair_shader":
         check_legacy_hair(obj, mat_cache, mat_json)
+        set_hair_sss_falloff(obj, mat_cache, mat_json)
     #if mat_cache.get_base_name() in vars.GAME_BASE_SKIN_NAMES:
     #    mat_cache.parameters.default_roughness_power = 0.75
     vars.block_property_update = False
@@ -235,6 +236,14 @@ def check_legacy_hair(obj, mat_cache, mat_json):
         mat_cache.parameters.hair_anisotropic_strength = 0.15
         mat_cache.parameters.hair_anisotropic_strength2 = 0.15
 
+    return
+
+
+def set_hair_sss_falloff(obj, mat_cache, mat_json):
+    root_color = utils.array_to_color(mat_cache.parameters.hair_root_color)
+    end_color = utils.array_to_color(mat_cache.parameters.hair_end_color)
+    mid_color = (root_color + end_color) / 2
+    mat_cache.parameters.hair_subsurface_falloff = (mid_color.r, mid_color.g, mid_color.b, 1.0)
     return
 
 
@@ -1320,6 +1329,7 @@ def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
     fix_sss_method(bsdf, is_hair=True)
 
     materials.set_material_alpha(mat, "HASHED")
+    materials.set_thin_wall(mat)
 
     if not utils.B420():
         mat.use_sss_translucency = True

@@ -19,7 +19,7 @@ import os
 import bpy
 from mathutils import Vector, Quaternion, Matrix, Euler
 
-from . import colorspace, world, meshutils, nodeutils, rigidbody, physics, modifiers, utils, vars
+from . import colorspace, world, lib, meshutils, nodeutils, rigidbody, physics, modifiers, utils, vars
 
 
 def add_target(name, container, location):
@@ -269,17 +269,42 @@ def camera_auto_target(camera, target):
 
 def get_compositor_tree(context) -> bpy.types.NodeGroup:
     if utils.B500():
-        if context.scene.compositing_node_group:
-            return context.scene.compositing_node_group
-        tree = bpy.data.node_groups.new("Compositor Bake", "CompositorNodeTree")
-        context.scene.compositing_node_group = tree
-        return tree
+        compositor_group = lib.get_node_group("RL_Post_Compositor", lib_file=lib.LIB500)
+        if not compositor_group:
+            compositor_group = bpy.data.node_groups.new("Compositor Bake", "CompositorNodeTree")
+        context.scene.compositing_node_group = compositor_group
+        return compositor_group
     else:
         context.scene.use_nodes = True
         return context.scene.node_tree
 
 
 def compositor_setup(context):
+    if not utils.B500():
+        compositor_setup_old(context)
+        return
+
+    tree = get_compositor_tree(context)
+
+    nodes = tree.nodes
+
+    for node in nodes:
+        if node.type == "R_LAYERS":# and node.name == "RL_Render_Layers":
+            render_layers_node: bpy.types.CompositorNodeRLayers = node
+            bpy
+            render_layers_node.scene = context.scene
+            try:
+                if not render_layers_node.layer:
+                    render_layers_node.layer = context.scene.view_layers[0].name
+            except:
+                utils.log_warn(f"Unable to set compositor render layer!")
+
+    shading = utils.get_view_3d_shading(context)
+    if shading:
+        shading.use_scene_world_render = True
+
+
+def compositor_setup_old(context):
     context = vars.get_context(context)
     tree = get_compositor_tree(context)
 

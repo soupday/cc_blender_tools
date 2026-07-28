@@ -19,11 +19,14 @@
 import bpy, os
 from . import utils, vars
 
+LIB423 = "_LIB423.blend"
+LIB500 = "_LIB500.blend"
 
 def get_object(object_names,
                lib_tag="RL_Library_Object",
                allow_duplicates=True,
-               names=None):
+               names=None,
+               lib_file=LIB423):
 
     single = False
     if type(object_names) is str:
@@ -49,7 +52,7 @@ def get_object(object_names,
 
     if files:
         path = os.path.dirname(os.path.realpath(__file__))
-        filename = "_LIB341.blend"
+        filename = lib_file
         datablock = "Object"
         file = os.path.join(path, filename)
         if os.path.exists(file):
@@ -83,7 +86,7 @@ def get_object(object_names,
         return appended_objects
 
 
-def get_image(image_name, lib_tag="RL_Library_Image"):
+def get_image(image_name, lib_tag="RL_Library_Image", lib_file=LIB423):
     for img in bpy.data.images:
         if (img.name.startswith(image_name) and
             utils.get_prop(img, lib_tag) and
@@ -92,7 +95,7 @@ def get_image(image_name, lib_tag="RL_Library_Image"):
                 img.pack()
             return img
     path = os.path.dirname(os.path.realpath(__file__))
-    filename = "_LIB341.blend"
+    filename = lib_file
     datablock = "Image"
     file = os.path.join(path, filename)
     appended_image = None
@@ -119,14 +122,14 @@ def get_image(image_name, lib_tag="RL_Library_Image"):
     return appended_image
 
 
-def get_node_group(group_name, lib_tag="RL_Node_Group"):
+def get_node_group(group_name, lib_tag="RL_Node_Group", lib_file=LIB423):
     for node_tree in bpy.data.node_groups:
         if (node_tree.name.startswith(group_name) and
             utils.get_prop(node_tree, lib_tag) and
             is_version(node_tree)):
             return node_tree
     path = os.path.dirname(os.path.realpath(__file__))
-    filename = "_LIB341.blend"
+    filename = lib_file
     datablock = "NodeTree"
     file = os.path.join(path, filename)
     appended_object = None
