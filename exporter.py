@@ -113,7 +113,7 @@ def remove_modifiers_for_export(chr_cache, objects, reset_pose, rig=None):
     obj : bpy.types.Object
     for obj in objects:
         if reset_pose:
-            if obj.type == "MESH" and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            if utils.object_has_shape_keys(obj):
                 utils.safe_set_action(obj.data.shape_keys, None)
         if chr_cache:
             obj_cache = chr_cache.get_object_cache(obj)
@@ -230,7 +230,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
         export_mats = []
         for obj in objects:
             obj_cache = chr_cache.get_object_cache(obj)
-            if obj_cache and obj.type == "MESH":
+            if obj_cache and utils.object_exists_is_mesh(obj):
                 for mat in obj.data.materials:
                     mat_cache = chr_cache.get_material_cache(mat)
                     if mat and mat_cache and mat not in export_mats:
@@ -712,11 +712,12 @@ def restore_export(export_changes : list):
         op = info[0]
         if op == "OBJECT_RENAME":
             obj = info[1]
-            utils.force_object_name(obj, info[2])
-            if obj.type == "MESH" and obj.data:
-                utils.force_mesh_name(obj.data, info[3])
-            if obj.type == "ARMATURE" and obj.data:
-                utils.force_armature_name(obj.data, info[3])
+            if utils.object_exists(obj):
+                utils.force_object_name(obj, info[2])
+                if obj.type == "MESH" and obj.data:
+                    utils.force_mesh_name(obj.data, info[3])
+                if obj.type == "ARMATURE" and obj.data:
+                    utils.force_armature_name(obj.data, info[3])
         elif op == "MATERIAL_RENAME":
             mat = info[1]
             utils.force_material_name(mat, info[2])
@@ -1614,7 +1615,7 @@ def update_facial_profile_json(chr_cache, all_objects, json_data, chr_name):
     # all remaining shapes go into custom expressions
     custom = []
     for obj in objects:
-        if obj.type == "MESH" and obj.data.shape_keys:
+        if utils.object_has_shape_keys(obj):
             i = 0
             for key_block in obj.data.shape_keys.key_blocks:
                 shape_name = key_block.name

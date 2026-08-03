@@ -56,9 +56,8 @@ def generate_hik_profile(arm, name, path, hik_template):
     bone_list += pack_rotation(name, arm.rotation_quaternion)
     for pose_bone in arm.pose.bones:
         bone_list += pack_bone(arm, pose_bone)
-    for child in arm.children:
-        if child.type == "MESH":
-            bone_list += pack_rotation(child.name, child.rotation_quaternion)
+    for child in utils.get_child_meshes(arm):
+        bone_list += pack_rotation(child.name, child.rotation_quaternion)
     hik_template = hik_template.replace("$BONE_LIST", bone_list)
     with open(path, "w") as write_file:
         utils.log_info(f"Writing VRM HIK Profile: {path}")

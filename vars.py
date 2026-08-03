@@ -18,11 +18,11 @@
 
 import bpy
 
-VERSION_STRING = "v2.4.2"
+VERSION_STRING = "v2.4.3"
 DEV = False
 #DEV = True
 PLUGIN_COMPATIBLE = [
-    "2.4.1", "2.4.2",
+    "2.4.1", "2.4.2", "2.4.3",
 ]
 
 def set_version_string(bl_info):
@@ -87,7 +87,7 @@ NODE_GROUPS = ["tiling_pivot_mapping", "tiling_mapping",
                "rl_cornea_refractive_shader", "rl_eye_refractive_shader",
                "rl_cornea_parallax_shader", "tiling_cornea_parallax_mapping",
                "rl_pbr_shader", "rl_sss_shader",
-               "rl_hair_shader", "rl_hair_cycles_shader",
+               "rl_hair_shader",
                "rl_eye_occlusion_cycles_mix_shader", "rl_tearline_cycles_shader",
                "rl_tearline_cycles_mix_shader", "rl_tearline_plus_shader",
                "rl_rgb_mixer", "rl_id_mixer",

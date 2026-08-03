@@ -533,7 +533,7 @@ def create_collision_proxy(chr_cache, obj_cache, obj):
 
 def get_weight_map_from_modifiers(obj, mat):
     mat_name = "_" + utils.strip_name(mat.name) + "_"
-    if obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
         for mod in obj.modifiers:
             if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name and mat_name in mod.name:
                 if mod.mask_texture is not None and mod.mask_texture.image is not None:
@@ -834,18 +834,13 @@ def get_physx_weight_range(obj):
     weight_min = 1.0
     weight_max = 0.0
 
-    if obj:
-
+    if utils.object_exists_is_mesh(obj):
         vertex_group_name = prefs.physics_group + "_Pin"
-
-        if obj.type == "MESH" and vertex_group_name in obj.vertex_groups:
-
+        if vertex_group_name in obj.vertex_groups:
             if utils.set_active_object(obj):
-
                 # normalize pin vertex group range
                 pin_vg = obj.vertex_groups[vertex_group_name]
                 pin_vg_index = pin_vg.index
-
                 # determine range
                 for vertex in obj.data.vertices:
                     for vg in vertex.groups:
@@ -861,7 +856,7 @@ def count_weightmaps(objects):
     num_maps = 0
     num_dirty = 0
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             for mod in obj.modifiers:
                 if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name:
                     if mod.mask_texture is not None and mod.mask_texture.image is not None:
@@ -875,7 +870,7 @@ def count_weightmaps(objects):
 def get_dirty_weightmaps(objects):
     maps = []
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             for mod in obj.modifiers:
                 if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name:
                     if mod.mask_texture is not None and mod.mask_texture.image is not None:
@@ -1005,7 +1000,7 @@ def save_dirty_weight_maps(chr_cache, objects):
 
 
 def delete_selected_weight_map(chr_cache, obj, mat):
-    if obj is not None and obj.type == "MESH" and mat is not None:
+    if utils.object_exists_is_mesh(obj) and mat is not None:
         edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
         if edit_mod is not None and edit_mod.mask_texture is not None and edit_mod.mask_texture.image is not None:
             image = edit_mod.mask_texture.image
@@ -1487,7 +1482,7 @@ def set_physics_settings(op, context, param):
     props = vars.props()
     chr_cache = props.get_context_character_cache(context)
     obj = None
-    if context.object and context.object.type == "MESH":
+    if utils.object_exists_is_mesh(context.object):
         obj = context.object
 
     if param == "PHYSICS_ADD_CLOTH":
@@ -1531,37 +1526,37 @@ def set_physics_settings(op, context, param):
 
     elif param == "PHYSICS_HAIR":
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 apply_cloth_settings(obj, "HAIR", False)
 
     elif param == "PHYSICS_DENIM":
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 apply_cloth_settings(obj, "DENIM", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_LEATHER":
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 apply_cloth_settings(obj, "LEATHER", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_RUBBER":
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 apply_cloth_settings(obj, "RUBBER", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_SILK":
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 apply_cloth_settings(obj, "SILK", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_COTTON":
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 apply_cloth_settings(obj, "COTTON", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_LINEN":
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 apply_cloth_settings(obj, "LINEN", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_PAINT":

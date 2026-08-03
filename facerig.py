@@ -34,10 +34,9 @@ def shrink_slider_coords(coords, by_length):
 
 def objects_have_shape_key(objects, shape_key_name):
     for obj in objects:
-        if obj.type == "MESH":
-            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                if shape_key_name in obj.data.shape_keys.key_blocks:
-                    return True
+        if utils.object_has_shape_keys(obj):
+            if shape_key_name in obj.data.shape_keys.key_blocks:
+                return True
     return False
 
 
@@ -46,10 +45,9 @@ def get_objects_shape_key_name(objects, shape_key_name, try_substitutes=False):
     if shape_key_name.startswith("Teeth_") or shape_key_name.startswith("Dummy_"):
         return shape_key_name
     for obj in objects:
-        if obj.type == "MESH":
-            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                if shape_key_name in obj.data.shape_keys.key_blocks:
-                    return shape_key_name
+        if utils.object_has_shape_keys(obj):
+            if shape_key_name in obj.data.shape_keys.key_blocks:
+                return shape_key_name
     if try_substitutes:
         if shape_key_name.endswith("_L"):
             shape_key_name = shape_key_name[:-2] + "_Left"
@@ -58,10 +56,9 @@ def get_objects_shape_key_name(objects, shape_key_name, try_substitutes=False):
         else:
             return None
         for obj in objects:
-            if obj.type == "MESH":
-                if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                    if shape_key_name in obj.data.shape_keys.key_blocks:
-                        return shape_key_name
+            if utils.object_has_shape_keys(obj):
+                if shape_key_name in obj.data.shape_keys.key_blocks:
+                    return shape_key_name
     return None
 
 
@@ -1790,11 +1787,6 @@ def get_driven_expressions(chr_cache):
     return driven_expressions
 
 
-def add_expression_to_mesh(mesh, expression):
-    if not mesh.data.shape_keys.key_blocks:
-        mesh.add
-
-
 def add_missing_expressions(chr_cache):
     driven_expressions = get_driven_expressions(chr_cache)
     head: bpy.types.Object = meshutils.get_head_body_object(chr_cache)
@@ -1892,11 +1884,11 @@ def generate_arkit_proxy(chr_cache):
             proxy_mesh = None
             for obj in objects:
                 utils.move_object_to_scene_collections(obj, chr_collections)
-                if obj.type == "ARMATURE":
+                if utils.object_exists_is_armature(obj):
                     obj.name = rig_name
                     obj.data.name = rig_name
                     proxy_rig = obj
-                elif obj.type == "MESH":
+                elif utils.object_exists_is_mesh(obj):
                     obj.name = mesh_name
                     obj.data.name = mesh_name
                     proxy_mesh = obj

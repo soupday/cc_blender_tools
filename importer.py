@@ -131,7 +131,7 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
     props = vars.props()
     prefs = vars.prefs()
 
-    if obj is None or obj in objects_processed:
+    if not utils.object_exists(obj) or obj in objects_processed:
         return
 
     objects_processed.append(obj)
@@ -143,7 +143,7 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
     utils.log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
     utils.log_indent()
 
-    if obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
 
         mesh : bpy.types.Mesh = obj.data
 
@@ -216,13 +216,13 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
 def cache_object_materials(chr_cache, obj, chr_json, processed):
     props = vars.props()
 
-    if obj is None or obj in processed:
+    if not utils.object_exists(obj) or obj in processed:
         return
 
     obj_json = jsonutils.get_object_json(chr_json, obj)
     obj_cache = chr_cache.add_object_cache(obj)
 
-    if obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
 
         utils.log_info(f"Caching Object: {obj.name}")
         utils.log_indent()
@@ -255,49 +255,38 @@ def apply_edit_shapekeys(obj):
     """
     # shapekeys data path:
     #   utils.get_active_object().data.shape_keys.key_blocks['Basis']
-    if obj.type == "MESH":
-        shape_keys = obj.data.shape_keys
-        if shape_keys is not None:
-            blocks = shape_keys.key_blocks
-            if blocks is not None:
-                # if the object has shape keys
-                if len(blocks) > 0:
-                    try:
-                        # set the active shapekey to the basis and apply shape keys in edit mode.
-                        obj.active_shape_key_index = 0
-                        obj.show_only_shape_key = False
-                        obj.use_shape_key_edit_mode = True
-                    except Exception as e:
-                        utils.log_error("Unable to set shape key edit mode!", e)
+    if utils.object_has_shape_keys(obj):
+        try:
+            # set the active shapekey to the basis and apply shape keys in edit mode.
+            obj.active_shape_key_index = 0
+            obj.show_only_shape_key = False
+            obj.use_shape_key_edit_mode = True
+        except Exception as e:
+            utils.log_error("Unable to set shape key edit mode!", e)
 
 
 def init_shape_key_range(obj):
     #utils.get_active_object().data.shape_keys.key_blocks['Basis']
-    if obj.type == "MESH":
-        shape_keys: bpy.types.Key = obj.data.shape_keys
-        if shape_keys is not None:
-            blocks = shape_keys.key_blocks
-            if blocks is not None:
-                if len(blocks) > 0:
-                    for block in blocks:
-                        # expand the range of the shape key slider to include negative values...
-                        if "Eye" in block.name and "_Look_" in block.name:
-                            block.slider_min = -2.0
-                            block.slider_max = 2.0
-                        else:
-                            block.slider_min = -1.5
-                            block.slider_max = 1.5
+    if utils.object_has_shape_keys(obj):
+        for key in obj.data.shape_keys.key_blocks:
+            # expand the range of the shape key slider to include negative values...
+            if "Eye" in key.name and "_Look_" in key.name:
+                key.slider_min = -2.0
+                key.slider_max = 2.0
+            else:
+                key.slider_min = -1.5
+                key.slider_max = 1.5
 
-            # re-set a value in the shapekey action keyframes to force
-            # the shapekey action to update to the new ranges:
-            try:
-                action = utils.safe_get_action(shape_keys)
-                channel = utils.get_action_channelbag(action, slot_type="KEY")
-                if channel:
-                    co = channel.fcurves[0].keyframe_points[0].co
-                    channel.fcurves[0].keyframe_points[0].co = co
-            except:
-                pass
+        # re-set a value in the shapekey action keyframes to force
+        # the shapekey action to update to the new ranges:
+        try:
+            action = utils.safe_get_action(obj.data.shape_keys)
+            channel = utils.get_action_channelbag(action, slot_type="KEY")
+            if channel:
+                co = channel.fcurves[0].keyframe_points[0].co
+                channel.fcurves[0].keyframe_points[0].co = co
+        except:
+            pass
 
 # region detect_generation
 def detect_generation(chr_cache, rig, json_data, character_id):
@@ -472,19 +461,18 @@ def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
 
     # determine how each shape key id relates to each object in the import
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_has_shape_keys(obj):
             obj_id = rigutils.get_obj_id(obj)
-            if obj.data.shape_keys:
-                obj_action = utils.safe_get_action(obj.data.shape_keys)
-                if obj_action:
-                    if obj_action in armature_actions:
-                        if obj_action not in slotted_actions:
-                            slotted_actions.append(obj_action)
-                    else:
-                        actions.append(obj_action)
-                        key_map[obj_id] = obj.data.shape_keys.name
-                        utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {obj_id}")
-                        num_keys += 1
+            obj_action = utils.safe_get_action(obj.data.shape_keys)
+            if obj_action:
+                if obj_action in armature_actions:
+                    if obj_action not in slotted_actions:
+                        slotted_actions.append(obj_action)
+                else:
+                    actions.append(obj_action)
+                    key_map[obj_id] = obj.data.shape_keys.name
+                    utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {obj_id}")
+                    num_keys += 1
 
     # rename all actions associated with this armature and it's motions
     for action in actions:
@@ -526,7 +514,7 @@ def process_root_bones(arm, json_data, name):
                 pose_bone["root_type"] = type
 
 # region process_rl_import
-def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras, lights,
+def process_rl_import(file_path, import_flags, armatures, rl_armatures, empties, cameras, lights,
                       objects: list,
                       actions, json_data, report, link_id, only_objects=None, motion_prefix=""):
     props = vars.props()
@@ -632,14 +620,13 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
 
             # add child objects to object_cache
             character_meshes = []
-            for obj in objects:
-                if obj.type == "MESH" and obj.parent and obj.parent == arm:
-                    if only_objects:
-                        source_name = utils.strip_name(obj.name)
-                        if source_name not in only_objects:
-                            continue
-                    chr_cache.add_object_cache(obj)
-                    character_meshes.append(obj)
+            for obj in utils.get_child_meshes(arm):
+                if only_objects:
+                    source_name = utils.strip_name(obj.name)
+                    if source_name not in only_objects:
+                        continue
+                chr_cache.add_object_cache(obj)
+                character_meshes.append(obj)
 
             # remame actions
             utils.log_info("Renaming actions:")
@@ -674,17 +661,14 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
                         if fix_5_1_normals:
                             meshutils.set_shading(obj, True)
 
-
-
             shaders.init_character_property_defaults(chr_cache, chr_json)
             basic.init_basic_default(chr_cache)
 
             # set preserve volume on armature modifiers
-            for obj in objects:
-                if obj.type == "MESH":
-                    arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
-                    if arm_mod:
-                        arm_mod.use_deform_preserve_volume = False
+            for obj in character_meshes:
+                arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
+                if arm_mod:
+                    arm_mod.use_deform_preserve_volume = False
 
             # material setup mode
             chr_cache.setup_mode = props.setup_mode
@@ -708,7 +692,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             utils.log_recess()
 
         # any none character armatures should be scenes or props
-        for i, arm in enumerate(armatures):
+        for i, arm in enumerate(armatures + empties):
 
             character_name = name
             source_id = "Armature"
@@ -737,7 +721,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
                 chr_cache.set_link_id(link_id)
 
             # root bones
-            process_root_bones(arm, json_data, name)
+            if utils.object_exists_is_armature(arm):
+                process_root_bones(arm, json_data, name)
 
             # determine the main texture dir
             if os.path.exists(chr_cache.get_tex_dir()):
@@ -746,7 +731,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
                 chr_cache.import_embedded = True
 
             arm.name = character_name
-            arm.data.name = character_name
+            if arm.data:
+                arm.data.name = character_name
 
             # in case of duplicate names: character_name contains the name currently in Blender.
             #                             import_name contains the original name.
@@ -755,9 +741,10 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             chr_cache.add_object_cache(arm)
 
             # add child objects to object_cache
-            for obj in objects:
-                if obj.type == "MESH" and obj.parent and obj.parent == arm:
-                    chr_cache.add_object_cache(obj)
+            prop_meshes = []
+            for obj in utils.get_child_meshes(arm):
+                chr_cache.add_object_cache(obj)
+                prop_meshes.append(obj)
 
             # remame actions
             utils.log_info("Renaming actions:")
@@ -786,7 +773,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             chr_cache.render_target = render_target
 
             json_avatar_type = jsonutils.get_json(json_data, f"{chr_id}/Avatar_Type")
-            if json_avatar_type and json_avatar_type == "Prop":
+            if json_avatar_type and json_avatar_type == "Prop" and utils.object_exists_is_armature(arm):
                 rigutils.custom_prop_rig(arm)
 
             # visibility
@@ -801,9 +788,10 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             except: ...
 
             # bones
-            id_tree = jsonutils.get_json(json_data, f"{name}/ID_Tree")
-            if id_tree:
-                cc.match_id_tree(id_tree, arm, pose=True)
+            if utils.object_exists_is_armature(arm):
+                id_tree = jsonutils.get_json(json_data, f"{name}/ID_Tree")
+                if id_tree:
+                    cc.match_id_tree(id_tree, arm, pose=True)
 
             imported_characters.append(chr_cache.link_id)
 
@@ -1135,7 +1123,8 @@ class CC3Import(bpy.types.Operator):
                 # clean empty shape keys from character objects
                 if prefs.clean_empty_mesh_data:
                     for obj in imported:
-                        if obj.parent and obj.parent.type == "ARMATURE":
+                        if (utils.object_exists_has_shape_keys(obj) and
+                            obj.parent and obj.parent.type == "ARMATURE"):
                             arm = obj.parent
                             characters.remove_empty_shapekeys_vertex_groups(arm, obj)
 
@@ -1146,15 +1135,16 @@ class CC3Import(bpy.types.Operator):
                 for action in actions:
                     action.use_fake_user = self.use_fake_user
 
-                armatures, rl_armatures, cameras, lights, import_flags = self.get_import_contents(imported, avatar_type, json_generation, import_flags)
+                armatures, rl_armatures, empties, cameras, lights, import_flags = \
+                    self.get_import_contents(imported, avatar_type, json_generation, import_flags)
 
                 # detect characters and objects
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
-                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, cameras, lights,
-                                                            imported, actions, json_data, self.import_report, self.link_id,
-                                                            only_objects=only_objects,
-                                                            motion_prefix=self.motion_prefix)
+                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, empties, cameras, lights,
+                                                               imported, actions, json_data, self.import_report, self.link_id,
+                                                               only_objects=only_objects,
+                                                               motion_prefix=self.motion_prefix)
                 elif prefs.import_auto_convert:
                     chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=self.link_id)
                     imported_character_ids = [chr_cache.link_id]
@@ -1187,13 +1177,14 @@ class CC3Import(bpy.types.Operator):
                 # detect characters and objects
                 armatures = []
                 rl_armatures = []
+                empties = []
                 cameras = []
                 lights = []
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
-                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, cameras, lights,
-                                                            imported, actions, json_data, self.import_report, self.link_id,
-                                                            motion_prefix=self.motion_prefix)
+                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, empties, cameras, lights,
+                                                               imported, actions, json_data, self.import_report, self.link_id,
+                                                               motion_prefix=self.motion_prefix)
                 elif prefs.import_auto_convert:
                     chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=self.link_id)
                     imported_character_ids = [ chr_cache.link_id ]
@@ -1562,6 +1553,7 @@ class CC3Import(bpy.types.Operator):
     def get_import_contents(self, objects, avatar_type, json_generation, import_flags):
         armatures = []
         rl_armatures = []
+        empties = []
         cameras = []
         lights = []
         if not avatar_type:
@@ -1603,7 +1595,10 @@ class CC3Import(bpy.types.Operator):
                     import_flags = import_flags | ImportFlags.RL
                 if obj not in lights:
                     lights.append(obj)
-        return armatures, rl_armatures, cameras, lights, import_flags
+            elif utils.object_exists_is_empty(obj):
+                if obj.parent == None: # top level empties only ...
+                    empties.append(obj)
+        return armatures, rl_armatures, empties, cameras, lights, import_flags
 
 
     def do_import_report(self, context, stage = 0):

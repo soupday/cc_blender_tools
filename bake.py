@@ -3163,7 +3163,7 @@ def bake_character(context, chr_cache):
     materials_done = []
     obj : bpy.types.Object
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             bake_character_object(context, chr_cache, obj, bake_state, materials_done)
     materials_done.clear()
 
@@ -3369,7 +3369,7 @@ def bake_character_object(context, chr_cache, obj, bake_state, materials_done):
             # replace all of the old baked materials with the new copy:
             if old_mat:
                 for o in context.scene.objects:
-                    if o != obj and o.type == "MESH" and o.data.materials:
+                    if o != obj and utils.object_exists_is_mesh(o) and o.data.materials:
                         for s in o.material_slots:
                             if s.material and s.material == old_mat:
                                 s.material = bake_mat
@@ -3467,7 +3467,7 @@ def revert_baked_materials(chr_cache):
     objects = get_export_objects(chr_cache)
 
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             for i in range(0, len(obj.data.materials)):
                 mat = obj.data.materials[i]
                 bc = get_export_bake_cache(mat)
@@ -3480,7 +3480,7 @@ def restore_baked_materials(chr_cache):
     objects = get_export_objects(chr_cache)
 
     for obj in objects:
-        if obj.type == "MESH":
+        if utils.object_exists_is_mesh(obj):
             for i in range(0, len(obj.data.materials)):
                 mat = obj.data.materials[i]
                 bc = get_export_bake_cache(mat)
@@ -3551,7 +3551,7 @@ class CCICBakeSettings(bpy.types.Operator):
         mat_settings = get_material_bake_settings(mat)
         chr_cache = props.get_context_character_cache(context)
 
-        if obj and obj.type == "MESH" and mat:
+        if utils.object_exists_is_mesh(obj) and mat:
 
             if self.param == "ADD":
                 add_material_bake_settings(mat)

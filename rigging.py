@@ -633,7 +633,7 @@ def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups, acc_vertex_group_ma
     utils.log_indent()
 
     obj : bpy.types.Object
-    for obj in rigify_rig.children:
+    for obj in utils.get_child_meshes(rigify_rig):
 
         utils.log_info(f"Remapping groups for: {obj.name}")
 
@@ -812,10 +812,6 @@ def map_face_bones(cc3_rig, meta_rig, cc3_head_bone):
     """Map positions of special face bones.
     """
 
-    obj : bpy.types.Object = None
-    for child in cc3_rig.children:
-        if child.name.lower().endswith("base_eye"):
-            obj = child
     length = 0.375
 
     if rigutils.edit_rig(meta_rig):
@@ -1539,39 +1535,40 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mapping):
         # first move rigidbody colliders over
         rigidbody.convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mapping)
 
-        for obj in cc3_rig.children:
-            if utils.object_exists_is_mesh(obj) and obj.parent == cc3_rig:
+        for obj in utils.get_child_objects(cc3_rig):
 
-                hidden = not obj.visible_get()
-                if hidden:
-                    utils.unhide(obj)
-                obj_cache = chr_cache.get_object_cache(obj)
+            hidden = not obj.visible_get()
+            if hidden:
+                utils.unhide(obj)
+            obj_cache = chr_cache.get_object_cache(obj)
 
+            if obj.parent == cc3_rig: # reparent only if parent was rig
                 if utils.try_select_object(obj, True) and utils.set_active_object(obj):
                     bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
 
-                # only the body and face objects will generate the automatic weights for the face rig.
-                if (chr_cache.rigified_full_face_rig and
-                    utils.object_exists_is_mesh(obj) and
-                    len(obj.data.vertices) >= 2 and
-                    is_face_object(obj_cache, obj) and
-                    obj.name != "CC_Base_Tongue"):
+            # only the body and face objects will generate the automatic weights for the face rig.
+            if (chr_cache.rigified_full_face_rig and
+                utils.object_exists_is_mesh(obj) and
+                len(obj.data.vertices) >= 2 and
+                is_face_object(obj_cache, obj) and
+                obj.name != "CC_Base_Tongue"):
 
-                    obj_result = try_parent_auto(chr_cache, rigify_rig, obj)
-                    if obj_result < result:
-                        result = obj_result
+                obj_result = try_parent_auto(chr_cache, rigify_rig, obj)
+                if obj_result < result:
+                    result = obj_result
 
-                else:
+            else:
 
+                if obj.parent == cc3_rig: # reparent only if parent was rig
                     if utils.try_select_object(rigify_rig) and utils.set_active_object(rigify_rig):
                         bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
 
-                    arm_mod: bpy.types.ArmatureModifier = modifiers.get_armature_modifier(obj, create=True, armature=rigify_rig)
-                    if arm_mod:
-                        arm_mod.object = rigify_rig
+                arm_mod: bpy.types.ArmatureModifier = modifiers.get_armature_modifier(obj, create=True, armature=rigify_rig)
+                if arm_mod:
+                    arm_mod.object = rigify_rig
 
-                if hidden:
-                    utils.hide(obj)
+            if hidden:
+                utils.hide(obj)
 
     utils.log_recess()
     return result
@@ -1612,10 +1609,10 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig, remove_meta = False):
 
 
 def is_face_object(obj_cache, obj):
-    if obj and obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
         if obj_cache and obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
             return True
-        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+        if utils.object_has_shape_keys(obj):
             for shape_key in obj.data.shape_keys.key_blocks:
                 if shape_key.name in rigify_mapping_data.FACE_TEST_SHAPEKEYS:
                     return True
@@ -1630,11 +1627,10 @@ def is_face_def_bone(bvg):
 
 
 def has_facial_expression_shape_keys(obj):
-    if obj and obj.type == "MESH":
-        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-            for shape_key in obj.data.shape_keys.key_blocks:
-                if shape_key.name in rigify_mapping_data.FACE_TEST_SHAPEKEYS:
-                    return True
+    if utils.object_has_shape_keys(obj):
+        for shape_key in obj.data.shape_keys.key_blocks:
+            if shape_key.name in rigify_mapping_data.FACE_TEST_SHAPEKEYS:
+                return True
     return False
 
 
@@ -2946,7 +2942,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
                     bones.select_bone(rigify_rig, bone, True)
 
             shape_key_objects = []
-            #for child in source_rig.children:
+            #for child in utils.get_child_meshes(source_rig):
             #    if utils.object_has_shape_keys(child):
             #        shape_key_objects.append(child)
 
@@ -3005,7 +3001,7 @@ def adv_bake_NLA_to_rigify(op, chr_cache, motion_id=None, motion_prefix=None):
 
         shape_key_objects = []
         if prefs.rigify_bake_shape_keys:
-            for child in rigify_rig.children:
+            for child in utils.get_child_meshes(rigify_rig):
                 if utils.object_has_shape_keys(child):
                     shape_key_objects.append(child)
 
@@ -3552,7 +3548,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions: list,
 
             # reparent the child objects to the export rig
             clones = []
-            for child in rigify_rig.children:
+            for child in utils.get_child_objects(rigify_rig):
                 if objects and child not in objects:
                     continue
                 obj_name = child.name
@@ -3563,7 +3559,8 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions: list,
                 clone.name = obj_name
                 child.data.name = f"{mesh_name}_{clone_id}"
                 clone.data.name = mesh_name
-                clone.parent = export_rig
+                if child.parent == rigify_rig: # reparent only if parent was rigify_rig
+                    clone.parent = export_rig
                 clones.append(clone)
                 mod = modifiers.get_object_modifier(clone, "ARMATURE")
                 if mod:
@@ -3591,21 +3588,20 @@ def get_motion_export_objects(objects):
         for obj in objects:
             if utils.object_exists_is_armature(obj):
                 motion_objects.append(obj)
-            elif utils.object_exists_is_mesh(obj):
-                if utils.object_has_shape_keys(obj):
-                    #action = utils.safe_get_action(obj.data.shape_keys)
-                    #include = False
-                    #if action:
-                    #    # if there is a shape key action on this mesh, include it
-                    #    include = True
-                    #else:
-                    #    # if no action, but shape keys are set, include it
-                    #    for key in obj.data.shape_keys.key_blocks:
-                    #        if key.value != 0.0:
-                    #            include = True
-                    #            break
-                    #if include:
-                    motion_objects.append(obj)
+            elif utils.object_exists_has_shape_keys(obj):
+                #action = utils.safe_get_action(obj.data.shape_keys)
+                #include = False
+                #if action:
+                #    # if there is a shape key action on this mesh, include it
+                #    include = True
+                #else:
+                #    # if no action, but shape keys are set, include it
+                #    for key in obj.data.shape_keys.key_blocks:
+                #        if key.value != 0.0:
+                #            include = True
+                #            break
+                #if include:
+                motion_objects.append(obj)
     return motion_objects
 
 
@@ -3646,7 +3642,7 @@ def finish_rigify_export(chr_cache, export_rig, export_actions,
     rigify_rig = chr_cache.get_armature()
 
     # un-reparent the child objects
-    #for child in export_rig.children:
+    #for child in utils.get_child_objects(export_rig):
     #    if objects and child not in objects:
     #        continue
     #    child.parent = rigify_rig
@@ -3782,7 +3778,7 @@ def bake_shape_key_animation(rig, objects):
     prefs = vars.prefs()
     rig_action, rig_slot = utils.safe_get_action_slot(rig)
     shape_key_actions = {}
-    shape_key_objects = [ o for o in objects if o.type == "MESH" and utils.object_has_shape_keys(o) ]
+    shape_key_objects = [ o for o in objects if utils.object_exists_has_shape_keys(o) ]
     object_names = [ o.name for o in shape_key_objects ]
 
     if shape_key_objects:
@@ -4313,9 +4309,9 @@ class CC3Rigifier(bpy.types.Operator):
                 if bpy.context.selected_objects:
                     obj = rig = None
                     for o in bpy.context.selected_objects:
-                        if o.type == "ARMATURE":
+                        if utils.object_exists_is_armature(o):
                             rig = o
-                        elif o.type == "MESH":
+                        elif utils.object_exists_is_mesh(o):
                             obj = o
                     if rig and obj:
                         report_uv_face_targets(obj, rig)

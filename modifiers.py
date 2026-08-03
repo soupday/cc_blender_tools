@@ -174,7 +174,7 @@ def fix_eye_mod_order(obj):
 
 
 def remove_eye_modifiers(obj):
-    if obj and obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
         for mod in obj.modifiers:
             if vars.NODE_PREFIX in mod.name:
                 if mod.type == "DISPLACE" or mod.type == "UV_WARP" or mod.type == "VERTEX_WEIGHT_EDIT":

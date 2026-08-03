@@ -19,7 +19,7 @@ import os
 import bpy
 from mathutils import Vector, Quaternion, Matrix, Euler
 
-from . import colorspace, world, meshutils, nodeutils, rigidbody, physics, modifiers, utils, vars
+from . import colorspace, world, lib, meshutils, nodeutils, rigidbody, physics, modifiers, utils, vars
 
 
 def add_target(name, container, location):
@@ -269,17 +269,73 @@ def camera_auto_target(camera, target):
 
 def get_compositor_tree(context) -> bpy.types.NodeGroup:
     if utils.B500():
-        if context.scene.compositing_node_group:
-            return context.scene.compositing_node_group
-        tree = bpy.data.node_groups.new("Compositor Bake", "CompositorNodeTree")
-        context.scene.compositing_node_group = tree
-        return tree
+        COMPOSITOR_NAME = "RL_Compositor"
+        compositor: bpy.types.NodeGroup = None
+        for node_group in bpy.data.node_groups:
+            if node_group.name == COMPOSITOR_NAME:
+                utils.log_info(f"Found RL Compositor: {node_group.name}")
+                compositor = node_group
+        if not compositor:
+            utils.log_info(f"Creating RL Compositor: {COMPOSITOR_NAME}")
+            compositor = bpy.data.node_groups.new(COMPOSITOR_NAME, "CompositorNodeTree")
+        context.scene.compositing_node_group = compositor
+        compositor["rl_compositor"] = True
+        return compositor
     else:
         context.scene.use_nodes = True
         return context.scene.node_tree
 
 
 def compositor_setup(context):
+    if not utils.B500():
+        compositor_setup_old(context)
+        return
+
+    tree: bpy.types.NodeGroup = get_compositor_tree(context)
+
+    nodes = tree.nodes
+    links = tree.links
+    nodes.clear()
+    rlayers_node = nodeutils.make_shader_node(nodes, "CompositorNodeRLayers")
+    output_node = nodeutils.make_shader_node(nodes, "NodeGroupOutput")
+    tree.interface.clear()
+    tree.interface.new_socket(name="Image", in_out="OUTPUT", socket_type="NodeSocketColor")
+    compositor_group = lib.get_node_group("RL_Post_Compositor", lib_file=lib.LIB500)
+    group_node = nodeutils.make_compositor_node_group_node(nodes, compositor_group, "RL Compositor", "RL_Post_Compositor")
+
+    rlayers_node.location = (-760,40)
+    output_node.location = (300,0)
+    group_node.location = (-300,300)
+    group_node["rl_compositor_group"] = True
+
+    nodeutils.link_nodes(links, rlayers_node, "Image", group_node, "Image")
+    nodeutils.link_nodes(links, group_node, "Image", output_node, "Image")
+
+    for node in nodes:
+        if node.type == "R_LAYERS":# and node.name == "RL_Render_Layers":
+            render_layers_node: bpy.types.CompositorNodeRLayers = node
+            bpy
+            render_layers_node.scene = context.scene
+            try:
+                if not render_layers_node.layer:
+                    render_layers_node.layer = context.scene.view_layers[0].name
+            except:
+                utils.log_warn(f"Unable to set compositor render layer!")
+        if "RL_Post_Compositor" in node.name:
+            for i, socket in enumerate(node.outputs):
+                for interface in node.node_tree.interface.items_tree:
+                    if interface.name == socket.name:
+                        try:
+                            socket.default_value = interface.default_value
+                        except:
+                            ...
+
+    shading = utils.get_view_3d_shading(context)
+    if shading:
+        shading.use_scene_world_render = True
+
+
+def compositor_setup_old(context):
     context = vars.get_context(context)
     tree = get_compositor_tree(context)
 

@@ -198,6 +198,7 @@ def fetch_prop_defaults(obj, mat_cache, mat_json):
             exec_var_param(var_def, mat_cache, mat_json)
     if shader == "rl_hair_shader":
         check_legacy_hair(obj, mat_cache, mat_json)
+        set_hair_sss_falloff(obj, mat_cache, mat_json)
     #if mat_cache.get_base_name() in vars.GAME_BASE_SKIN_NAMES:
     #    mat_cache.parameters.default_roughness_power = 0.75
     vars.block_property_update = False
@@ -235,6 +236,14 @@ def check_legacy_hair(obj, mat_cache, mat_json):
         mat_cache.parameters.hair_anisotropic_strength = 0.15
         mat_cache.parameters.hair_anisotropic_strength2 = 0.15
 
+    return
+
+
+def set_hair_sss_falloff(obj, mat_cache, mat_json):
+    root_color = utils.array_to_color(mat_cache.parameters.hair_root_color)
+    end_color = utils.array_to_color(mat_cache.parameters.hair_end_color)
+    mid_color = (root_color + end_color) / 2
+    mat_cache.parameters.hair_subsurface_falloff = (mid_color.r, mid_color.g, mid_color.b, 1.0)
     return
 
 
@@ -505,6 +514,13 @@ def func_rpsqrt(cc, v):
     else:
         p = prefs.eevee_roughness_power_b443b if utils.B440() else prefs.eevee_roughness_power_b341
     return pow(v, p / 2)
+
+def func_hair_direct_specular(cc, v):
+    """Reduce the direct specular contribution for Eevee (as it's non anisotropic)"""
+    if cc.get_render_target() == "EEVEE":
+        return v * 0.5
+    else:
+        return v * 5
 
 def func_pow_2(cc, v):
     return math.pow(v, 2.0)
@@ -1307,8 +1323,6 @@ def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
     shader_name = "rl_hair_shader"
     shader_group = "rl_hair_shader"
     mix_shader_group = ""
-    if mat_cache.get_render_target() == "CYCLES":
-        shader_group = "rl_hair_cycles_shader"
 
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
@@ -1320,6 +1334,7 @@ def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
     fix_sss_method(bsdf, is_hair=True)
 
     materials.set_material_alpha(mat, "HASHED")
+    materials.set_thin_wall(mat, use_thin_wall=False)
 
     if not utils.B420():
         mat.use_sss_translucency = True

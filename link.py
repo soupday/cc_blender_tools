@@ -119,7 +119,7 @@ class LinkActor():
                 # force create an RLX Cache for staging cache
                 self.actor_cache = self.get_rlx_cache(create=True)
             else:
-                self.actor_cache = props.get_character_cache(self.object)
+                self.actor_cache = props.get_character_cache(self.object, None)
         else:
             self.object = obj_or_actor_cache.get_primary_object()
             self.actor_cache = obj_or_actor_cache
@@ -147,21 +147,25 @@ class LinkActor():
     def get_chr_cache(self):
         props = vars.props()
         if self.object:
-            if self.actor_cache.cache_type() in ["AVATAR", "PROP"]:
-                return self.actor_cache
-            if self.object.type == "ARMATURE" or self.object.type == "MESH":
-                self.actor_cache = props.get_character_cache(self.object)
-                return self.actor_cache
+            if self.actor_cache:
+                if self.actor_cache.cache_type() in ["AVATAR", "PROP"]:
+                    return self.actor_cache
+            else:
+                if utils.object_exists_is_armature(self.object) or utils.object_exists_is_mesh(self.object):
+                    self.actor_cache = props.get_character_cache(self.object, None)
+                    return self.actor_cache
         return None
 
     def get_rlx_cache(self, create=False):
         props = vars.props()
         if self.object:
-            if self.actor_cache and self.actor_cache.cache_type() in ["LIGHT", "CAMERA"]:
-                return self.actor_cache
-            if self.object.type == "LIGHT" or self.object.type == "CAMERA":
-                self.actor_cache = props.get_staging_cache(self.object, create=create)
-                return self.actor_cache
+            if self.actor_cache:
+                if self.actor_cache.cache_type() in ["LIGHT", "CAMERA"]:
+                    return self.actor_cache
+            else:
+                if self.object.type == "LIGHT" or self.object.type == "CAMERA":
+                    self.actor_cache = props.get_staging_cache(self.object, create=create)
+                    return self.actor_cache
         return None
 
     def get_link_id(self):
@@ -301,7 +305,7 @@ class LinkActor():
         return objects
 
     def object_has_sequence_shape_keys(self, obj):
-        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+        if utils.object_has_shape_keys(obj):
             for expression_name in self.expressions:
                 if expression_name in obj.data.shape_keys.key_blocks:
                     return True
@@ -317,7 +321,7 @@ class LinkActor():
         objects.sort(key=utils.key_count, reverse=True)
         # collect dictionary of shape keys and their primary key block
         for obj in objects:
-            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            if utils.object_has_shape_keys(obj):
                 for key in obj.data.shape_keys.key_blocks:
                     if key.name not in self.shape_keys:
                         self.shape_keys[key.name] = key
@@ -506,6 +510,16 @@ class LinkData():
                 return actor
         return None
 
+    def remove_sequence_actor(self, link_id):
+        to_remove = []
+        actor: LinkActor = None
+        for actor in self.sequence_actors:
+            utils.log_warn(f"Removing sequence actor: {actor.name} / {actor.get_link_id()}")
+            if actor.get_link_id() == link_id:
+                to_remove.append(actor)
+        for actor in to_remove:
+            self.sequence_actors.remove(actor)
+
     def set_action_settings(self, prefix: str, fake_user, set_keyframes):
         self.motion_prefix = prefix.strip()
         self.use_fake_user = fake_user
@@ -659,9 +673,8 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
         utils.hide(chr_cache.rig_datalink_rig)
         #utils.log_info(f"Using existing datalink transfer rig: {chr_cache.rig_datalink_rig.name}")
         # add child proxy objects
-        for obj in chr_cache.rig_datalink_rig.children:
-            if utils.object_exists_is_mesh(obj):
-                objects.append(obj)
+        for obj in utils.get_child_meshes(chr_cache.rig_datalink_rig):
+            objects.append(obj)
         utils.restore_render_visibility_state(RV)
         return chr_cache.rig_datalink_rig
 
@@ -783,19 +796,21 @@ def set_actor_expression_weight(objects, expression_name, weight):
     if objects:
         obj: bpy.types.Object
         for obj in objects:
-            if expression_name in obj.data.shape_keys.key_blocks:
-                if obj.data.shape_keys.key_blocks[expression_name].value != weight:
-                    obj.data.shape_keys.key_blocks[expression_name].value = weight
+            if utils.object_has_shape_keys(obj):
+                if expression_name in obj.data.shape_keys.key_blocks:
+                    if obj.data.shape_keys.key_blocks[expression_name].value != weight:
+                        obj.data.shape_keys.key_blocks[expression_name].value = weight
 
 
 def set_actor_viseme_weight(objects, viseme_name, weight):
     global LINK_DATA
     if objects and LINK_DATA.preview_shape_keys:
         for obj in objects:
-            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                if viseme_name in obj.data.shape_keys.key_blocks:
-                    if obj.data.shape_keys.key_blocks[viseme_name].value != weight:
-                        obj.data.shape_keys.key_blocks[viseme_name].value = weight
+            if utils.object_has_shape_keys(obj):
+                if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                    if viseme_name in obj.data.shape_keys.key_blocks:
+                        if obj.data.shape_keys.key_blocks[viseme_name].value != weight:
+                            obj.data.shape_keys.key_blocks[viseme_name].value = weight
 
 
 def ensure_current_frame(current_frame):
@@ -2345,7 +2360,7 @@ class LinkService():
     def get_actor_mesh_selection(self):
         selection = {}
         for obj in bpy.context.selected_objects:
-            if obj.type == "MESH" or obj.type == "ARMATURE":
+            if utils.object_exists_is_armature(obj) or utils.object_exists_is_mesh(obj):
                 actor = self.get_actor_from_object(obj)
                 chr_cache = actor.get_chr_cache()
                 selection.setdefault(chr_cache, {"meshes": [], "armatures": []})
@@ -2481,7 +2496,7 @@ class LinkService():
         objects = utils.get_selected_meshes(selection=LINK_DATA.sequence_selection)
         count = 0
         for obj in objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 if utils.get_prop(obj, "rl_mesh_modify"):
                     link_id = utils.get_prop(obj, "rl_link_id")
                     type = utils.get_prop(obj, "rl_type")
@@ -2527,7 +2542,7 @@ class LinkService():
         self.send_pose()
         count = 0
         for obj in objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 actor = self.get_actor_from_object(obj)
                 if actor:
                     obj_cache = actor.get_chr_cache().get_object_cache(obj)
@@ -2974,8 +2989,9 @@ class LinkService():
             character_type = actor_data.get("type")
             new_link_id = actor_data.get("new_link_id")
             new_name = actor_data.get("new_name")
+            confirm = actor_data.get("confirm")
             actor = LINK_DATA.find_sequence_actor(link_id)
-            if actor:
+            if actor and confirm:
                 if new_link_id:
                     actor.update_link_id(new_link_id)
                 if new_name:
@@ -2983,15 +2999,18 @@ class LinkService():
                 actor.set_id_tree(actor_data.get("bones"),
                                   actor_data.get("ids"),
                                   actor_data.get("id_tree"))
+            else:
+                LINK_DATA.remove_sequence_actor(link_id)
 
-        if request_type == "POSE":
-            self.send_pose()
-        elif request_type == "SEQUENCE":
-            self.send_sequence()
-        elif request_type == "REPLACE_MESH":
-            self.send_replace_mesh()
-        elif request_type == "MESH_MODIFY":
-            self.send_mesh_modify()
+        if LINK_DATA.sequence_actors:
+            if request_type == "POSE":
+                self.send_pose()
+            elif request_type == "SEQUENCE":
+                self.send_sequence()
+            elif request_type == "REPLACE_MESH":
+                self.send_replace_mesh()
+            elif request_type == "MESH_MODIFY":
+                self.send_mesh_modify()
         return
 
     def send_pose(self):
@@ -3996,7 +4015,7 @@ class LinkService():
         utils.log_info(f"Receive Character Import: {name} / {link_id} / {fbx_path}")
 
         if not os.path.exists(fbx_path):
-            update_link_status(f"Invalid Import Path!")
+            update_link_status(f"Invalid Import!")
             return
 
         self.get_actors_frame_range(None, frame, start_frame, end_frame, current_frame,
@@ -4424,9 +4443,11 @@ class LinkService():
             mss = utils.store_mode_selection_state()
             # remove old mesh modify
             remove = []
+            obj: bpy.types.Object = None
             for obj in bpy.data.objects:
                 if utils.get_prop(obj, "rl_mesh_modify") and utils.get_prop(obj, "rl_link_id") == link_id:
                     remove.append(obj)
+            rvs = utils.store_render_visibility_state(remove)
             for obj in remove:
                 utils.delete_object(obj)
             # import new mesh modify
@@ -4440,6 +4461,7 @@ class LinkService():
                 utils.set_prop(source, "rl_name", name)
                 utils.set_prop(source, "rl_type", character_type)
                 source.scale = (0.01, 0.01, 0.01)
+            utils.restore_render_visibility_state(rvs)
             utils.restore_mode_selection_state(mss)
 
     def receive_update_replace(self, data):
@@ -4543,7 +4565,7 @@ class LinkService():
                                         "name": obj.name,
                                         "object_id": obj_cache.object_id
                                     }
-                                if obj.type == "MESH":
+                                if utils.object_exists_is_mesh(obj):
                                     for mat in obj.data.materials:
                                         if chr_cache.count_material(mat) <= 1:
                                             mat_cache = chr_cache.get_material_cache(mat)
@@ -4554,8 +4576,8 @@ class LinkService():
                             obj_cache.delete()
 
                 to_delete = []
-                for child in rig.children:
-                    if child not in done and utils.object_exists_is_mesh(child):
+                for child in utils.get_child_meshes(rig):
+                    if child not in done:
                         done.append(child)
                         child_source_name = utils.strip_name(child.name)
                         if child_source_name in objects_to_replace_names:
@@ -4565,38 +4587,36 @@ class LinkService():
                                         "name": child.name,
                                         "object_id": obj_cache.object_id
                                     }
-                                if child.type == "MESH":
-                                    for mat in child.data.materials:
-                                        if chr_cache.count_material(mat) <= 1:
-                                            mat_cache = chr_cache.get_material_cache(mat)
-                                            if mat_cache:
-                                                mat_cache.invalidate()
-                                                mat_cache.delete()
+                                for mat in child.data.materials:
+                                    if chr_cache.count_material(mat) <= 1:
+                                        mat_cache = chr_cache.get_material_cache(mat)
+                                        if mat_cache:
+                                            mat_cache.invalidate()
+                                            mat_cache.delete()
                                 to_delete.append(child)
 
                 utils.delete_objects(to_delete, log=True)
 
                 # reparent the replacements to the actor rig
                 new_objects = []
-                for child in temp_rig.children:
-                    if utils.object_exists_is_mesh(child):
-                        new_objects.append(child)
-                        child.parent = rig
-                        mod = modifiers.get_armature_modifier(child, armature=rig)
-                        temp_obj_cache = temp_chr_cache.get_object_cache(child)
-                        new_obj_cache = chr_cache.add_object_cache(child, copy_from=temp_obj_cache)
-                        new_obj_cache.object = child
-                        # restore object names and object id's
-                        if temp_obj_cache.source_name in original_data:
-                            utils.force_object_name(child, original_data[temp_obj_cache.source_name]["name"])
-                            new_obj_cache.object_id = original_data[temp_obj_cache.source_name]["object_id"]
-                            utils.set_rl_id(child, new_obj_cache.object_id)
-                        for mat in child.data.materials:
-                            if utils.material_exists(mat):
-                                temp_mat_cache = temp_chr_cache.get_material_cache(mat)
-                                material_type = temp_mat_cache.material_type
-                                new_mat_cache = chr_cache.add_material_cache(mat, material_type, copy_from=temp_mat_cache)
-                                new_mat_cache.material = mat
+                for child in utils.get_child_meshes(temp_rig):
+                    new_objects.append(child)
+                    child.parent = rig
+                    mod = modifiers.get_armature_modifier(child, armature=rig)
+                    temp_obj_cache = temp_chr_cache.get_object_cache(child)
+                    new_obj_cache = chr_cache.add_object_cache(child, copy_from=temp_obj_cache)
+                    new_obj_cache.object = child
+                    # restore object names and object id's
+                    if temp_obj_cache.source_name in original_data:
+                        utils.force_object_name(child, original_data[temp_obj_cache.source_name]["name"])
+                        new_obj_cache.object_id = original_data[temp_obj_cache.source_name]["object_id"]
+                        utils.set_rl_id(child, new_obj_cache.object_id)
+                    for mat in child.data.materials:
+                        if utils.material_exists(mat):
+                            temp_mat_cache = temp_chr_cache.get_material_cache(mat)
+                            material_type = temp_mat_cache.material_type
+                            new_mat_cache = chr_cache.add_material_cache(mat, material_type, copy_from=temp_mat_cache)
+                            new_mat_cache.material = mat
 
                 # generate a new json_local file with the updated data
                 chr_json = chr_cache.get_json_data()

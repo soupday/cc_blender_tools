@@ -659,7 +659,7 @@ def is_right_material(mat):
 def is_material_in_objects(mat, objects):
     if mat:
         for obj in objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 if mat.name in obj.data.materials:
                     return True
     return False
@@ -787,6 +787,13 @@ def set_backface_culling(mat, backface_culling=True):
         mat.use_backface_culling_shadow = backface_culling
     except: ...
 
+
+def set_thin_wall(mat, use_thin_wall=True):
+    if mat:
+        bsdf_node = nodeutils.get_bsdf_node(mat)
+        if bsdf_node:
+            nodeutils.set_node_input_value(bsdf_node, "Thin Wall", use_thin_wall)
+
 def test_for_material_uv_coords(obj, mat_slot, uvs):
     mesh = obj.data
     ul = mesh.uv_layers[0]
@@ -804,7 +811,7 @@ def test_for_material_uv_coords(obj, mat_slot, uvs):
 
 
 def get_material_slot_by_type(chr_cache, obj, material_type):
-    if obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
         for index, slot in enumerate(obj.material_slots):
             mat = slot.material
             if mat:
@@ -815,7 +822,7 @@ def get_material_slot_by_type(chr_cache, obj, material_type):
 
 
 def get_material_by_type(chr_cache, obj, material_type):
-    if obj.type == "MESH":
+    if utils.object_exists_is_mesh(obj):
         for mat in obj.data.materials:
             mat_cache = chr_cache.get_material_cache(mat)
             if mat_cache and mat_cache.material_type == material_type:
@@ -979,7 +986,7 @@ def set_materials_setting(param, obj, context, objects_processed):
     props = vars.props()
     ob = context.object
 
-    if obj is not None and obj not in objects_processed:
+    if utils.object_exists(obj) and obj not in objects_processed:
         if obj.type == "MESH":
             objects_processed.append(obj)
 
@@ -1004,7 +1011,7 @@ def set_materials_setting(param, obj, context, objects_processed):
                         apply_backface_culling(obj, mat, 2)
 
         elif obj.type == "ARMATURE":
-            for child in obj.children:
+            for child in utils.get_child_meshes(obj):
                 set_materials_setting(param, child, context, objects_processed)
 
 

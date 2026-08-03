@@ -66,7 +66,7 @@ def eye_close_update(self, context):
                 if (obj_cache.object_type == "BODY" or
                     obj_cache.object_type == "EYE_OCCLUSION" or
                     obj_cache.object_type == "TEARLINE"):
-                    if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                    if utils.object_has_shape_keys(obj):
                         for key in BLINK_SHAPES:
                             if key in obj.data.shape_keys.key_blocks:
                                 try:
@@ -817,6 +817,7 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_brightness"))
     skin_diffuse_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_saturation"))
     skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
+    skin_gamma_correction: bpy.props.FloatProperty(default=1.05, min=0.1, max=2.0, update=lambda s,c: update_property(s,c,"skin_gamma_correction"))
     skin_cavity_ao_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_cavity_ao_strength"))
     skin_blend_overlay_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_blend_overlay_strength"))
     skin_ao_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
@@ -894,6 +895,7 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_brightness"))
     skin_diffuse_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_saturation"))
     skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
+    skin_gamma_correction: bpy.props.FloatProperty(default=1.05, min=0.1, max=2.0, update=lambda s,c: update_property(s,c,"skin_gamma_correction"))
     skin_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
     skin_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"skin_ao_power"))
     skin_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_saturation"))
@@ -1175,6 +1177,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_end_color_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_end_color_strength"))
     hair_invert_root_map: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_invert_root_map"))
     hair_base_color_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_base_color_strength"))
+    hair_gamma_correction: bpy.props.FloatProperty(default=0.8, min=0.1, max=2, update=lambda s,c: update_property(s,c,"hair_gamma_correction"))
     hair_root_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.144129, 0.072272, 0.046665, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_root_color"))
     hair_end_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -1203,11 +1206,12 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_anisotropic_shift_max: bpy.props.FloatProperty(default=0, min=-1, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift_max"))
     hair_anisotropic: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic"))
     hair_anisotropic_strength: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength"))
-    hair_specular_blend: bpy.props.FloatProperty(default=0.75, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_specular_blend"))
+    hair_transmission_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_transmission_strength"))
+    hair_specular_tint: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0, update=lambda s,c: update_property(s,c,"hair_specular_tint"))
     hair_anisotropic_strength2: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength2"))
     hair_anisotropic_strength_cycles: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength_cycles"))
-    hair_anisotropic_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0.05, 0.038907, 0.0325, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_anisotropic_color"))
+    #hair_anisotropic_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+    #                    default=(0.05, 0.038907, 0.0325, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_anisotropic_color"))
     hair_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_scale"))
     hair_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_saturation"))
     hair_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -1238,6 +1242,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
                         default=(0.0, 1.0, 0.0), min = -1.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_tangent_vector"))
     hair_tangent_flip_green: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_tangent_flip_green"))
     hair_specular_scale2: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_specular_scale2"))
+    hair_direct_specular: bpy.props.FloatProperty(default=0.4, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"hair_direct_specular"))
 # endregion
 
 #region PbrParameters
@@ -2468,7 +2473,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         # non cached objects
         arm = self.get_armature()
         if arm:
-            for child in arm.children:
+            for child in utils.get_child_objects(arm):
                 if child not in objects and utils.object_exists(child):
                     include = include_children
                     if include_proxy and self.is_collision_object(child):
@@ -2505,12 +2510,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_collision_proxy(self, obj):
         obj_cache = self.get_object_cache(obj)
         arm = self.get_armature()
-        for child in arm.children:
+        for child in utils.get_child_meshes(arm):
             if obj_cache.object_id == utils.get_rl_id(child):
                 if "rl_collision_proxy" in child and child["rl_collision_proxy"] == obj.name:
                     return child
         proxy_name = obj.name + ".Collision_Proxy"
-        for child in arm.children:
+        for child in utils.get_child_meshes(arm):
             if child.name == proxy_name:
                 return child
         return None
@@ -2643,7 +2648,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             obj_id = utils.get_rl_id(obj)
             arm = self.get_armature()
             if arm:
-                for child in arm.children:
+                for child in utils.get_child_meshes(arm):
                     if child not in split_objects:
                         child_id = utils.get_rl_id(child)
                         if child_id == obj_id:
@@ -2727,25 +2732,28 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         Fetches or creates an object cache for the object. Always returns an object cache collection.
         """
 
-        obj_cache: CC3ObjectCache = self.get_object_cache(obj)
-        if obj_cache is None:
-            utils.log_info(f"Creating Object Cache for: {obj.name}")
-            obj_cache = self.object_cache.add()
-            obj_cache.object_id = utils.generate_random_id(20)
-            if copy_from:
-                utils.log_info(f"Copying object cache from: {copy_from}")
-                utils.copy_property_group(copy_from, obj_cache)
-                if user:
-                    obj_cache.user_added = True
-                    obj_cache.object_id = utils.generate_random_id(20)
-            obj_cache.set_object(obj)
-            obj_cache.source_name = utils.strip_name(obj.name)
-            obj_cache.check_id()
-            if obj.type == "MESH":
-                obj_cache.vertex_count = len(obj.data.vertices)
-                obj_cache.face_count = len(obj.data.polygons)
-                obj_cache.edge_count = len(obj.data.edges)
-        return obj_cache
+        if utils.object_exists(obj):
+            obj_cache: CC3ObjectCache = self.get_object_cache(obj)
+            if obj_cache is None:
+                utils.log_info(f"Creating Object Cache for: {obj.name}")
+                obj_cache = self.object_cache.add()
+                obj_cache.object_id = utils.generate_random_id(20)
+                if copy_from:
+                    utils.log_info(f"Copying object cache from: {copy_from}")
+                    utils.copy_property_group(copy_from, obj_cache)
+                    if user:
+                        obj_cache.user_added = True
+                        obj_cache.object_id = utils.generate_random_id(20)
+                obj_cache.set_object(obj)
+                obj_cache.source_name = utils.strip_name(obj.name)
+                obj_cache.check_id()
+                if obj.type == "MESH":
+                    obj_cache.vertex_count = len(obj.data.vertices)
+                    obj_cache.face_count = len(obj.data.polygons)
+                    obj_cache.edge_count = len(obj.data.edges)
+            return obj_cache
+        else:
+            return None
 
     def has_material(self, mat):
         return (self.get_material_cache(mat) is not None)
@@ -2767,7 +2775,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         for obj_cache in self.object_cache:
             objects = self.get_split_objects(obj_cache)
             for obj in objects:
-                if obj and obj.type == "MESH":
+                if utils.object_exists_is_mesh(obj):
                     for m in obj.data.materials:
                         if m == mat:
                             count += 1
@@ -3590,7 +3598,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         if search_materials:
             materials = []
             for obj in objects:
-                if obj.type == "MESH":
+                if utils.object_exists_is_mesh(obj):
                     for mat in obj.data.materials:
                         materials.append(mat)
             if materials:
@@ -3742,7 +3750,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         action_store: CCICActionStore = self.action_options.action_store.add()
         action_store.store(rig, store_id)
         if utils.object_exists_is_armature(rig):
-            for obj in rig.children:
+            for obj in utils.get_child_meshes(rig):
                 if utils.object_has_shape_keys(obj):
                     action_store: CCICActionStore = self.action_options.action_store.add()
                     action_store.store(obj, store_id)

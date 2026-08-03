@@ -116,7 +116,7 @@ from . import rlx
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 4, 2),
+    "version": (2, 4, 3),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
