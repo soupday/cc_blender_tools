@@ -301,6 +301,10 @@ def get_physics_mesh_json_key(soft_physics_json, physics_mesh_json):
 
 def get_custom_shader(mat_json):
     try:
+        if mat_json["Custom Shader"]["Shader Name"] == "PBR":
+            return "Pbr"
+        if mat_json["Custom Shader"]["Shader Name"] == "TRA":
+            return "Tra"
         return mat_json["Custom Shader"]["Shader Name"]
     except:
         try:

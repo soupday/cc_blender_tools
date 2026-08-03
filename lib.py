@@ -159,7 +159,13 @@ def check_node_groups():
 
 
 def remove_all_groups():
+    EXCEPTIONS = ["RL_Post_Compositor"]
     for group in bpy.data.node_groups:
+        skip = False
+        for excp in EXCEPTIONS:
+            if excp in group.name:
+                skip = True
+        if skip: continue
         if vars.NODE_PREFIX in group.name or "RL_Node_Group" in group:
             bpy.data.node_groups.remove(group)
 

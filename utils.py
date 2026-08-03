@@ -160,6 +160,14 @@ def message_box_multi(title = "Info", icon = 'INFO', messages = None):
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
 
 
+def icmp(a: str, b: str) -> bool:
+    return a.casefold() == b.casefold()
+
+
+def icontains(s: str, search: str) -> bool:
+    return search.casefold() in s.casefold()
+
+
 def unique_name(name, no_version = False):
     """Generate a unique name for the node or property to quickly
        identify texture nodes or nodes with parameters."""

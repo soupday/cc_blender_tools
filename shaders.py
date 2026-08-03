@@ -515,6 +515,13 @@ def func_rpsqrt(cc, v):
         p = prefs.eevee_roughness_power_b443b if utils.B440() else prefs.eevee_roughness_power_b341
     return pow(v, p / 2)
 
+def func_hair_direct_specular(cc, v):
+    """Reduce the direct specular contribution for Eevee (as it's non anisotropic)"""
+    if cc.get_render_target() == "EEVEE":
+        return v * 0.5
+    else:
+        return v * 5
+
 def func_pow_2(cc, v):
     return math.pow(v, 2.0)
 
@@ -1316,8 +1323,6 @@ def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
     shader_name = "rl_hair_shader"
     shader_group = "rl_hair_shader"
     mix_shader_group = ""
-    if mat_cache.get_render_target() == "CYCLES":
-        shader_group = "rl_hair_cycles_shader"
 
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 

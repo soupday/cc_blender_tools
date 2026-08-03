@@ -387,6 +387,7 @@ BLENDER_4_SOCKET_REDIRECT = {
     "BSDF_PRINCIPLED": {
         "Subsurface": "Subsurface Weight",
         "Specular": "Specular IOR Level",
+        "Tint": "Specular Tint",
         "Sheen": "Sheen Weight",
         "Emission": "Emission Color",
         "Transmission": "Transmission Weight",
