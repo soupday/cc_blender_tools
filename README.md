@@ -37,6 +37,12 @@ Links
 - Extra checks for mesh objects with shape keys.
 - Fix to DataLink avatar lookup.
 - Update mesh modify retains mesh display settings.
+- Update import Empty based prop structures:
+    - Not all functionality with work with them, but should at least import with animations and setup correctly.
+- Fix to RTX custom PBR shader type.
+- Added gamma correction parameter to skin and hair shaders.
+- Hair shader update.
+- Compositor update.
 
 ### 2.4.2
 - Updated Morph export for Blender 5.1
@@ -46,11 +52,6 @@ Links
 - Fix to Blender 5+ grease pencil layers (Spring Rig Generation).
 - Fix to Linux remote datalink compatibility.
 - Fix to axis angle bone rotation calculations.
-- Update import Empty based prop structures:
-    - Not all functionality with work with them, but should at least import with animations and setup correctly.
-- Fix to RTX custom PBR shader type.
-- Added gamma correction parameter to skin and hair shaders.
-- Hair shader update.
 - Motion Sets & Blending update:
     - Motion sets updated for lights and cameras.
     - Motion blending for light & camera motion sets.
