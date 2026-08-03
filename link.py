@@ -673,9 +673,8 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
         utils.hide(chr_cache.rig_datalink_rig)
         #utils.log_info(f"Using existing datalink transfer rig: {chr_cache.rig_datalink_rig.name}")
         # add child proxy objects
-        for obj in chr_cache.rig_datalink_rig.children:
-            if utils.object_exists_is_mesh(obj):
-                objects.append(obj)
+        for obj in utils.get_child_meshes(chr_cache.rig_datalink_rig):
+            objects.append(obj)
         utils.restore_render_visibility_state(RV)
         return chr_cache.rig_datalink_rig
 
@@ -4577,8 +4576,8 @@ class LinkService():
                             obj_cache.delete()
 
                 to_delete = []
-                for child in rig.children:
-                    if child not in done and utils.object_exists_is_mesh(child):
+                for child in utils.get_child_meshes(rig):
+                    if child not in done:
                         done.append(child)
                         child_source_name = utils.strip_name(child.name)
                         if child_source_name in objects_to_replace_names:
@@ -4600,25 +4599,24 @@ class LinkService():
 
                 # reparent the replacements to the actor rig
                 new_objects = []
-                for child in temp_rig.children:
-                    if utils.object_exists_is_mesh(child):
-                        new_objects.append(child)
-                        child.parent = rig
-                        mod = modifiers.get_armature_modifier(child, armature=rig)
-                        temp_obj_cache = temp_chr_cache.get_object_cache(child)
-                        new_obj_cache = chr_cache.add_object_cache(child, copy_from=temp_obj_cache)
-                        new_obj_cache.object = child
-                        # restore object names and object id's
-                        if temp_obj_cache.source_name in original_data:
-                            utils.force_object_name(child, original_data[temp_obj_cache.source_name]["name"])
-                            new_obj_cache.object_id = original_data[temp_obj_cache.source_name]["object_id"]
-                            utils.set_rl_id(child, new_obj_cache.object_id)
-                        for mat in child.data.materials:
-                            if utils.material_exists(mat):
-                                temp_mat_cache = temp_chr_cache.get_material_cache(mat)
-                                material_type = temp_mat_cache.material_type
-                                new_mat_cache = chr_cache.add_material_cache(mat, material_type, copy_from=temp_mat_cache)
-                                new_mat_cache.material = mat
+                for child in utils.get_child_meshes(temp_rig):
+                    new_objects.append(child)
+                    child.parent = rig
+                    mod = modifiers.get_armature_modifier(child, armature=rig)
+                    temp_obj_cache = temp_chr_cache.get_object_cache(child)
+                    new_obj_cache = chr_cache.add_object_cache(child, copy_from=temp_obj_cache)
+                    new_obj_cache.object = child
+                    # restore object names and object id's
+                    if temp_obj_cache.source_name in original_data:
+                        utils.force_object_name(child, original_data[temp_obj_cache.source_name]["name"])
+                        new_obj_cache.object_id = original_data[temp_obj_cache.source_name]["object_id"]
+                        utils.set_rl_id(child, new_obj_cache.object_id)
+                    for mat in child.data.materials:
+                        if utils.material_exists(mat):
+                            temp_mat_cache = temp_chr_cache.get_material_cache(mat)
+                            material_type = temp_mat_cache.material_type
+                            new_mat_cache = chr_cache.add_material_cache(mat, material_type, copy_from=temp_mat_cache)
+                            new_mat_cache.material = mat
 
                 # generate a new json_local file with the updated data
                 chr_json = chr_cache.get_json_data()

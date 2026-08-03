@@ -2473,7 +2473,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         # non cached objects
         arm = self.get_armature()
         if arm:
-            for child in arm.children:
+            for child in utils.get_child_objects(arm):
                 if child not in objects and utils.object_exists(child):
                     include = include_children
                     if include_proxy and self.is_collision_object(child):
@@ -2510,12 +2510,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_collision_proxy(self, obj):
         obj_cache = self.get_object_cache(obj)
         arm = self.get_armature()
-        for child in arm.children:
+        for child in utils.get_child_meshes(arm):
             if obj_cache.object_id == utils.get_rl_id(child):
                 if "rl_collision_proxy" in child and child["rl_collision_proxy"] == obj.name:
                     return child
         proxy_name = obj.name + ".Collision_Proxy"
-        for child in arm.children:
+        for child in utils.get_child_meshes(arm):
             if child.name == proxy_name:
                 return child
         return None
@@ -2648,7 +2648,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             obj_id = utils.get_rl_id(obj)
             arm = self.get_armature()
             if arm:
-                for child in arm.children:
+                for child in utils.get_child_meshes(arm):
                     if child not in split_objects:
                         child_id = utils.get_rl_id(child)
                         if child_id == obj_id:
@@ -3750,7 +3750,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         action_store: CCICActionStore = self.action_options.action_store.add()
         action_store.store(rig, store_id)
         if utils.object_exists_is_armature(rig):
-            for obj in rig.children:
+            for obj in utils.get_child_meshes(rig):
                 if utils.object_has_shape_keys(obj):
                     action_store: CCICActionStore = self.action_options.action_store.add()
                     action_store.store(obj, store_id)

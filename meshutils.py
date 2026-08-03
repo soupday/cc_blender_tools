@@ -454,7 +454,7 @@ def get_child_objects_with_vertex_groups(parent, group_names, objects = None):
             objects.append(parent)
             break
 
-    for child in parent.children:
+    for child in utils.get_child_meshes(parent):
         get_child_objects_with_vertex_groups(child, group_names, objects)
 
     return objects
@@ -596,11 +596,11 @@ def get_head_body_object(chr_cache):
 
     if body_cache:
         body_id = body_cache.object_id
-        for child in arm.children:
+        for child in utils.get_child_meshes(arm):
             if utils.get_rl_id(child) == body_id and child not in body_objects:
                 body_objects[child] = total_vertex_group_weight(child, head_bones)
     else:
-        for child in arm.children:
+        for child in utils.get_child_meshes(arm):
             if child not in body_objects:
                 body_objects[child] = total_vertex_group_weight(child, head_bones)
 

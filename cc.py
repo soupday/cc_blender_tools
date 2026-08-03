@@ -89,7 +89,7 @@ def match_id_tree(rl_tree, arm=None,
             if arm:
                 found = False
                 if not found and not child_tree["children"]:
-                    for obj in arm.children:
+                    for obj in utils.get_child_objects(arm):
                         if obj.parent and obj.parent_type == "BONE" and obj.parent_bone == pose_bone.name:
                             if bone_name_match(child_name, obj.name):
                                 #utils.log_detail(f" - child_mesh: {obj.name} / child_tree: {child_name} - parented to: {obj.parent_bone}")

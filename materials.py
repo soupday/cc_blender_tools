@@ -1011,7 +1011,7 @@ def set_materials_setting(param, obj, context, objects_processed):
                         apply_backface_culling(obj, mat, 2)
 
         elif obj.type == "ARMATURE":
-            for child in obj.children:
+            for child in utils.get_child_meshes(obj):
                 set_materials_setting(param, child, context, objects_processed)
 
 

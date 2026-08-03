@@ -311,7 +311,7 @@ def find_source_actions(source_action, source_rig=None):
         if action:
             utils.log_info(f" - Found armature action: {action.name}")
             actions["armature"] = action
-        for obj in source_rig.children:
+        for obj in utils.get_child_meshes(source_rig):
             if utils.object_has_shape_keys(obj):
                 obj_id = get_obj_id(obj)
                 action = utils.safe_get_action(obj.data.shape_keys)
@@ -847,7 +847,7 @@ def new_motion_set(rig: bpy.types.Object, motion_id=None, motion_prefix=""):
     utils.safe_set_action(rig, action, slot=slot)
     utils.safe_set_action(rig.data, None, create=False)
     if rig.type == "ARMATURE":
-        for child in rig.children:
+        for child in utils.get_child_meshes(rig):
             if utils.object_exists_has_shape_keys(child):
                 utils.safe_set_action(child, None, create=False)
                 utils.safe_set_action(child.data, None, create=False)
@@ -3101,7 +3101,7 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
         # (i.e. shape keys from the body/tongue/eyes)
         source_keys = set()
         for smn in SOURCE_MESH_NAMES:
-            for obj in rig.children:
+            for obj in utils.get_child_meshes(rig):
                 if obj.name.startswith(smn):
                     if utils.object_exists_has_shape_keys(obj):
                         for key in obj.data.shape_keys.key_blocks:
@@ -3118,7 +3118,7 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
             done_ids = set()
             done_keys = set()
 
-        for obj in rig.children:
+        for obj in utils.get_child_meshes(rig):
 
             if utils.object_exists_has_shape_keys(obj):
 
@@ -3458,7 +3458,7 @@ def load_separate_actions(rig: bpy.types.Object, action: bpy.types.Action, move=
         # (i.e. shape keys from the body/tongue/eyes)
         source_keys = set()
         for smn in SOURCE_MESH_NAMES:
-            for obj in rig.children:
+            for obj in utils.get_child_meshes(rig):
                 if obj.name.startswith(smn):
                     if utils.object_exists_has_shape_keys(obj):
                         for key in obj.data.shape_keys.key_blocks:
@@ -3488,9 +3488,9 @@ def load_separate_actions(rig: bpy.types.Object, action: bpy.types.Action, move=
             done_ids = set()
             done_keys = set()
 
-        for obj in rig.children:
+        for obj in utils.get_child_meshes(rig):
 
-            if utils.object_exists_is_mesh(obj) and utils.object_has_shape_keys(obj):
+            if utils.object_has_shape_keys(obj):
                 obj_id = get_obj_id(obj)
 
                 # if generating key actions per mesh
@@ -3781,10 +3781,24 @@ def clone_fcurve_to_channel(from_fcurve: bpy.types.FCurve, to_channel) -> bpy.ty
 
 def refactor_to_slotted_action(objects, actions):
 
+    # Blender 5.0.0+ already slots actions
+    if utils.B500():
+        return actions
+
+    # No slotted actions before Blender 4.4.0
     if not utils.B440():
         return actions
 
     combined = []
+
+    # ignore empty structures actions for now
+    exceptions = []
+    for obj in objects:
+        if utils.object_exists_is_empty(obj) and obj.parent == None:
+            for child in utils.get_child_objects(obj):
+                action = utils.safe_get_action(child)
+                if action and action not in exceptions:
+                    exceptions.append(action)
 
     # build a database of armatures and their child mesh actions
     data = {}
@@ -3810,6 +3824,7 @@ def refactor_to_slotted_action(objects, actions):
                         }
                 else:
                     utils.log_error(f"Mesh action {action}, not found in actions!")
+
 
     combined = []
 
@@ -3839,7 +3854,7 @@ def refactor_to_slotted_action(objects, actions):
 
     # clean up old actions
     for action in actions:
-        if action and action not in combined:
+        if action and (action not in combined and action not in exceptions):
             try:
                 bpy.data.actions.remove(action)
             except: ...
@@ -3856,8 +3871,8 @@ def clean_actions(obj):
     elif utils.object_exists_is_armature(obj):
         rig_action = utils.safe_get_action(obj)
         clean_action_keyframes(rig_action)
-        for child in obj.children:
-            if utils.object_exists_is_mesh(child) and utils.object_has_shape_keys(obj):
+        for child in utils.get_child_meshes(obj):
+            if utils.object_has_shape_keys(obj):
                 key_action = utils.safe_get_action(child)
                 clean_action_keyframes(key_action)
 
@@ -4168,7 +4183,7 @@ def fetch_target_channels(rig, rig_action=None):
     rig_channelbag = utils.get_action_channelbag(rig_action, slot=rig_slot)
     rig_channel = (rig_action, rig_slot, rig_channelbag)
     key_channels = {}
-    for child in rig.children:
+    for child in utils.get_child_meshes(rig):
         if utils.object_exists_has_shape_keys(child):
             key_slot = target_slot(child.data.shape_keys)
             key_action = utils.safe_get_action(child.data.shape_keys)
@@ -4186,7 +4201,7 @@ def fetch_target_channels(rig, rig_action=None):
 
 def fetch_key_targets(rig):
     key_targets = []
-    for child in rig.children:
+    for child in utils.get_child_meshes(rig):
         if utils.object_exists_has_shape_keys(child):
             key_targets.append(child.name)
     return key_targets
@@ -4198,8 +4213,8 @@ def mix_motion_set(rig, action_store_id, frame_start, frame_end):
     done = False
     objects = [rig]
     if utils.object_exists_is_armature(rig):
-        for child in rig.children:
-            if utils.object_exists_is_mesh(child) and utils.object_has_shape_keys(child):
+        for child in utils.get_child_meshes(rig):
+            if utils.object_has_shape_keys(child):
                 objects.append(child)
 
     mix_pairs = []
@@ -4631,7 +4646,7 @@ def get_blend_mask_keys(chr_cache):
 
 def get_shape_key_names(rig) -> set:
     keys = set()
-    for obj in rig.children:
+    for obj in utils.get_child_meshes(rig):
         if utils.object_exists_has_shape_keys(obj):
             for i, key in enumerate(obj.data.shape_keys.key_blocks):
                 if i > 0:
@@ -6643,7 +6658,7 @@ class CCICMotionBlend(bpy.types.Operator):
                         bone_item.name = bone.name
 
                 keys = []
-                for obj in arm.children:
+                for obj in utils.get_child_meshes(arm):
                     if utils.object_exists_has_shape_keys(obj):
                         for i, key in enumerate(obj.data.shape_keys.key_blocks):
                             if i > 0 and key.name not in keys:

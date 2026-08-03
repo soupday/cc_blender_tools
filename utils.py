@@ -1321,6 +1321,10 @@ def get_child_objects(obj, include_parent=False, follow_armatures=False, of_type
     return objects
 
 
+def get_child_meshes(obj, follow_armatures=False):
+    return get_child_objects(obj, follow_armatures=follow_armatures, of_type="MESH")
+
+
 def try_select_object(obj, clear_selection = False):
     if clear_selection:
         clear_selected_objects()

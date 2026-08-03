@@ -514,7 +514,7 @@ def process_root_bones(arm, json_data, name):
                 pose_bone["root_type"] = type
 
 # region process_rl_import
-def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras, lights,
+def process_rl_import(file_path, import_flags, armatures, rl_armatures, empties, cameras, lights,
                       objects: list,
                       actions, json_data, report, link_id, only_objects=None, motion_prefix=""):
     props = vars.props()
@@ -620,14 +620,13 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
 
             # add child objects to object_cache
             character_meshes = []
-            for obj in objects:
-                if utils.object_exists_is_mesh(obj) and obj.parent and obj.parent == arm:
-                    if only_objects:
-                        source_name = utils.strip_name(obj.name)
-                        if source_name not in only_objects:
-                            continue
-                    chr_cache.add_object_cache(obj)
-                    character_meshes.append(obj)
+            for obj in utils.get_child_meshes(arm):
+                if only_objects:
+                    source_name = utils.strip_name(obj.name)
+                    if source_name not in only_objects:
+                        continue
+                chr_cache.add_object_cache(obj)
+                character_meshes.append(obj)
 
             # remame actions
             utils.log_info("Renaming actions:")
@@ -662,17 +661,14 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
                         if fix_5_1_normals:
                             meshutils.set_shading(obj, True)
 
-
-
             shaders.init_character_property_defaults(chr_cache, chr_json)
             basic.init_basic_default(chr_cache)
 
             # set preserve volume on armature modifiers
-            for obj in objects:
-                if utils.object_exists_is_mesh(obj):
-                    arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
-                    if arm_mod:
-                        arm_mod.use_deform_preserve_volume = False
+            for obj in character_meshes:
+                arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
+                if arm_mod:
+                    arm_mod.use_deform_preserve_volume = False
 
             # material setup mode
             chr_cache.setup_mode = props.setup_mode
@@ -696,7 +692,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             utils.log_recess()
 
         # any none character armatures should be scenes or props
-        for i, arm in enumerate(armatures):
+        for i, arm in enumerate(armatures + empties):
 
             character_name = name
             source_id = "Armature"
@@ -725,7 +721,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
                 chr_cache.set_link_id(link_id)
 
             # root bones
-            process_root_bones(arm, json_data, name)
+            if utils.object_exists_is_armature(arm):
+                process_root_bones(arm, json_data, name)
 
             # determine the main texture dir
             if os.path.exists(chr_cache.get_tex_dir()):
@@ -734,7 +731,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
                 chr_cache.import_embedded = True
 
             arm.name = character_name
-            arm.data.name = character_name
+            if arm.data:
+                arm.data.name = character_name
 
             # in case of duplicate names: character_name contains the name currently in Blender.
             #                             import_name contains the original name.
@@ -743,9 +741,10 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             chr_cache.add_object_cache(arm)
 
             # add child objects to object_cache
-            for obj in objects:
-                if utils.object_exists_is_mesh(obj) and obj.parent and obj.parent == arm:
-                    chr_cache.add_object_cache(obj)
+            prop_meshes = []
+            for obj in utils.get_child_meshes(arm):
+                chr_cache.add_object_cache(obj)
+                prop_meshes.append(obj)
 
             # remame actions
             utils.log_info("Renaming actions:")
@@ -774,7 +773,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             chr_cache.render_target = render_target
 
             json_avatar_type = jsonutils.get_json(json_data, f"{chr_id}/Avatar_Type")
-            if json_avatar_type and json_avatar_type == "Prop":
+            if json_avatar_type and json_avatar_type == "Prop" and utils.object_exists_is_armature(arm):
                 rigutils.custom_prop_rig(arm)
 
             # visibility
@@ -789,9 +788,10 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, cameras,
             except: ...
 
             # bones
-            id_tree = jsonutils.get_json(json_data, f"{name}/ID_Tree")
-            if id_tree:
-                cc.match_id_tree(id_tree, arm, pose=True)
+            if utils.object_exists_is_armature(arm):
+                id_tree = jsonutils.get_json(json_data, f"{name}/ID_Tree")
+                if id_tree:
+                    cc.match_id_tree(id_tree, arm, pose=True)
 
             imported_characters.append(chr_cache.link_id)
 
@@ -1135,15 +1135,16 @@ class CC3Import(bpy.types.Operator):
                 for action in actions:
                     action.use_fake_user = self.use_fake_user
 
-                armatures, rl_armatures, cameras, lights, import_flags = self.get_import_contents(imported, avatar_type, json_generation, import_flags)
+                armatures, rl_armatures, empties, cameras, lights, import_flags = \
+                    self.get_import_contents(imported, avatar_type, json_generation, import_flags)
 
                 # detect characters and objects
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
-                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, cameras, lights,
-                                                            imported, actions, json_data, self.import_report, self.link_id,
-                                                            only_objects=only_objects,
-                                                            motion_prefix=self.motion_prefix)
+                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, empties, cameras, lights,
+                                                               imported, actions, json_data, self.import_report, self.link_id,
+                                                               only_objects=only_objects,
+                                                               motion_prefix=self.motion_prefix)
                 elif prefs.import_auto_convert:
                     chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=self.link_id)
                     imported_character_ids = [chr_cache.link_id]
@@ -1176,13 +1177,14 @@ class CC3Import(bpy.types.Operator):
                 # detect characters and objects
                 armatures = []
                 rl_armatures = []
+                empties = []
                 cameras = []
                 lights = []
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
-                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, cameras, lights,
-                                                            imported, actions, json_data, self.import_report, self.link_id,
-                                                            motion_prefix=self.motion_prefix)
+                    imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures, empties, cameras, lights,
+                                                               imported, actions, json_data, self.import_report, self.link_id,
+                                                               motion_prefix=self.motion_prefix)
                 elif prefs.import_auto_convert:
                     chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=self.link_id)
                     imported_character_ids = [ chr_cache.link_id ]
@@ -1551,6 +1553,7 @@ class CC3Import(bpy.types.Operator):
     def get_import_contents(self, objects, avatar_type, json_generation, import_flags):
         armatures = []
         rl_armatures = []
+        empties = []
         cameras = []
         lights = []
         if not avatar_type:
@@ -1592,7 +1595,10 @@ class CC3Import(bpy.types.Operator):
                     import_flags = import_flags | ImportFlags.RL
                 if obj not in lights:
                     lights.append(obj)
-        return armatures, rl_armatures, cameras, lights, import_flags
+            elif utils.object_exists_is_empty(obj):
+                if obj.parent == None: # top level empties only ...
+                    empties.append(obj)
+        return armatures, rl_armatures, empties, cameras, lights, import_flags
 
 
     def do_import_report(self, context, stage = 0):

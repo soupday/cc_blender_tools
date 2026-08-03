@@ -1065,7 +1065,7 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
 def get_rigid_body_colliders(arm):
     colliders = []
     if arm:
-        for obj in arm.children:
+        for obj in utils.get_child_meshes(arm):
             if is_rigid_body_collider(obj):
                 colliders.append(obj)
     return colliders
@@ -1074,7 +1074,7 @@ def get_rigid_body_colliders(arm):
 def has_rigid_body_colliders(arm):
     obj : bpy.types.Object
     if arm:
-        for obj in arm.children:
+        for obj in utils.get_child_meshes(arm):
             if is_rigid_body_collider(obj):
                 return True
     return False

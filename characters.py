@@ -142,7 +142,7 @@ def get_character_objects(arm):
     objects = []
     if arm.type == "ARMATURE":
         objects.append(arm)
-        for obj in arm.children:
+        for obj in utils.get_child_meshes(arm):
             if utils.object_exists_is_mesh(obj):
                 if obj not in objects:
                     objects.append(obj)
@@ -1379,12 +1379,11 @@ def character_has_materials(arm, material_list: list):
     for material_name in material_list:
         material_name = material_name.lower()
         has_material = False
-        for obj in arm.children:
-            if utils.object_exists_is_mesh(obj):
-                for mat in obj.data.materials:
-                    mat_name = utils.strip_name(mat.name).lower()
-                    if mat_name == material_name:
-                        has_material = True
+        for obj in utils.get_child_meshes(arm):
+            for mat in obj.data.materials:
+                mat_name = utils.strip_name(mat.name).lower()
+                if mat_name == material_name:
+                    has_material = True
         if not has_material:
             return False
     return True
@@ -1393,23 +1392,21 @@ def character_has_materials(arm, material_list: list):
 def get_character_material_names(arm):
     mat_names = []
     if arm:
-        for obj in arm.children:
-            if utils.object_exists_is_mesh(obj):
-                for mat in obj.data.materials:
-                    mat_name = mat.name #utils.strip_name(mat.name)
-                    if mat_name not in mat_names:
-                        mat_names.append(mat_name)
+        for obj in utils.get_child_meshes(arm):
+            for mat in obj.data.materials:
+                mat_name = mat.name #utils.strip_name(mat.name)
+                if mat_name not in mat_names:
+                    mat_names.append(mat_name)
     return mat_names
 
 
 def get_character_object_names(arm):
     obj_names = []
     if arm:
-        for obj in arm.children:
-            if utils.object_exists_is_mesh(obj):
-                obj_name = obj.name #utils.strip_name(obj.name)
-                if obj_name not in obj_names:
-                    obj_names.append(obj_name)
+        for obj in utils.get_child_meshes(arm):
+            obj_name = obj.name #utils.strip_name(obj.name)
+            if obj_name not in obj_names:
+                obj_names.append(obj_name)
     return obj_names
 
 
