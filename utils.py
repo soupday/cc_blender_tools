@@ -1311,7 +1311,7 @@ def expand_with_child_objects(objects, follow_armatures=False, of_type=None):
             add_child_objects(obj, objects, follow_armatures, of_type)
 
 
-def get_child_objects(obj, include_parent=False, follow_armatures=False, of_type=None):
+def get_child_objects(obj, include_parent=True, follow_armatures=True, of_type=None):
     objects = []
     if object_exists(obj):
         if include_parent:
@@ -1321,7 +1321,7 @@ def get_child_objects(obj, include_parent=False, follow_armatures=False, of_type
     return objects
 
 
-def get_child_meshes(obj, follow_armatures=False):
+def get_child_meshes(obj, follow_armatures=True):
     return get_child_objects(obj, follow_armatures=follow_armatures, of_type="MESH")
 
 

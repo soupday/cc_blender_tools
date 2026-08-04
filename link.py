@@ -674,7 +674,8 @@ def make_datalink_import_rig(actor: LinkActor, objects: list):
         #utils.log_info(f"Using existing datalink transfer rig: {chr_cache.rig_datalink_rig.name}")
         # add child proxy objects
         for obj in utils.get_child_meshes(chr_cache.rig_datalink_rig):
-            objects.append(obj)
+            if obj not in objects:
+                objects.append(obj)
         utils.restore_render_visibility_state(RV)
         return chr_cache.rig_datalink_rig
 
@@ -4274,7 +4275,7 @@ class LinkService():
             incoming_motion_action = None
             motion_rig_action, motion_rig_slot = utils.safe_get_action_slot(motion_rig)
             use_slotted = prefs.use_action_slots()
-            motion_objects = utils.get_child_objects(motion_rig)
+            motion_mesh_objects = utils.get_child_objects(motion_rig, of_type="MESH")
             motion_id = rigutils.get_motion_id(motion_rig_action)
             utils.log_info(f"Replacing Actor Motion:")
             utils.log_indent()
@@ -4338,7 +4339,7 @@ class LinkService():
                         incoming_motion_action = rigutils.load_motion_set(actor_rig, motion_rig_action, move=True)
                     rigutils.update_avatar_rig(actor_rig)
 
-            for obj in motion_objects:
+            for obj in motion_mesh_objects:
                 utils.delete_mesh_object(obj)
             if motion_rig:
                 utils.delete_armature_object(motion_rig)

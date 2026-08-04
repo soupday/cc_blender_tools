@@ -518,9 +518,16 @@ def func_rpsqrt(cc, v):
 def func_hair_direct_specular(cc, v):
     """Reduce the direct specular contribution for Eevee (as it's non anisotropic)"""
     if cc.get_render_target() == "EEVEE":
-        return v * 0.5
+        return v / 8
     else:
         return v * 5
+
+def func_hair_anisotropic_strength(cc, v):
+    """Reduce the fake anisotropic effect for Cycles"""
+    if cc.get_render_target() == "EEVEE":
+        return v
+    else:
+        return v / 4
 
 def func_pow_2(cc, v):
     return math.pow(v, 2.0)
