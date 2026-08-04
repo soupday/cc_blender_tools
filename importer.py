@@ -1558,10 +1558,11 @@ class CC3Import(bpy.types.Operator):
         lights = []
         if not avatar_type:
             if json_generation is not None and json_generation == "":
-                avatar_type = "NoneStandard"
+                avatar_type = "NonStandard"
             elif json_generation is None:
                 avatar_type = "None"
-        for obj in objects:
+        # top level objects only
+        for obj in [o for o in objects if o.parent == None]:
             if utils.object_exists_is_armature(obj):
                 if (avatar_type == "Standard" or
                     avatar_type == "NonHuman" or
@@ -1573,7 +1574,7 @@ class CC3Import(bpy.types.Operator):
                     rigutils.is_iClone_armature(obj)):
                     utils.log_info(f"RL character armature found: {obj.name}")
                     if avatar_type == "None":
-                        avatar_type = "NoneStandard"
+                        avatar_type = "NonStandard"
                     import_flags = import_flags | ImportFlags.RL
                     if obj not in rl_armatures:
                         rl_armatures.append(obj)
@@ -1596,7 +1597,6 @@ class CC3Import(bpy.types.Operator):
                 if obj not in lights:
                     lights.append(obj)
             elif utils.object_exists_is_empty(obj):
-                if obj.parent == None: # top level empties only ...
                     empties.append(obj)
         return armatures, rl_armatures, empties, cameras, lights, import_flags
 
