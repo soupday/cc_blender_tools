@@ -1464,6 +1464,18 @@ def array_to_color(arr, to_srgb=False, to_linear=False):
         return Color((r,g,b))
 
 
+def color_to_array(col, to_srgb=False, to_linear=False):
+    r = col[0]
+    g = col[1]
+    b = col[2]
+    if to_srgb:
+        return [linear_to_srgbx(r), linear_to_srgbx(g), linear_to_srgbx(b)]
+    elif to_linear:
+        return [srgb_to_linearx(r), srgb_to_linearx(g), srgb_to_linearx(b)]
+    else:
+        return [r,g,b]
+
+
 def color_filter(color: Color, filter: Color):
     cf = Color((color.r * filter.r, color.g * filter.g, color.b * filter.b))
     if cf.v < 0.001:
