@@ -40,6 +40,7 @@ Links
 - Update import Empty based prop structures:
     - Not all functionality with work with them, but should at least import with animations and setup correctly.
 - Fix to RTX custom PBR shader type.
+- Fix to specular value on Traditional materials.
 - Added gamma correction parameter to skin and hair shaders.
 - Hair shader update.
 - Compositor update.
