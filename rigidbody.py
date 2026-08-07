@@ -838,7 +838,8 @@ def create_capsule_collider(name, parent, location, rotation, scale, radius, len
 
     r.rotate(rotation)
     utils.set_transform_rotation(capsule, rotate_quat(parent.matrix_world, r))
-    capsule.scale = parent.scale * scale
+    #capsule.scale = parent.scale * scale
+    capsule.scale = scale
     return capsule
 
 
@@ -860,7 +861,7 @@ def create_sphere_collider(name, parent, location, rotation, scale, radius):
 
     sphere.location = parent.matrix_world @ location
     utils.set_transform_rotation(sphere, rotate_quat(parent.matrix_world, rotation))
-    sphere.scale = parent.scale * scale
+    sphere.scale = scale
     return sphere
 
 
@@ -887,7 +888,7 @@ def create_box_collider(name, parent, location, rotation, scale, extents, axis):
 
     box.location = parent.matrix_world @ location
     utils.set_transform_rotation(box, rotate_quat(parent.matrix_world, rotation))
-    box.scale = parent.scale * scale
+    box.scale = scale
     return box
 
 def rotate_quat(M: Matrix, Q: Quaternion):

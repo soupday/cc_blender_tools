@@ -117,11 +117,11 @@ bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
     "version": (2, 4, 3),
-    "blender": (3, 4, 1),
+    "blender": (4, 5, 4),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
     "description": "Automatic import and material setup of CC3/4-iClone7/8 characters.",
-    "wiki_url": "https://soupday.github.io/cc_blender_tools/index.html",
+    "doc_url": "https://manual.reallusion.com/CC_and_IC_Auto_Setup_Plugin/ENU/CC_and_iC_Auto_Setup/2.0/06-for-Blender/Blender-Landing.htm",
     "tracker_url": "https://github.com/soupday/cc_blender_tools/issues",
 }
 
