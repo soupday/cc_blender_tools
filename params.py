@@ -1673,13 +1673,14 @@ SHADER_MATRIX = [
             ["default_roughness_min", 0, "DEF"],
             ["default_roughness_max", 1, "DEF"],
             ["default_emissive_color", (1,1,1,1), "DEF"],
-            ["default_specular", [0.5, 1.0], "DEF"],
+            ["default_specular", [0.5, 1.0], "func_specular_value", "/Specular Color", "$/Material Type"],
             ["default_roughness", [0.0, 0.25], "DEF"],
         ],
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
             ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "default_diffuse_color"],
+            ["/Specular Color", [255.0, 255.0, 255.0], "func_value_to_specular", "default_specular"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1991,7 +1992,7 @@ SHADER_MATRIX = [
             ["Flow Invert Green", "", "hair_tangent_flip_green"],
             ["Anisotropic Roughness", "", "hair_anisotropic_roughness"],
             ["Anisotropic Strength", "func_hair_anisotropic_strength", "hair_anisotropic_strength"],
-            ["Transmission Strength", "func_mul_2", "hair_transmission_strength"],
+            ["Transmission Strength", "func_mul_5", "hair_transmission_strength"],
             ["Specular Tint", "", "hair_specular_tint"],
             ["Gamma Correction", "", "hair_gamma_correction"],
             ["Subsurface Falloff", "func_sss_falloff_saturated", "hair_subsurface_falloff", "hair_subsurface_saturation"],
@@ -2008,6 +2009,7 @@ SHADER_MATRIX = [
             ["Alpha Strength", "", "hair_alpha_strength"],
             ["Alpha Power", "", "hair_alpha_power"],
             ["Opacity", "", "hair_opacity"],
+            ["Soften", "", "hair_soften"],
             ["Normal Strength", "func_normal_strength", "hair_normal_strength"],
             ["Bump Strength", "", "hair_bump_strength"],
             ["Displacement Strength", "", "hair_displacement_strength"],
@@ -2101,6 +2103,7 @@ SHADER_MATRIX = [
             ["hair_anisotropic_roughness", 0.0375, "DEF"],
             ["hair_transmission_strength", 0.2, "", "Custom/Transmission Strength"],
             ["hair_specular_tint", 0.8, "DEF"],
+            ["hair_soften", 0.5, "DEF"],
             ["hair_gamma_correction", 1.0, "DEF"],
             ["hair_subsurface_falloff", (1.000000, 0.815931, 0.739236, 1.000000), "DEF"],
             ["hair_subsurface_falloff_mix", 0.5, "DEF"],
@@ -2182,6 +2185,7 @@ SHADER_MATRIX = [
             ["PROP", "Strength", "hair_alpha_strength", True, "Alpha Map"],
             ["PROP", "Compression", "hair_alpha_power", True, "Alpha Map"],
             ["PROP", "Opacity", "hair_opacity", True, "Alpha Map"],
+            ["PROP", "*Soften", "hair_soften", True, "Alpha Map"],
             ["HEADER",  "Normals", "NORMALS_FACE"],
             ["PROP", "Normal Strength", "hair_normal_strength", True, "Normal Map"],
             ["PROP", "Bump Strength", "hair_bump_strength", True, "Bump Map"],

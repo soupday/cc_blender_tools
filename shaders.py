@@ -70,10 +70,16 @@ def exec_var_param(var_def, mat_cache, mat_json):
                 first = True
                 missing_args = False
                 for arg in args:
+                    quote = False
+                    if arg.startswith("$"):
+                        arg = arg[1:]
+                        quote = True
                     if not first:
                         func_expression += ", "
                     first = False
                     arg_value = jsonutils.get_material_json_var(mat_json, arg)
+                    if quote:
+                        arg_value = f"\"{arg_value}\""
                     if arg_value is None:
                         missing_args = True
                     func_expression += str(arg_value)
@@ -514,6 +520,18 @@ def func_rpsqrt(cc, v):
     else:
         p = prefs.eevee_roughness_power_b443b if utils.B440() else prefs.eevee_roughness_power_b341
     return pow(v, p / 2)
+
+def func_specular_value(cc, col, material_type):
+    if utils.icmp(material_type, "Pbr"):
+        return 0.5
+    try:
+        clinear = func_color_bytes_linear(cc, col)
+        return (clinear[0] + clinear[1] + clinear[2]) / 3.0
+    except:
+        return 0.0
+
+def func_value_to_specular(cc, v):
+    return func_export_byte3_linear(cc, [v,v,v])
 
 def func_hair_direct_specular(cc, v):
     """Reduce the direct specular contribution for Eevee (as it's non anisotropic)"""
