@@ -330,6 +330,8 @@ def get_material_json(obj_json, material):
 
 
 def get_material_node_type(mat_json: dict):
+    if mat_json is None:
+        return None
     return mat_json.get("Node Type", None)
 
 
