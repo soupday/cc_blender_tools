@@ -5479,14 +5479,14 @@ def evaluate_action_bone_rotation(rot_curves, rot_type, frame) -> Quaternion:
         except:
             rot = Quaternion((1,0,0,0))
     elif rot_type == RotationType.AXIS_ANGLE:
-        #try:
+        try:
             angle = eval_curve(rot_curves[0], frame)
             axis = (eval_curve(rot_curves[1], frame),
                     eval_curve(rot_curves[2], frame),
                     eval_curve(rot_curves[3], frame))
             rot = utils.axis_angle_to_quaternion(axis, angle)
-        #except:
-        #    rot = Quaternion((1,0,0,0))
+        except:
+            rot = Quaternion((1,0,0,0))
     else:
         rot = Quaternion((1,0,0,0))
     return rot
@@ -5517,6 +5517,27 @@ def evaluate_action_curve(key_curve: tuple, frame: int, default_value=0.0):
         value = default_value
     return value
 #endregion
+
+
+def get_rig_actions(rig: bpy.types.Object, actions: dict=None) :
+    if not actions:
+        actions = {}
+    ob_action, ob_slot = utils.safe_get_action_slot(rig)
+    if ob_action:
+        actions.setdefault(ob_action.name, [])
+        actions[ob_action.name].append((rig, ob_slot, ob_slot.target_id_type))
+        if utils.object_has_shape_keys(rig):
+            key_action, key_slot = utils.safe_get_action_slot(rig.data.shape_keys)
+            if key_action:
+                actions.setdefault(key_action.name, [])
+                actions[key_action.name].append((rig, key_slot, key_slot.target_id_type))
+        data_action, data_slot = utils.safe_get_action_slot(rig, rig.data)
+        if data_action:
+            actions.setdefault(data_action.name, [])
+            actions[data_action.name].append((rig, data_slot, data_slot.target_id_type))
+    for child in rig.children:
+        get_rig_actions(child, actions=actions)
+    return actions
 
 
 #region Operators

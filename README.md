@@ -33,6 +33,10 @@ Links
 
 ## Changelog
 
+### 2.4.4
+- Detects newly introduced object name duplication suffix on accessories.
+- Fix to possible error on node type detection.
+
 ### 2.4.3
 - Minimum Blender version 4.5.
 - Fix to rigid body collider scale.
