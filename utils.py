@@ -1534,78 +1534,41 @@ def delete_objects(objects, log=False):
 
 
 def delete_object(obj):
-    if object_exists(obj):
+    try:
+        data = obj.data
+    except:
+        data = None
+    try:
+        bpy.data.objects.remove(obj)
+    except: ...
+    if data:
         try:
-            data = obj.data
-        except:
-            data = None
-        if data:
             if obj.type == "MESH":
-                try:
-                    bpy.data.meshes.remove(data)
-                except:
-                    pass
+                bpy.data.meshes.remove(data)
             elif obj.type == "ARMATURE":
-                try:
-                    bpy.data.armatures.remove(data)
-                except:
-                    pass
+                bpy.data.armatures.remove(data)
             elif obj.type == "LIGHT":
-                try:
-                    bpy.data.lights.remove(data)
-                except:
-                    pass
+                bpy.data.lights.remove(data)
             elif obj.type == "CAMERA":
-                try:
-                    bpy.data.camera.remove(data)
-                except:
-                    pass
+                bpy.data.camera.remove(data)
             elif obj.type == "CURVE" or obj.type=="SURFACE" or obj.type == "FONT":
-                try:
-                    bpy.data.curves.remove(data)
-                except:
-                    pass
+                bpy.data.curves.remove(data)
             elif obj.type == "META":
-                try:
-                    bpy.data.metaballs.remove(data)
-                except:
-                    pass
+                bpy.data.metaballs.remove(data)
             elif obj.type == "VOLUME":
-                try:
-                    bpy.data.volumes.remove(data)
-                except:
-                    pass
+                bpy.data.volumes.remove(data)
             elif obj.type == "GPENCIL":
-                try:
-                    bpy.data.grease_pencils.remove(data)
-                except:
-                    pass
+                bpy.data.grease_pencils.remove(data)
             elif obj.type == "LATICE":
-                try:
-                    bpy.data.lattices.remove(data)
-                except:
-                    pass
+                bpy.data.lattices.remove(data)
             elif obj.type == "EMPTY":
-                try:
-                    if obj.data:
-                        if obj.data.type == "IMAGE":
-                            bpy.data.images.remove(data)
-                except:
-                    pass
+                if data.type == "IMAGE":
+                    bpy.data.images.remove(data)
             elif obj.type == "LIGHT_PROBE":
-                try:
-                    bpy.data.lightprobes.remove(data)
-                except:
-                    pass
+                bpy.data.lightprobes.remove(data)
             elif obj.type == "SPEAKER":
-                try:
-                    bpy.data.speakers.remove(data)
-                except:
-                    pass
-        try:
-            bpy.data.objects.remove(obj)
-        except:
-            pass
+                bpy.data.speakers.remove(data)
+        except: ...
 
 
 def delete_actions(actions):
@@ -1646,13 +1609,9 @@ def show(obj: bpy.types.Object, show=True, render=False):
 
 
 def hide(obj: bpy.types.Object, hide=True, render=False):
-    try:
-        obj.hide_set(hide)
-        if render:
-            obj.hide_render = hide
-        return True
-    except:
-        return False
+    obj.hide_set(hide)
+    if render:
+        obj.hide_render = hide
 
 
 def unhide(obj):
@@ -2197,8 +2156,10 @@ def make_action_slot(action, slot_type, slot_name):
     return None
 
 
-def get_action_slot(action: bpy.types.Action, slot_type: str=None, slot_id=None, create=False):
+def get_action_slot(action: bpy.types.Action, slot_type: str=None, slot_id=None, target_obj: bpy.types.Object=None, create=False):
     if action and B440():
+        if target_obj and not slot_type:
+            slot_type = get_slot_type_for(target_obj)
         for slot in action.slots:
             if slot_type and slot.target_id_type == slot_type:
                 return slot
@@ -2231,20 +2192,11 @@ def find_action_slot(action, slot_type=None, slot_name=None, slot_id=None):
     return None
 
 
-def get_slot_type_for(obj):
-    T = type(obj)
-    slot_type = "OBJECT"
-    if T is bpy.types.Key:
-        slot_type = "KEY"
-    if (T is bpy.types.Light or
-        T is bpy.types.SpotLight or
-        T is bpy.types.SunLight or
-        T is bpy.types.AreaLight or
-        T is bpy.types.PointLight):
-        slot_type = "LIGHT"
-    if T is bpy.types.Camera:
-        slot_type = "CAMERA"
-    return slot_type
+def get_slot_type_for(obj: bpy.types.Object):
+    try:
+        return obj.animation_data.action_slot.target_id_type
+    except:
+        return "OBJECT"
 
 
 def set_action_slot(obj, action, slot=None, create=False):
@@ -2773,6 +2725,11 @@ def md5sum(filename):
         for chunk in iter(lambda: f.read(128 * hash.block_size), b""):
             hash.update(chunk)
     return hash.hexdigest()
+
+
+def is_subscriptable(p):
+    subscriptable = hasattr(p, "__getitem__")
+    return subscriptable
 
 
 def store_object_state(objects=None):

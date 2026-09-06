@@ -2019,7 +2019,7 @@ class CC3ImportAnimations(bpy.types.Operator):
 
         # assign animation sets
         for arm in armatures:
-            armature_objects = utils.get_child_objects(arm)
+            armature_objects = utils.get_child_objects(arm, include_parent=True)
             source_id = arm.name
             # just one armature is always named 'Armature'
             if len(armatures) == 1:

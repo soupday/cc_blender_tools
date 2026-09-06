@@ -2480,7 +2480,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         # non cached objects
         arm = self.get_armature()
         if arm:
-            for child in utils.get_child_objects(arm):
+            for child in utils.get_child_objects(arm, include_parent=True):
+                if child == arm:
+                    continue
                 if child not in objects and utils.object_exists(child):
                     include = include_children
                     if include_proxy and self.is_collision_object(child):
@@ -2493,7 +2495,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         include = False
                     if include:
                         if of_type == "ALL" or child.type == of_type:
-                            objects.append(child)
+                            if child not in objects:
+                                objects.append(child)
 
         if include_sculpt:
             if self.sculpt_multires_body and self.sculpt_multires_body not in objects:
