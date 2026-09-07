@@ -233,6 +233,14 @@ def get_object_json(chr_json, obj):
             if object_name.lower() == name:
                 utils.log_detail("Object Json data found for: " + name)
                 return meshes_json[object_name]
+        # duplication suffixes have been introduced with the upgraded FBX api,
+        # and the json data won't match these.
+        source_name = utils.deduplicate_name(name)
+        if source_name != name:
+            for object_name in meshes_json.keys():
+                if object_name.lower() == source_name:
+                    utils.log_detail("Object Json data found for: " + source_name)
+                    return meshes_json[object_name]
     except:
         utils.log_warn("Failed to get object Json data!")
         return None
@@ -330,7 +338,10 @@ def get_material_json(obj_json, material):
 
 
 def get_material_node_type(mat_json: dict):
-    return mat_json.get("Node Type", None)
+    try:
+        return mat_json.get("Node Type", None)
+    except:
+        return None
 
 
 def get_material_json_key(obj_json, mat_json):

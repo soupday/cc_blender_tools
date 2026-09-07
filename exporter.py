@@ -1261,7 +1261,7 @@ def create_T_pose_action(arm, objects, export_strips):
     # create T-Pose action
     if "0_T-Pose" not in bpy.data.actions and utils.pose_mode_to(arm):
         action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
-        slot, channel = rigutils.add_action_ob_slot_channelbag(action, arm, reuse=True, create=True)
+        slot, channel = rigutils.add_action_ob_slot_channelbag(action, arm, reuse=True)
         utils.safe_set_action(arm, action, slot=slot)
 
         bones.select_all_bones(arm, select=True, clear_active=True)
@@ -1279,7 +1279,7 @@ def create_T_pose_action(arm, objects, export_strips):
     # or re-use T-Pose action
     else:
         action = bpy.data.actions["0_T-Pose"]
-        slot, channel = rigutils.add_action_ob_slot_channelbag(action, arm, reuse=True, create=True)
+        slot = utils.get_action_slot(action, target_obj=arm)
         utils.safe_set_action(arm, action, slot=slot)
 
     # push T-Pose to NLA if exporting strips
@@ -2239,7 +2239,7 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
     clone_id = utils.generate_random_id(10)
 
     export_rig, export_objects, \
-    vertex_group_map, t_pose_action, t_pose_slot = rigging.prep_rigify_export(chr_cache,
+    vertex_group_map, t_pose_action = rigging.prep_rigify_export(chr_cache,
                                                 export_anim, baked_actions,
                                                 include_t_pose=prefs.rigify_export_t_pose,
                                                 objects=objects,
@@ -2279,15 +2279,16 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
             mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
             use_mesh_modifiers = False)
 
-    if prefs.rigify_export_t_pose:
+    if prefs.rigify_export_t_pose and t_pose_action:
         bones.clear_pose(export_rig)
 
         # put t-pose back on armature
+        t_pose_slot = utils.get_action_slot(t_pose_action, target_obj=export_rig)
         utils.safe_set_action(export_rig, t_pose_action, slot=t_pose_slot)
 
         bpy.context.view_layer.update()
 
-        # write HIK profile for RIGIFY
+        # write T-pose HIK profile for RIGIFY
         hik_path = os.path.join(dir, name + ".3dxProfile")
         if prefs.rigify_export_naming == "METARIG":
             hik_template = hik.RIGIFY_METARIG_PROFILE_TEMPLATE

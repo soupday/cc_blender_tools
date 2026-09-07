@@ -1068,6 +1068,7 @@ def create_key_proxy_object(obj_id, action: bpy.types.Action=None, slot=None,
                 key = obj.shape_key_add(name=key_name)
                 key.slider_max = 1.5
                 key.slider_min = -1.5
+                key.value = 0.0
 
     elif action:
         channel = utils.get_action_channelbag(action, slot=slot)
@@ -1111,7 +1112,7 @@ def get_shape_key_action_objects(rigify_rig, source_rig, source_action=None, sha
             for obj_id, obj_action in source_actions["keys"].items():
                 # we don't need all the objects, just these three
                 if obj_id in ["Body", "Tongue", "Eye"]:
-                    slot = utils.get_action_slot(obj_action, slot_type="OBJECT")
+                    slot = utils.get_action_slot(obj_action, target_obj=obj.data.shape_keys)
                     obj = create_key_proxy_object(obj_id, action=obj_action, slot=slot, parent=source_rig)
                     utils.safe_set_action(obj.data.shape_keys, obj_action, slot=slot)
                     objects.append(obj)
@@ -1121,6 +1122,36 @@ def get_shape_key_action_objects(rigify_rig, source_rig, source_action=None, sha
         objects.append(obj)
 
     return objects
+
+
+def copy_shapekey_drivers(from_keys, to_keys):
+    if not from_keys or not to_keys or not from_keys.animation_data:
+        return
+    if not to_keys.animation_data:
+        to_keys.animation_data_create()
+    for from_curve in from_keys.animation_data.drivers:
+        from_driver = from_curve.driver
+        to_curve = to_keys.driver_add(from_curve.data_path)
+        to_curve.array_index = from_curve.array_index
+        to_driver = to_curve.driver
+        to_driver.type = from_driver.type
+        to_driver.expression = from_driver.expression
+        from_var: bpy.types.DriverVariable = None
+        for from_var in from_driver.variables:
+            to_var: bpy.types.DriverVariable = to_driver.variables.new()
+            to_var.name = from_var.name
+            to_var.type = from_var.type
+            to_var.targets[0].data_path = from_var.targets[0].data_path
+            try: # can be read only
+                to_var.targets[0].id_type = from_var.targets[0].id_type
+            except: ...
+            to_var.targets[0].id = from_var.targets[0].id
+            to_var.targets[0].bone_target = from_var.targets[0].bone_target
+            to_var.targets[0].rotation_mode = from_var.targets[0].rotation_mode
+            to_var.targets[0].transform_type = from_var.targets[0].transform_type
+            to_var.targets[0].transform_space = from_var.targets[0].transform_space
+            to_var.targets[0].use_fallback_value = from_var.targets[0].use_fallback_value
+            to_var.targets[0].fallback_value = from_var.targets[0].fallback_value
 
 
 def apply_fast_key_proxies(objects=None):
@@ -1147,6 +1178,7 @@ def apply_fast_key_proxies(objects=None):
                 values = None
             proxy = create_key_proxy_object(obj.name, shape_keys=keys)
             proxy_mesh = proxy.data
+            copy_shapekey_drivers(obj.data.shape_keys, proxy.data.shape_keys)
             bpy.data.objects.remove(proxy)
             store[obj.name] = obj.data
             obj.data = proxy_mesh
@@ -1554,7 +1586,7 @@ def reset_rotation_modes(rig, rotation_mode = "QUATERNION"):
 
 
 def is_skinned_rig(rig):
-    meshes = utils.get_child_objects(rig)
+    meshes = utils.get_child_objects(rig, of_type="MESH")
     for mesh in meshes:
         mod = None
         for m in mesh.modifiers:
@@ -1926,7 +1958,7 @@ def get_local_pose_bone_transform(M: Matrix, pose_bone: bpy.types.PoseBone):
 
 def apply_as_rest_pose(rig):
     if rig and select_rig(rig):
-        objects = utils.get_child_objects(rig)
+        objects = utils.get_child_objects(rig, of_type="MESH")
         for obj in objects:
             if utils.object_exists(obj):
                 vis = obj.visible_get()
@@ -2230,7 +2262,7 @@ def update_prop_rig(rig):
     root_bones.add(rig.data.bones[0])
     USE_JSON_BONE_DATA = True
 
-    meshes = utils.get_child_objects(rig)
+    meshes = utils.get_child_objects(rig, of_type="MESH")
     for obj in meshes:
         if (obj.parent_type == "BONE" and obj.parent_bone in rig.data.bones):
             bone = rig.data.bones[obj.parent_bone]
@@ -2491,7 +2523,7 @@ def custom_prop_rig(rig):
     root_bones.add(rig.data.bones[0].name)
     USE_JSON_BONE_DATA = True
 
-    meshes = utils.get_child_objects(rig)
+    meshes = utils.get_child_objects(rig, of_type="MESH")
     for obj in meshes:
         if (obj.parent_type == "BONE" and obj.parent_bone in rig.data.bones):
             bone = rig.data.bones[obj.parent_bone]
@@ -5196,8 +5228,7 @@ def blend_data_curves(rig, motion_channel, stored_channel,
         # fetch default values (for missing fcurves) from the rig itself
         try:
             prop = rig.path_resolve(data_path)
-            subscriptable = hasattr(prop, "__getitem__")
-            if subscriptable:
+            if utils.is_subscriptable(prop):
                 default_eval = prop[array_index]
             else:
                 default_eval = prop
@@ -5479,14 +5510,14 @@ def evaluate_action_bone_rotation(rot_curves, rot_type, frame) -> Quaternion:
         except:
             rot = Quaternion((1,0,0,0))
     elif rot_type == RotationType.AXIS_ANGLE:
-        #try:
+        try:
             angle = eval_curve(rot_curves[0], frame)
             axis = (eval_curve(rot_curves[1], frame),
                     eval_curve(rot_curves[2], frame),
                     eval_curve(rot_curves[3], frame))
             rot = utils.axis_angle_to_quaternion(axis, angle)
-        #except:
-        #    rot = Quaternion((1,0,0,0))
+        except:
+            rot = Quaternion((1,0,0,0))
     else:
         rot = Quaternion((1,0,0,0))
     return rot
@@ -5517,6 +5548,27 @@ def evaluate_action_curve(key_curve: tuple, frame: int, default_value=0.0):
         value = default_value
     return value
 #endregion
+
+
+def get_rig_actions(rig: bpy.types.Object, actions: dict=None) :
+    if not actions:
+        actions = {}
+    ob_action, ob_slot = utils.safe_get_action_slot(rig)
+    if ob_action:
+        actions.setdefault(ob_action.name, [])
+        actions[ob_action.name].append((rig, ob_slot, ob_slot.target_id_type))
+        if utils.object_has_shape_keys(rig):
+            key_action, key_slot = utils.safe_get_action_slot(rig.data.shape_keys)
+            if key_action:
+                actions.setdefault(key_action.name, [])
+                actions[key_action.name].append((rig, key_slot, key_slot.target_id_type))
+        data_action, data_slot = utils.safe_get_action_slot(rig, rig.data)
+        if data_action:
+            actions.setdefault(data_action.name, [])
+            actions[data_action.name].append((rig, data_slot, data_slot.target_id_type))
+    for child in rig.children:
+        get_rig_actions(child, actions=actions)
+    return actions
 
 
 #region Operators

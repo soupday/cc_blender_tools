@@ -1127,11 +1127,12 @@ class CC3Import(bpy.types.Operator):
                             characters.remove_empty_shapekeys_vertex_groups(arm, obj)
 
                 # combine actions (B440 action slots)
-                if prefs.use_action_slots():
-                    actions = rigutils.refactor_to_slotted_action(imported, actions)
+                if actions:
+                    if prefs.use_action_slots():
+                        actions = rigutils.refactor_to_slotted_action(imported, actions)
 
-                for action in actions:
-                    action.use_fake_user = self.use_fake_user
+                    for action in actions:
+                        action.use_fake_user = self.use_fake_user
 
                 armatures, rl_armatures, empties, cameras, lights, import_flags = \
                     self.get_import_contents(imported, avatar_type, json_generation, import_flags)
@@ -2018,7 +2019,7 @@ class CC3ImportAnimations(bpy.types.Operator):
 
         # assign animation sets
         for arm in armatures:
-            armature_objects = utils.get_child_objects(arm)
+            armature_objects = utils.get_child_objects(arm, include_parent=True)
             source_id = arm.name
             # just one armature is always named 'Armature'
             if len(armatures) == 1:

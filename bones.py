@@ -1776,24 +1776,32 @@ def find_constraint(pose_bone: bpy.types.PoseBone, of_type, with_subtarget=None)
     return None
 
 
-def clear_drivers(rig):
-    # rig object drivers (pose bone drivers)
-    drivers = rig.animation_data.drivers
-    if drivers:
-        fcurves = []
-        for fc in drivers:
-            fcurves.append(fc)
-        for fc in fcurves:
-            drivers.remove(fc)
+def clear_drivers(obj):
 
-    # rig armature drivers (bone drivers)
-    drivers = rig.data.animation_data.drivers
+    # OBJECT drivers (e.g. pose bones, transform)
+    try:
+        drivers = obj.animation_data.drivers
+    except:
+        drivers = None
     if drivers:
-        fcurves = []
-        for fc in drivers:
-            fcurves.append(fc)
-        for fc in fcurves:
-            drivers.remove(fc)
+        while drivers:
+            drivers.remove(drivers[0])
+
+    # DATA drivers (e.g. bones, light, camera)
+    try:
+        drivers = obj.data.animation_data.drivers
+    except:
+        drivers = None
+    if drivers:
+        while drivers:
+            drivers.remove(drivers[0])
+
+    # shape key drivers
+    if utils.object_has_shape_keys(obj):
+        for key in obj.data.shape_keys.key_blocks:
+            if key.driver_remove('value'):
+                key.value = 0.0
+
 
 def safe_get_bone_name(arm, bone_or_name):
     if arm:

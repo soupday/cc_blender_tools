@@ -1537,6 +1537,9 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mapping):
 
         for obj in utils.get_child_objects(cc3_rig):
 
+            if obj == cc3_rig:
+                continue
+
             if obj.parent == cc3_rig: # reparent only if direct parent was rig, sub children should follow these
 
                 hidden = not obj.visible_get()
@@ -2945,6 +2948,8 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
                 elif bones.is_bone_in_collections(rigify_rig, bone, EXTRA_COLLECTIONS, EXTRA_GROUPS):
                     bones.select_bone(rigify_rig, bone, True)
 
+            # NOTE: shape keys are now copied directly into the baked animation when retargeting
+            # see: rigutils.copy_action_shape_key_channels()
             shape_key_objects = []
             #for child in utils.get_child_meshes(source_rig):
             #    if utils.object_has_shape_keys(child):
@@ -2954,8 +2959,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
                                                             source_rig, source_action,
                                                             shape_key_objects,
                                                             False, True,
-                                                            motion_id="Retarget",
-                                                            use_fast_proxies=True)[0]
+                                                            motion_id="Retarget")[0]
 
         # remove retargeting rig (and temp shape key actions)
         adv_retarget_remove_pair(op, chr_cache)
@@ -3141,7 +3145,7 @@ def get_extension_export_bones(export_rig):
     return accessory_bones, def_bones
 
 
-def clear_drivers_and_constraints(rig):
+def clear_drivers_and_constraints(rig, clear_child_objects=True, objects=None):
     # remove all drivers
     if rigutils.select_rig(rig):
         bones.clear_drivers(rig)
@@ -3152,8 +3156,14 @@ def clear_drivers_and_constraints(rig):
             bones.clear_constraints(rig, pose_bone.name)
             pose_bone.custom_shape = None
 
+    if clear_child_objects:
+        if objects is None:
+            objects = utils.get_child_objects(rig, include_parent=False)
+        for obj in objects:
+            bones.clear_drivers(obj)
 
-def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, t_pose_slot=None,
+
+def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
                         link_target=False, bone_naming="CC"):
 
     rigify_rig = chr_cache.get_armature()
@@ -3187,9 +3197,9 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, t_pose_
     if accessory_def_bones:
         export_bones.extend(accessory_def_bones)
 
-    clear_drivers_and_constraints(export_rig)
+    clear_drivers_and_constraints(export_rig, clear_child_objects=False)
 
-    bind_pose_is_a_pose = False
+    bind_pose_is_A_pose = False
     layer = 0
 
     utils.object_mode()
@@ -3214,7 +3224,7 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, t_pose_
         upper_arm_l = edit_bones['DEF-upper_arm.L']
         world_x = Vector((1, 0, 0))
         if world_x.dot(upper_arm_l.y_axis) < 0.9:
-            bind_pose_is_a_pose = True
+            bind_pose_is_A_pose = True
 
         for export_def in EXPORT_RIG:
             bone_name = export_def[0]
@@ -3334,12 +3344,14 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, t_pose_
     if use_t_pose and rigutils.pose_rig(export_rig):
 
         # add t-pose action to armature
+        t_pose_slot = None
         if t_pose_action:
+            t_pose_slot, t_pose_channel = rigutils.add_action_ob_slot_channelbag(t_pose_action, export_rig, reuse=True)
             utils.safe_set_action(export_rig, t_pose_action, slot=t_pose_slot)
 
         bones.select_all_bones(export_rig, select=True, clear_active=True)
 
-        if bind_pose_is_a_pose:
+        if bind_pose_is_A_pose:
             angle = 30.0 * math.pi / 180.0
             if bone_naming == "METARIG":
                 left_arm_name = "upper_arm.L"
@@ -3451,8 +3463,7 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, objects, accessory_map):
                                                                     None, None,
                                                                     motion_objects,
                                                                     True, True,
-                                                                    motion_id="Export",
-                                                                    use_fast_proxies=True)
+                                                                    motion_id="Export")
 
     # restore ik stretch settings
     rigutils.restore_ik_stretch(ik_store)
@@ -3462,7 +3473,7 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, objects, accessory_map):
     return armature_action, shape_key_actions
 
 
-def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, t_pose_slot=None, link_target=False, bone_naming="CC"):
+def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, link_target=False, bone_naming="CC"):
     prefs = vars.prefs()
 
     # generate export rig
@@ -3470,7 +3481,6 @@ def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, t_
     export_rig, vertex_group_map, accessory_map = generate_export_rig(chr_cache,
                                                                       use_t_pose=include_t_pose,
                                                                       t_pose_action=t_pose_action,
-                                                                      t_pose_slot=t_pose_slot,
                                                                       link_target=link_target,
                                                                       bone_naming=bone_naming)
     chr_cache.rig_export_rig = export_rig
@@ -3496,19 +3506,17 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions: list,
 
     # create empty T-Pose action
     t_pose_action: bpy.types.Action = None
-    t_pose_slot = None
     if include_t_pose:
         if "0_T-Pose" in bpy.data.actions:
             bpy.data.actions.remove(bpy.data.actions["0_T-Pose"])
         t_pose_action = bpy.data.actions.new("0_T-Pose")
-        t_pose_slot, t_pose_channel = rigutils.add_action_ob_slot_channelbag(t_pose_action, export_rig, reuse=True, create=True)
 
     export_rig, vertex_group_map, accessory_map = adv_export_pair_rigs(chr_cache,
                                                                        include_t_pose=include_t_pose,
                                                                        t_pose_action=t_pose_action,
-                                                                       t_pose_slot=t_pose_slot,
                                                                        link_target=False,
                                                                        bone_naming=bone_naming)
+
     export_rig.location = (0,0,0)
     utils.set_transform_rotation(export_rig, Euler((0,0,0)))
 
@@ -3529,14 +3537,14 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions: list,
                 baked_actions.append(t_pose_action)
 
             # bake current timeline animation to export rig
-            action = None
+            rig_action = None
             key_actions = {}
             if bake_animation:
                 utils.log_info(f"Baking NLA timeline to export rig...")
-                action, key_actions = adv_bake_rigify_for_export(chr_cache, export_rig, objects, accessory_map)
-                rig_action, rig_slot = utils.safe_get_action_slot(export_rig)
-                action.name = action_name
-                baked_actions.append(action)
+                rig_action, key_actions = adv_bake_rigify_for_export(chr_cache, export_rig, objects, accessory_map)
+                rig_slot = utils.safe_get_action_slot(export_rig)[1]
+                rig_action.name = action_name
+                baked_actions.append(rig_action)
                 export_rig: bpy.types.Object = chr_cache.rig_export_rig
                 for key_action in key_actions.values():
                     if key_action:
@@ -3545,19 +3553,20 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions: list,
             utils.safe_set_action(export_rig, None)
 
             # push baked armature action to NLA strip
-            if bake_animation and action:
-                utils.log_info(f"Adding {action.name} to NLA strips")
+            if bake_animation and rig_action:
+                utils.log_info(f"Adding OBJECT action {rig_action.name} to NLA strips")
                 track = export_rig.animation_data.nla_tracks.new()
-                track.name = action.name
-                strip = track.strips.new(action.name, int(action.frame_range[0]), action)
+                track.name = rig_action.name
+                strip = track.strips.new(rig_action.name, int(rig_action.frame_range[0]), rig_action)
                 strip.action_slot = rig_slot
-                strip.action_frame_start = int(action.frame_range[0])
-                strip.action_frame_end = int(action.frame_range[1])
+                strip.action_frame_start = int(rig_action.frame_range[0])
+                strip.action_frame_end = int(rig_action.frame_range[1])
+                utils.safe_set_action(export_rig, None)
 
             # reparent the child objects to the export rig
             clones = []
             for child in utils.get_child_objects(rigify_rig):
-                if objects and child not in objects:
+                if child == rigify_rig or (objects and child not in objects):
                     continue
                 obj_name = child.name
                 mesh_name = child.data.name
@@ -3576,18 +3585,26 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions: list,
                 rename_to_unity_vertex_groups(clone, vertex_group_map)
                 if utils.object_has_shape_keys(clone):
                     key_action, key_slot = utils.safe_get_action_slot(clone.data.shape_keys)
-                    rigutils.reset_nla_tracks(clone)
-                    utils.log_info(f"Adding {key_action.name} to NLA strips")
-                    track = clone.data.shape_keys.animation_data.nla_tracks.new()
-                    track.name = action.name
-                    strip = track.strips.new(action.name, int(key_action.frame_range[0]), key_action)
-                    strip.action_slot = key_slot
-                    strip.action_frame_start = int(key_action.frame_range[0])
-                    strip.action_frame_end = int(key_action.frame_range[1])
+                    if key_action and key_slot:
+                        rigutils.reset_nla_tracks(clone)
+                        utils.log_info(f"Adding KEY action {key_action.name} to NLA strips")
+                        track = clone.data.shape_keys.animation_data.nla_tracks.new()
+                        track.name = key_action.name
+                        strip = track.strips.new(key_action.name, int(key_action.frame_range[0]), key_action)
+                        strip.action_slot = key_slot
+                        strip.action_frame_start = int(key_action.frame_range[0])
+                        strip.action_frame_end = int(key_action.frame_range[1])
+                    else:
+                        utils.log_info(f"No KEY action on: {clone.name}")
+                    utils.safe_set_action(clone.data.shape_keys, None)
+
+            # Ensure drivers and contraints are cleared from export rig
+            # (otherwise it locks to the animation on the Rigify Rig)
+            clear_drivers_and_constraints(export_rig, clear_child_objects=True, objects=clones)
 
     rigutils.select_rig(export_rig)
     export_objects = [export_rig] + clones
-    return export_rig, export_objects, vertex_group_map, t_pose_action, t_pose_slot
+    return export_rig, export_objects, vertex_group_map, t_pose_action
 
 
 def get_motion_export_objects(objects):
@@ -3676,6 +3693,7 @@ def finish_rigify_export(chr_cache, export_rig, export_actions,
     for obj in objects:
         if utils.object_exists(obj):
             original_obj_name = obj.name
+            is_mesh = obj.type == "MESH"
             cloned_obj_name = f"{original_obj_name}_{clone_id}"
             original_mesh_name = obj.data.name
             cloned_mesh_name = f"{original_mesh_name}_{clone_id}"
@@ -3683,6 +3701,7 @@ def finish_rigify_export(chr_cache, export_rig, export_actions,
                 utils.delete_object(obj)
             if cloned_obj_name in bpy.data.objects:
                 bpy.data.objects[cloned_obj_name].name = original_obj_name
+            if is_mesh and cloned_mesh_name in bpy.data.meshes:
                 bpy.data.meshes[cloned_mesh_name].name = original_mesh_name
 
 
@@ -3694,7 +3713,6 @@ def bake_rig_animation(chr_cache, rig, source_rig, source_action,
                        shape_key_objects,
                        clear_constraints, limit_view_layer,
                        motion_id="Bake", motion_prefix="",
-                       use_random_id=True,
                        use_fast_proxies=False):
     """Bakes the current animation timeline on the supplied rig.
     """
@@ -3724,16 +3742,15 @@ def bake_rig_animation(chr_cache, rig, source_rig, source_action,
         # turn off character physics
         physics_objects = physics.disable_physics(chr_cache)
 
-        # use fast proxies
+        # use fast proxies,
+        # NOTE: no longer needed.
         store = None
         if use_fast_proxies and shape_key_objects:
             store = rigutils.apply_fast_key_proxies(shape_key_objects)
-            # or turn every mesh into a fast proxy?
-            #store = rigutils.apply_fast_key_proxies()
 
         # limit view layer (bakes faster)
         if limit_view_layer:
-            tmp_collection, layer_collections, to_hide = utils.limit_view_layer_to_collection("TMP_BAKE", rig, source_rig, shape_key_objects)
+            tmp_collection, layer_collections, to_hide = utils.limit_view_layer_to_collection("TMP_BAKE", rig, source_rig)#, shape_key_objects)
 
         utils.set_active_object(rig)
         utils.set_mode("POSE")
@@ -3751,8 +3768,8 @@ def bake_rig_animation(chr_cache, rig, source_rig, source_action,
 
         utils.object_mode()
 
-        if use_fast_proxies and store:
-            rigutils.restore_fast_key_proxies(store)
+        #if use_fast_proxies and store:
+        #    rigutils.restore_fast_key_proxies(store)
 
         # armature action
         baked_action = utils.safe_get_action(rig)

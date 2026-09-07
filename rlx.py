@@ -892,7 +892,7 @@ def add_light_container():
         container = utils.get_active_object()
         container.name = "Lighting"
         utils.set_ccic_id(container)
-    children = utils.get_child_objects(container)
+    children = utils.get_child_objects(container, include_parent=False)
     for child in children:
         if utils.has_ccic_id(child) and child.type == "LIGHT":
             utils.delete_object_tree(child)

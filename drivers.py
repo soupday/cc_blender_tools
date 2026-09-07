@@ -945,7 +945,7 @@ def get_shape_key_driver(obj, shape_key_name, drive_limit=False) -> bpy.types.Dr
 
 def add_driver_var_defs(driver, var_defs):
     for var_def in var_defs:
-        var : bpy.types.DriverVariable = driver.variables.new()
+        var: bpy.types.DriverVariable = driver.variables.new()
         var.name = var_def[0]
         var.type = var_def[1]
         if var_def[1] == "TRANSFORMS":
@@ -1058,3 +1058,5 @@ def add_constraint_prop_driver(rig, pose_bone_name,
                 if driver:
                     add_driver_var_defs(driver, var_defs)
                     return driver
+
+
