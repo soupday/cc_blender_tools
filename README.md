@@ -37,6 +37,7 @@ Links
 - Detects newly introduced object name duplication suffix on accessories.
 - Fix to possible error on node type detection.
 - Fix to Rigify export t-pose and shape key bake.
+- Added support for Vector Displacement maps.
 
 
 ### 2.4.3
