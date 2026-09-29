@@ -618,6 +618,7 @@ SHADER_MATRIX = [
             ["Displacement Strength", "", "skin_displacement_strength"],
             ["Displacement Base", "", "skin_displacement_base"],
             ["Displacement Multiplier", "", "skin_displacement_multiplier"],
+            ["Use Vector Displacement", "func_use_vector_displacement", "skin_displacement_mode"],
             ["Subsurface Falloff", "func_sss_falloff_saturated", "skin_subsurface_falloff", "skin_subsurface_saturation"],
             ["Subsurface Radius", "func_sss_radius_skin_cycles", "skin_subsurface_radius"],
             ["Subsurface Scale", "func_sss_skin", "skin_subsurface_scale"],
@@ -688,6 +689,7 @@ SHADER_MATRIX = [
             ["skin_displacement_strength", 0.0, "", "Pbr/Displacement"],
             ["skin_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
             ["skin_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
+            ["skin_displacement_mode", "HEIGHT", "func_displacement_mode", "$Pbr/Displacement/Displacement Map"],
             # non json properties (just defaults)
             ["skin_ao_power", 2.0, "DEF"],
             ["skin_diffuse_hue", 0.5, "", "/Diffuse Hue"],
@@ -710,6 +712,7 @@ SHADER_MATRIX = [
             ["/Diffuse Saturation", 1.0, "func_export_saturation_mod", "skin_diffuse_saturation"],
             ["/Diffuse HSV", 1.0, "", "skin_diffuse_hsv_strength"],
             ["SSS/Falloff", [255.0, 94.3499984741211, 76.5], "func_export_byte3", "skin_subsurface_falloff"],
+            ["Displacement/Displacement Map", "Gray Scale Displacement", "conv_displacement_mode", "skin_displacement_mode"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -756,6 +759,7 @@ SHADER_MATRIX = [
             ["PROP", "Displacement", "skin_displacement_strength", True, "Displacement Map"],
             ["PROP", "Base", "skin_displacement_base", True, "Displacement Map"],
             ["PROP", "Multiplier", "skin_displacement_multiplier", True, "Displacement Map"],
+            ["PROP", "Mode", "skin_displacement_mode", False, "Displacement Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "*Emissive Color", "skin_emissive_color", False],
             ["PROP", "Emission Strength", "skin_emission_strength", True],
@@ -851,6 +855,7 @@ SHADER_MATRIX = [
             ["Displacement Base", "", "skin_displacement_base"],
             ["Displacement Multiplier", "", "skin_displacement_multiplier"],
             ["Displacement Delta Scale", "", "skin_displacement_delta_scale"],
+            ["Use Vector Displacement", "func_use_vector_displacement", "skin_displacement_mode"],
             ["Caruncle Blend", "", "skin_caruncle_blend"],
             ["Caruncle Color", "", "skin_caruncle_color"],
             ["Caruncle Roughness", "", "skin_caruncle_roughness"],
@@ -930,6 +935,7 @@ SHADER_MATRIX = [
             ["skin_displacement_strength", 0.0, "", "Pbr/Displacement"],
             ["skin_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
             ["skin_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
+            ["skin_displacement_mode", "HEIGHT", "func_displacement_mode", "$Pbr/Displacement/Displacement Map"],
             # non json properties (just defaults)
             ["skin_ao_power", 2.0, "DEF"],
             ["skin_diffuse_hue", 0.5, "", "/Diffuse Hue"],
@@ -956,6 +962,7 @@ SHADER_MATRIX = [
             ["/Diffuse Saturation", 1.0, "func_export_saturation_mod", "skin_diffuse_saturation"],
             ["/Diffuse HSV", 1.0, "", "skin_diffuse_hsv_strength"],
             ["SSS/Falloff", [255.0, 94.3499984741211, 76.5], "func_export_byte3", "skin_subsurface_falloff"],
+            ["Displacement/Displacement Map", "Gray Scale Displacement", "conv_displacement_mode", "skin_displacement_mode"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1027,6 +1034,7 @@ SHADER_MATRIX = [
             ["PROP", "Base", "skin_displacement_base", True, "Displacement Map"],
             ["PROP", "Multiplier", "skin_displacement_multiplier", True, "Displacement Map"],
             ["PROP", "Wrinkle Displacement", "skin_displacement_delta_scale", True, "Displacement Delta"],
+            ["PROP", "Mode", "skin_displacement_mode", False, "Displacement Map"],
             #["OP", "Build Displacement", "cc3.bake", "PLAY", "BUILD_DISPLACEMENT", "Normal Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "*Emissive Color", "skin_emissive_color", False],
@@ -1223,6 +1231,7 @@ SHADER_MATRIX = [
             ["Displacement Strength", "", "teeth_displacement_strength"],
             ["Displacement Base", "", "teeth_displacement_base"],
             ["Displacement Multiplier", "", "teeth_displacement_multiplier"],
+            ["Use Vector Displacement", "func_use_vector_displacement", "teeth_displacement_mode"],
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
@@ -1266,6 +1275,7 @@ SHADER_MATRIX = [
             ["teeth_displacement_strength", 0, "", "Pbr/Displacement"],
             ["teeth_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
             ["teeth_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
+            ["teeth_displacement_mode", "HEIGHT", "func_displacement_mode", "$Pbr/Displacement/Displacement Map"],
             ["teeth_emission_strength", 0, "", "Pbr/Glow"],
             ["teeth_subsurface_falloff", (0.381, 0.198, 0.13, 1.0), "func_color_bytes", "SSS/Falloff"],
             ["teeth_subsurface_radius", 1, "", "SSS/Radius"],
@@ -1281,6 +1291,7 @@ SHADER_MATRIX = [
             ["Custom/Teeth Desaturation", 0.1, "func_one_minus", "teeth_teeth_saturation"],
             ["Custom/Gums Desaturation", 0.0, "func_one_minus", "teeth_gums_saturation"],
             ["SSS/Falloff", [116.0, 123.0, 101.0], "func_export_byte3", "teeth_subsurface_falloff"],
+            ["Displacement/Displacement Map", "Gray Scale Displacement", "conv_displacement_mode", "teeth_displacement_mode"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1315,6 +1326,7 @@ SHADER_MATRIX = [
             ["PROP", "Displacement", "teeth_displacement_strength", True, "Displacement Map"],
             ["PROP", "Base", "teeth_displacement_base", True, "Displacement Map"],
             ["PROP", "Multiplier", "teeth_displacement_multiplier", True, "Displacement Map"],
+            ["PROP", "Mode", "teeth_displacement_mode", False, "Displacement Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "*Emissive Color", "teeth_emissive_color", False],
             ["PROP", "Emission Strength", "teeth_emission_strength", True],
@@ -1627,6 +1639,7 @@ SHADER_MATRIX = [
             ["Displacement Strength", "", "default_displacement_strength"],
             ["Displacement Base", "", "default_displacement_base"],
             ["Displacement Multiplier", "", "default_displacement_multiplier"],
+            ["Use Vector Displacement", "func_use_vector_displacement", "default_displacement_mode"],
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
@@ -1661,6 +1674,7 @@ SHADER_MATRIX = [
             ["default_displacement_strength", 0, "", "Pbr/Displacement"],
             ["default_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
             ["default_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
+            ["default_displacement_mode", "HEIGHT", "func_displacement_mode", "$Pbr/Displacement/Displacement Map"],
             ["default_emission_strength", 0, "", "Pbr/Glow"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             ["default_metallic", 0, "", "Pbr/Metallic"],
@@ -1681,6 +1695,7 @@ SHADER_MATRIX = [
         "export": [
             ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "default_diffuse_color"],
             ["/Specular Color", [255.0, 255.0, 255.0], "func_value_to_specular", "default_specular"],
+            ["Displacement/Displacement Map", "Gray Scale Displacement", "conv_displacement_mode", "default_displacement_mode"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1710,6 +1725,7 @@ SHADER_MATRIX = [
             ["PROP", "Displacement", "default_displacement_strength", True, "Displacement Map"],
             ["PROP", "Base", "default_displacement_base", True, "Displacement Map"],
             ["PROP", "Multiplier", "default_displacement_multiplier", True, "Displacement Map"],
+            ["PROP", "Mode", "default_displacement_mode", False, "Displacement Map"],
             ["OP", "Convert Bump", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "!Normal Map"],
             ["OP", "Combine Normals", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "Normal Map"],
             ["HEADER",  "Emission", "LIGHT"],
@@ -1760,6 +1776,7 @@ SHADER_MATRIX = [
             ["Displacement Strength", "", "default_displacement_strength"],
             ["Displacement Base", "", "default_displacement_base"],
             ["Displacement Multiplier", "", "default_displacement_multiplier"],
+            ["Use Vector Displacement", "func_use_vector_displacement", "default_displacement_mode"],
             ["Micro Normal Strength", "func_micro_normal_strength", "default_micro_normal_strength"],
             ["Subsurface Scale", "func_sss_default", "default_subsurface_scale"],
             ["Unmasked Scatter Scale", "", "default_unmasked_scatter_scale"],
@@ -1818,7 +1835,6 @@ SHADER_MATRIX = [
             ["default_opacity", 1, "", "Base/Opacity"],
             ["default_normal_strength", 1, "", "Pbr/Normal"],
             ["default_emission_strength", 0, "", "Pbr/Glow"],
-            ["default_displacement_strength", 1, "", "Pbr/Displacement"],
             ["default_micro_normal_tiling", 25, "", "Custom/MicroNormal Tiling"],
             ["default_micro_normal_strength", 0.8, "", "Custom/MicroNormal Strength"],
             ["default_micro_roughness_mod", 0.05, "", "Custom/Micro Roughness Scale"],
@@ -1840,6 +1856,7 @@ SHADER_MATRIX = [
             ["default_displacement_strength", 0, "", "Pbr/Displacement"],
             ["default_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
             ["default_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
+            ["default_displacement_mode", "HEIGHT", "func_displacement_mode", "$Pbr/Displacement/Displacement Map"],
             ["default_reflection_strength", 0, "", "Reflection/Reflection Strength"],
             ["default_reflection_blur", 0, "", "Reflection/Reflection Blur"],
             # non json properties (just defaults)
@@ -1864,6 +1881,7 @@ SHADER_MATRIX = [
             ["/Diffuse Brightness", 1.0, "func_export_brightness_mod", "default_brightness"],
             ["/Diffuse Saturation", 1.0, "func_export_saturation_mod", "default_saturation"],
             ["SSS/Falloff", [255.0, 255.0, 255.0], "func_export_byte3", "default_subsurface_falloff"],
+            ["Displacement/Displacement Map", "Gray Scale Displacement", "conv_displacement_mode", "default_displacement_mode"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1912,6 +1930,7 @@ SHADER_MATRIX = [
             ["PROP", "Displacement", "default_displacement_strength", True, "Displacement Map"],
             ["PROP", "Base", "default_displacement_base", True, "Displacement Map"],
             ["PROP", "Multiplier", "default_displacement_multiplier", True, "Displacement Map"],
+            ["PROP", "Mode", "default_displacement_mode", False, "Displacement Map"],
             ["OP", "Convert Bump", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "!Normal Map"],
             ["OP", "Combine Normals", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "Normal Map"],
             ["SPACER"],
@@ -2015,6 +2034,7 @@ SHADER_MATRIX = [
             ["Displacement Strength", "", "hair_displacement_strength"],
             ["Displacement Base", "", "hair_displacement_base"],
             ["Displacement Multiplier", "", "hair_displacement_multiplier"],
+            ["Use Vector Displacement", "func_use_vector_displacement", "hair_displacement_mode"],
             ["Emissive Color", "", "hair_emissive_color"],
             ["Emission Strength", "func_emission_scale", "hair_emission_strength"],
         ],
@@ -2089,6 +2109,7 @@ SHADER_MATRIX = [
             ["hair_displacement_strength", 0, "", "Pbr/Displacement"],
             ["hair_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
             ["hair_displacement_multiplier", 1.0, "", "Pbr/Displacement/Multiplier"],
+            ["hair_displacement_mode", "HEIGHT", "func_displacement_mode", "$Pbr/Displacement/Displacement Map"],
             ["hair_emission_strength", 0, "", "Pbr/Glow"],
             ["hair_displacement_strength", 1, "", "Pbr/Displacement"],
             # non json properties (just defaults)
@@ -2124,6 +2145,7 @@ SHADER_MATRIX = [
             ["Custom/_2nd Dye Color", [255, 255, 255], "func_export_byte3", "hair_highlight_b_color"],
             ["Custom/_1st Dye Distribution from Grayscale", [25.5, 51, 76.5], "func_export_combine_xyz", "hair_highlight_a_start", "hair_highlight_a_mid", "hair_highlight_a_end"],
             ["Custom/_2nd Dye Distribution from Grayscale", [25.5, 51, 76.5], "func_export_combine_xyz", "hair_highlight_b_start", "hair_highlight_b_mid", "hair_highlight_b_end"],
+            ["Displacement/Displacement Map", "Gray Scale Displacement", "conv_displacement_mode", "hair_displacement_mode"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -2194,6 +2216,7 @@ SHADER_MATRIX = [
             ["PROP", "Displacement", "hair_displacement_strength", True, "Displacement Map"],
             ["PROP", "Base", "hair_displacement_base", True, "Displacement Map"],
             ["PROP", "Multiplier", "hair_displacement_multiplier", True, "Displacement Map"],
+            ["PROP", "Mode", "hair_displacement_mode", False, "Displacement Map"],
             #["PROP", "Tangent Vector", "hair_tangent_vector", False, "Flow Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "Emissive Color", "hair_emissive_color", False],

@@ -878,6 +878,10 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_displacement_base: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_displacement_base"))
     skin_displacement_multiplier: bpy.props.FloatProperty(default=1.0, min=0.0, max=100.0, update=lambda s,c: update_property(s,c,"skin_displacement_multiplier"))
     skin_displacement_delta_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=5.0, update=lambda s,c: update_property(s,c,"skin_displacement_delta_scale"))
+    skin_displacement_mode: bpy.props.EnumProperty(items=[
+                        ("HEIGHT","Height","Displacement via a height map"),
+                        ("VECTOR","Vector","Displacement via a (tangent space) vector displacement map")
+                    ], default="HEIGHT", update=lambda s,c: update_property(s,c,"skin_displacement_mode"))
     skin_caruncle_blend: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_caruncle_blend"))
     skin_caruncle_roughness: bpy.props.FloatProperty(default=0.1, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_caruncle_roughness"))
     skin_caruncle_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -937,6 +941,10 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_displacement_strength: bpy.props.FloatProperty(default=0.0, min=-3.0, max=3.0, update=lambda s,c: update_property(s,c,"skin_displacement_strength"))
     skin_displacement_base: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"skin_displacement_base"))
     skin_displacement_multiplier: bpy.props.FloatProperty(default=1.0, min=0.0, max=100.0, update=lambda s,c: update_property(s,c,"skin_displacement_multiplier"))
+    skin_displacement_mode: bpy.props.EnumProperty(items=[
+                        ("HEIGHT","Height","Displacement via a height map"),
+                        ("VECTOR","Vector","Displacement via a (tangent space) vector displacement map")
+                    ], default="HEIGHT", update=lambda s,c: update_property(s,c,"skin_displacement_mode"))
 # endregion
 
 # region EyeParameters
@@ -1133,6 +1141,10 @@ class CC3TeethParameters(bpy.types.PropertyGroup):
     teeth_displacement_strength: bpy.props.FloatProperty(default=0.0, min=-3.0, max=3.0, update=lambda s,c: update_property(s,c,"teeth_displacement_strength"))
     teeth_displacement_base: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"teeth_displacement_base"))
     teeth_displacement_multiplier: bpy.props.FloatProperty(default=1.0, min=0.0, max=100.0, update=lambda s,c: update_property(s,c,"teeth_displacement_multiplier"))
+    teeth_displacement_mode: bpy.props.EnumProperty(items=[
+                        ("HEIGHT","Height","Displacement via a height map"),
+                        ("VECTOR","Vector","Displacement via a (tangent space) vector displacement map")
+                    ], default="HEIGHT", update=lambda s,c: update_property(s,c,"teeth_displacement_mode"))
 # endregion
 
 #region TongueParameters
@@ -1233,6 +1245,10 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_displacement_strength: bpy.props.FloatProperty(default=0, min=-3, max=3, update=lambda s,c: update_property(s,c,"hair_displacement_strength"))
     hair_displacement_base: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_displacement_base"))
     hair_displacement_multiplier: bpy.props.FloatProperty(default=1.0, min=0.0, max=100.0, update=lambda s,c: update_property(s,c,"hair_displacement_multiplier"))
+    hair_displacement_mode: bpy.props.EnumProperty(items=[
+                        ("HEIGHT","Height","Displacement via a height map"),
+                        ("VECTOR","Vector","Displacement via a (tangent space) vector displacement map")
+                    ], default="HEIGHT", update=lambda s,c: update_property(s,c,"hair_displacement_mode"))
     hair_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"hair_emissive_color"))
@@ -1271,6 +1287,10 @@ class CC3PBRParameters(bpy.types.PropertyGroup):
     default_displacement_strength: bpy.props.FloatProperty(default=0.0, min=-3.0, max=3.0, update=lambda s,c: update_property(s,c,"default_displacement_strength"))
     default_displacement_base: bpy.props.FloatProperty(default=0.5, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"default_displacement_base"))
     default_displacement_multiplier: bpy.props.FloatProperty(default=1.0, min=0.0, max=100.0, update=lambda s,c: update_property(s,c,"default_displacement_multiplier"))
+    default_displacement_mode: bpy.props.EnumProperty(items=[
+                        ("HEIGHT","Height","Displacement via a height map"),
+                        ("VECTOR","Vector","Displacement via a (tangent space) vector displacement map")
+                    ], default="HEIGHT", update=lambda s,c: update_property(s,c,"default_displacement_mode"))
     default_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_emissive_color"))
@@ -1308,6 +1328,10 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_displacement_strength: bpy.props.FloatProperty(default=1, min=-5, max=5, update=lambda s,c: update_property(s,c,"default_displacement_strength"))
     default_displacement_base: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_displacement_base"))
     default_displacement_multiplier: bpy.props.FloatProperty(default=1.0, min=0.0, max=100.0, update=lambda s,c: update_property(s,c,"default_displacement_multiplier"))
+    default_displacement_mode: bpy.props.EnumProperty(items=[
+                        ("HEIGHT","Height","Displacement via a height map"),
+                        ("VECTOR","Vector","Displacement via a (tangent space) vector displacement map")
+                    ], default="HEIGHT", update=lambda s,c: update_property(s,c,"default_displacement_mode"))
     default_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_emissive_color"))
