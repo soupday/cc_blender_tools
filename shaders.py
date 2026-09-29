@@ -292,6 +292,24 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
 # Prop matrix eval, parameter conversion functions
 #
 
+def func_displacement_mode(cc, mode):
+    if mode == "Vector Displacement":
+        return "VECTOR"
+    else:
+        return "HEIGHT"
+
+def conv_displacement_mode(cc, mode):
+    if mode == "VECTOR":
+        return "Vector Displacement"
+    else:
+        return "Gray Scale Displacement"
+
+def func_use_vector_displacement(cc, mode):
+    if mode == "VECTOR":
+        return 1.0
+    else:
+        return 0.0
+
 def func_iris_brightness(cc, v):
     prefs = vars.prefs()
     if cc.get_render_target() == "CYCLES":
@@ -1414,6 +1432,8 @@ def add_displacement(obj, mat, mat_json, max_render=5, max_view=3):
     prefs = vars.prefs()
     mat_cache = props.get_material_cache(mat)
 
+    fix_52_normal_base_mode(mat)
+
     method = "DISPLACEMENT" if mat_cache.get_render_target() == "CYCLES" else "BOTH"
     texture_path, strength, level, multiplier, base = jsonutils.get_displacement_data(mat_json)
     if texture_path:
@@ -1430,6 +1450,17 @@ def add_displacement(obj, mat, mat_json, max_render=5, max_view=3):
             mat.displacement_method = method
         else:
             mat.cycles.displacement_method = method
+
+
+def fix_52_normal_base_mode(mat_group):
+    """Blender 5.2 defaults to 'displaced base' in the normal map node which produces incorrect results"""
+    nodes = mat_group.node_tree.nodes
+    for node in nodes:
+        if node.type == "NORMAL_MAP":
+            node.base = "ORIGINAL"
+        if node.type == "GROUP":
+            fix_52_normal_base_mode(node)
+
 
 
 def connect_sss_shader(obj_cache, obj, mat, mat_json, processed_images):
