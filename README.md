@@ -38,7 +38,7 @@ Links
 - Fix to possible error on node type detection.
 - Fix to Rigify export t-pose and shape key bake.
 - Added support for Vector Displacement maps.
-
+- Added option to preserve rig name in Rigify exports. (For Unity generic rig matching)
 
 ### 2.4.3
 - Minimum Blender version 4.5.

@@ -2189,7 +2189,7 @@ def update_to_unity(self, context, chr_cache, export_anim, include_selected):
     utils.log_timer("Done Character Export.")
 
 
-def export_rigify(self, context, chr_cache, export_anim, file_path, include_selected):
+def export_rigify(self, context, chr_cache, export_anim, file_path, include_selected, keep_rig_name):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -2261,7 +2261,14 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
         utils.clear_selected_objects()
         rigging.select_motion_export_objects(export_objects)
 
-    armature_object, armature_data = rigutils.rename_armature(export_rig, name)
+    if keep_rig_name:
+        org_name = arm.name
+        if org_name.lower().endswith("_rigify"):
+            org_name = org_name[:-7]
+    else:
+        org_name = name
+    # don't call the armature
+    armature_object, armature_data = rigutils.rename_armature(export_rig, org_name)
 
     # export as fbx
     bpy.ops.export_scene.fbx(filepath=file_path,
@@ -2489,6 +2496,8 @@ class CC3Export(bpy.types.Operator):
         description="Copy textures with the character, if exporting to a new location")
     export_face_smoothing: bpy.props.BoolProperty(name = "Face Smoothing Groups", default = False,
         description="Export FBX with face smoothing groups. (Can solve blocky faces / split normals issues in game engines)")
+    keep_rig_name: bpy.props.BoolProperty(name = "Keep Rigify Rig Name", default = False,
+        description="Use the current rig name for Rigify mesh and motion exports")
 
     check_valid = True
     check_report = []
@@ -2530,7 +2539,7 @@ class CC3Export(bpy.types.Operator):
 
         elif chr_cache and self.param == "EXPORT_RIGIFY":
 
-            export_rigify(self, context, chr_cache, self.include_anim, self.filepath, self.include_selected)
+            export_rigify(self, context, chr_cache, self.include_anim, self.filepath, self.include_selected, self.keep_rig_name)
             self.report({'INFO'}, "Export from Rigified Done!")
             self.error_report()
 
