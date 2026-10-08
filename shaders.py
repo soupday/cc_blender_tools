@@ -1454,12 +1454,13 @@ def add_displacement(obj, mat, mat_json, max_render=5, max_view=3):
 
 def fix_52_normal_base_mode(mat_group):
     """Blender 5.2 defaults to 'displaced base' in the normal map node which produces incorrect results"""
-    nodes = mat_group.node_tree.nodes
-    for node in nodes:
-        if node.type == "NORMAL_MAP":
-            node.base = "ORIGINAL"
-        if node.type == "GROUP":
-            fix_52_normal_base_mode(node)
+    if utils.B520():
+        nodes = mat_group.node_tree.nodes
+        for node in nodes:
+            if node.type == "NORMAL_MAP":
+                node.base = "ORIGINAL"
+            if node.type == "GROUP":
+                fix_52_normal_base_mode(node)
 
 
 
