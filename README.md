@@ -33,6 +33,10 @@ Links
 
 ## Changelog
 
+### 2.4.5 (Preview)
+- Patch fixes:
+    - Fix for Blender 4.5 - 5.1 normal map nodes.
+
 ### 2.4.4
 - Detects newly introduced object name duplication suffix on accessories.
 - Fix to possible error on node type detection.
