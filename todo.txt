@@ -1,0 +1,5 @@
+add_motion_set_data now uses obj_id= for obj transform tracks
+New Motion Set button, needs updating for props
+Clear Motion Set Button needs updating for props
+Clean Motion probably needs updating for props
+Need button to convert current actions on avatar or prop into a motion set

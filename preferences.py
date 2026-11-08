@@ -145,7 +145,6 @@ def reset_preferences():
     prefs.build_pack_wrinkle_diffuse_roughness = False
     prefs.build_reuse_baked_channel_packs = True
     prefs.build_limit_textures = False
-    prefs.build_skin_shader_dual_spec = False
     prefs.build_shape_key_bone_drivers_jaw = False
     prefs.build_shape_key_bone_drivers_eyes = False
     prefs.build_shape_key_bone_drivers_head = False
@@ -155,7 +154,6 @@ def reset_preferences():
     prefs.build_armature_preserve_volume = False
     prefs.physics_weightmap_curve = 5.0
     prefs.convert_non_standard_type = "PROP"
-    prefs.action_use_action_slots = True
     prefs.action_add_empty_key_channels = False
     prefs.action_add_key_slots_per_obj = True
     prefs.action_clean_actions = False
@@ -271,9 +269,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("DETAILS","Details","All including details."),
                     ], default="ERRORS", name = "(Debug) Log Level")
 
-    action_use_action_slots: bpy.props.BoolProperty(default=True,
-                                             description="When importing and retargeting animations, use action slots to combine armature and shape key actions into a single action",
-                                             name="Use Action Slots")
     action_add_key_slots_per_obj: bpy.props.BoolProperty(default=True,
                                              description="When using action slots, generate a shape key slot for each object. " \
                                                          "Otherwise, use only a single shape key slot for all mesh objects",
@@ -361,8 +356,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                                          description="Automatically set to use armature modifier in mesh edit mode for all armature modifiers in the character. (i.e. edit in place)")
     build_armature_preserve_volume: bpy.props.BoolProperty(default=False, name="Preserve Volume",
                                                          description="Automatically set use preserve volume for all armature modifiers in the character")
-    build_skin_shader_dual_spec: bpy.props.BoolProperty(default=False, name="Dual Specular Skin",
-                                                         description="Use a dual specular skin shader arrangement")
     build_shape_key_bone_drivers_jaw: bpy.props.BoolProperty(default=True, name="Shape Keys Drive Jaw Bone",
                                                          description="Add drivers to the jaw bone from facial expression shape keys")
     build_shape_key_bone_drivers_eyes: bpy.props.BoolProperty(default=True, name="Shape Keys Drive Eye Bones",
@@ -622,7 +615,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
 
     def use_action_slots(self):
-        return self.action_use_action_slots and BV(4,4,0)
+        return True
 
 
     def draw(self, context):
@@ -641,12 +634,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         grid.prop(self, "build_pack_wrinkle_diffuse_roughness")
         grid.prop(self, "build_armature_edit_modifier")
         grid.prop(self, "build_armature_preserve_volume")
-        grid.prop(self, "build_skin_shader_dual_spec")
         grid.prop(self, "build_shape_key_bone_drivers_jaw")
         grid.prop(self, "build_shape_key_bone_drivers_eyes")
         grid.prop(self, "build_shape_key_bone_drivers_head")
         grid.prop(self, "build_body_key_drivers")
-        grid.prop(self, "action_use_action_slots")
         grid.prop(self, "clean_empty_mesh_data")
 
 

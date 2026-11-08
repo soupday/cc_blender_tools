@@ -670,6 +670,9 @@ class CCICActionStore(bpy.types.PropertyGroup):
     object_action: bpy.props.PointerProperty(type=bpy.types.Action)
     object_slot_id: bpy.props.StringProperty(default="")
     object_action_valid: bpy.props.BoolProperty(default=False)
+    key_action: bpy.props.PointerProperty(type=bpy.types.Action)
+    key_slot_id: bpy.props.StringProperty(default="")
+    key_action_valid: bpy.props.BoolProperty(default=False)
     data_action: bpy.props.PointerProperty(type=bpy.types.Action)
     data_slot_id: bpy.props.StringProperty(default="")
     data_action_valid: bpy.props.BoolProperty(default=False)
@@ -679,26 +682,30 @@ class CCICActionStore(bpy.types.PropertyGroup):
         self.object = obj
         if utils.object_has_shape_keys(obj):
             action, slot = utils.safe_get_action_slot(obj.data.shape_keys)
-        else:
-            action, slot = utils.safe_get_action_slot(obj)
-        self.object_action = action
-        self.object_slot_id = slot.identifier if slot else ""
-        self.object_action_valid = True
+            if action:
+                self.key_action = action
+                self.key_slot_id = slot.identifier if slot else ""
+                self.key_action_valid = True
+        action, slot = utils.safe_get_action_slot(obj)
+        if action:
+            self.object_action = action
+            self.object_slot_id = slot.identifier if slot else ""
+            self.object_action_valid = True
         if utils.object_exists_is_light(obj) or utils.object_exists_is_camera(obj):
             action, slot = utils.safe_get_action_slot(obj.data)
-            self.data_action = action
-            self.data_slot_id = slot.identifier if slot else ""
-            self.data_action_valid = True
+            if action:
+                self.data_action = action
+                self.data_slot_id = slot.identifier if slot else ""
+                self.data_action_valid = True
 
     def restore(self):
         obj = self.object
+        if utils.object_has_shape_keys(obj) and self.key_action_valid:
+            slot = utils.find_action_slot(self.object_action, slot_id=self.key_slot_id)
+            utils.safe_set_action(obj.data.shape_keys, self.key_action, slot=slot)
         if self.object_action_valid:
-            if utils.object_has_shape_keys(obj):
-                slot = utils.find_action_slot(self.object_action, slot_id=self.object_slot_id)
-                utils.safe_set_action(obj.data.shape_keys, self.object_action, slot=slot)
-            else:
-                slot = utils.find_action_slot(self.object_action, slot_id=self.object_slot_id)
-                utils.safe_set_action(obj, self.object_action, slot=slot)
+            slot = utils.find_action_slot(self.object_action, slot_id=self.object_slot_id)
+            utils.safe_set_action(obj, self.object_action, slot=slot)
         if self.data_action_valid:
             if utils.object_exists_is_light(obj) or utils.object_exists_is_camera(obj):
                 slot = utils.find_action_slot(self.data_action, slot_id=self.data_slot_id)
@@ -2700,11 +2707,24 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             pass
         return None
 
+    def get_empty(self, include_disabled=False):
+        try:
+            for obj_cache in self.object_cache:
+                if include_disabled or not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    if utils.object_exists_is_empty(cache_object):
+                        return cache_object
+        except:
+            pass
+        return None
+
     def get_rlx_object(self, include_disabled=False):
         return None
 
     def get_primary_object(self, include_disabled=False):
-        return self.get_armature(include_disabled=include_disabled)
+        armature = self.get_armature(include_disabled=include_disabled)
+        empty = self.get_empty(include_disabled=include_disabled)
+        return armature if armature else empty
 
     def get_body(self):
         return self.get_object_of_type("BODY")
@@ -3781,13 +3801,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     def store_actions(self, rig: bpy.types.Object):
         store_id = utils.generate_random_id(30)
-        action_store: CCICActionStore = self.action_options.action_store.add()
-        action_store.store(rig, store_id)
-        if utils.object_exists_is_armature(rig):
-            for obj in utils.get_child_meshes(rig):
-                if utils.object_has_shape_keys(obj):
-                    action_store: CCICActionStore = self.action_options.action_store.add()
-                    action_store.store(obj, store_id)
+        objects = utils.get_child_objects(rig, include_parent=True, follow_armatures=True)
+        for obj in objects:
+            if obj.type in ["ARMATURE", "MESH", "EMPTY", "LIGHT", "CAMERA"]:
+                action_store: CCICActionStore = self.action_options.action_store.add()
+                action_store.store(obj, store_id)
         return store_id
 
     def restore_actions(self, store_id: str):
@@ -3806,7 +3824,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             if action_store.store_id == store_id:
                 if (utils.object_exists_is_armature(action_store.object) or
                     utils.object_exists_is_light(action_store.object) or
-                    utils.object_exists_is_camera(action_store.object)):
+                    utils.object_exists_is_camera(action_store.object) or
+                    utils.object_exists_is_empty(action_store.object)):
                     obj_action = action_store.object_action
                     data_action = action_store.data_action
                     if obj_action and "rl_set_id" in obj_action:
@@ -3824,7 +3843,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                 if utils.action_exists(action):
                     if (utils.object_exists_is_armature(action_store.object) or
                         utils.object_exists_is_light(action_store.object) or
-                        utils.object_exists_is_camera(action_store.object)):
+                        utils.object_exists_is_camera(action_store.object) or
+                        utils.object_exists_is_empty(action_store.object)):
                             return action
                     if not first_action:
                         first_action = action
@@ -3836,7 +3856,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             if action_store.store_id == store_id:
                 if (utils.object_exists_is_armature(action_store.object) or
                     utils.object_exists_is_light(action_store.object) or
-                    utils.object_exists_is_camera(action_store.object)):
+                    utils.object_exists_is_camera(action_store.object) or
+                    utils.object_exists_is_empty(action_store.object)):
                     action = action_store.object_action
                     if utils.action_exists(action):
                         slot_id = action_store.object_slot_id
@@ -3845,6 +3866,26 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         return action, slot, channelbag
         return None, None, None
 
+
+    def fetch_stored_object_channels(self, store_id):
+        action_store: CCICActionStore
+        object_actions = {}
+        for action_store in self.action_options.action_store:
+            if action_store.store_id == store_id:
+                if (utils.object_exists_is_armature(action_store.object) or
+                    utils.object_exists_is_light(action_store.object) or
+                    utils.object_exists_is_camera(action_store.object) or
+                    utils.object_exists_is_empty(action_store.object)):
+                    obj = action_store.object
+                    action = action_store.object_action
+                    if utils.action_exists(action):
+                        slot_id = action_store.object_slot_id
+                        slot = utils.get_action_slot(action, slot_id=slot_id)
+                        channelbag = utils.get_action_channelbag(action, slot=slot)
+                        object_actions[obj.name] = (action, slot, channelbag)
+        return object_actions
+
+
     def fetch_stored_key_channels(self, store_id):
         action_store: CCICActionStore
         key_actions = {}
@@ -3852,9 +3893,9 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             if action_store.store_id == store_id:
                 if (utils.object_exists_has_shape_keys(action_store.object)):
                     obj = action_store.object
-                    action = action_store.object_action
+                    action = action_store.key_action
                     if utils.action_exists(action):
-                        slot_id = action_store.object_slot_id
+                        slot_id = action_store.key_slot_id
                         slot = utils.get_action_slot(action, slot_id=slot_id)
                         channelbag = utils.get_action_channelbag(action, slot=slot)
                         key_actions[obj.name] = (action, slot, channelbag)

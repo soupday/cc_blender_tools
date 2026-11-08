@@ -2846,7 +2846,6 @@ def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None
         src_action = utils.safe_get_action(src_rig)
 
     rigify_rig = chr_cache.get_armature()
-    use_slotted = prefs.use_action_slots()
 
     if rigify_rig and src_rig and src_action:
         armature_action = adv_bake_retarget_to_rigify(op, chr_cache, src_rig, src_action)
@@ -2860,10 +2859,10 @@ def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None
             if use_ui_options and custom_prefix:
                 motion_prefix = custom_prefix
             motion_id = rigutils.get_motion_id(src_action, "Retarget")
-            motion_id = rigutils.get_unique_set_motion_id(rig_id, motion_id, motion_prefix, slotted=use_slotted, rlob=rigify_rig)
+            motion_id = rigutils.get_unique_set_motion_id(rig_id, motion_id, motion_prefix, rlob=rigify_rig)
             set_id, set_generation = rigutils.generate_motion_set(rigify_rig, motion_id, motion_prefix)
-            rigutils.set_armature_action_name(armature_action, rig_id, motion_id, motion_prefix, slotted=use_slotted)
-            rigutils.add_motion_set_data(armature_action, set_id, set_generation, arm_id=rl_id, slotted=use_slotted)
+            rigutils.set_armature_action_name(armature_action, rig_id, motion_id, motion_prefix)
+            rigutils.add_motion_set_data(armature_action, set_id, set_generation, arm_id=rl_id)
             armature_action.use_fake_user = props.rigify_retarget_use_fake_user if use_ui_options else True
             utils.log_info(f"Renaming armature action to: {armature_action.name}")
             use_fake_user = props.rigify_retarget_use_fake_user if use_ui_options else True
@@ -3723,10 +3722,9 @@ def bake_rig_animation(chr_cache, rig, source_rig, source_action,
     rig_id = rigutils.get_rig_id(rig)
     rl_id = rigutils.get_armature_id(rig)
     motion_id = rigutils.get_unique_set_motion_id(rig_id, motion_id, motion_prefix, rlob=rig)
-    is_slotted = prefs.use_action_slots()
 
     if utils.try_select_object(rig, True) and utils.set_active_object(rig):
-        armature_action_name = rigutils.make_armature_action_name(rig_id, motion_id, motion_prefix, slotted=is_slotted)
+        armature_action_name = rigutils.make_armature_action_name(rig_id, motion_id, motion_prefix)
         utils.log_info(f"Baking to: {armature_action_name}")
         # frame range
         if bpy.context.scene.use_preview_range:
@@ -3774,14 +3772,14 @@ def bake_rig_animation(chr_cache, rig, source_rig, source_action,
         # armature action
         baked_action = utils.safe_get_action(rig)
         if baked_action:
-            rigutils.add_motion_set_data(baked_action, set_id, "Rigify+", arm_id=rl_id, slotted=is_slotted)
+            rigutils.add_motion_set_data(baked_action, set_id, "Rigify+", arm_id=rl_id)
             baked_action.name = armature_action_name
             baked_action.use_fake_user = True
             armature_action = baked_action
             utils.log_info(f"Baked armature action: {baked_action.name}")
         for obj_id, key_action in shape_key_actions.items():
             rigutils.set_key_action_name(key_action, rig_id, motion_id, obj_id, motion_prefix)
-            rigutils.add_motion_set_data(baked_action, set_id, "Rigify+", key_id=obj_id, arm_id=rl_id, slotted=is_slotted)
+            rigutils.add_motion_set_data(baked_action, set_id, "Rigify+", key_id=obj_id, arm_id=rl_id)
             utils.log_info(f"Baked key action: {key_action.name}")
 
         # restore view layers

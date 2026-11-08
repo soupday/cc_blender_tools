@@ -842,7 +842,7 @@ class ACTION_UL_List(bpy.types.UIList):
             if props.armature_action_filter and arm_object:
                 if arm_set_generation and action_set_generation and action_type and rl_arm_id and action_rl_id:
                     if (arm_set_generation == action_set_generation and
-                        (action_type == "ARM" or action_type == "SLOTTED") and
+                        (action_type == "ARM" or action_type == "SLOTTED" or action_type == "OBJECT") and
                         action_rl_id == rl_arm_id):
                         allowed = True
             elif channel and len(channel.fcurves) > 0:
@@ -888,7 +888,7 @@ class ACTION_SET_UL_List(bpy.types.UIList):
             set_generation = rlx.get_rlx_generation(rob)
             rig_id = utils.get_rl_id(rob)
         elif chr_cache:
-            arm = chr_cache.get_armature()
+            arm = chr_cache.get_primary_object()
             set_generation = rigutils.get_set_generation(arm)
             rig_id = utils.get_rl_id(arm)
         for i, item in enumerate(items):
@@ -896,7 +896,7 @@ class ACTION_SET_UL_List(bpy.types.UIList):
             action_set_generation = rigutils.get_set_generation(item)
             action_type = utils.get_prop(item, "rl_action_type")
             action_rig_id = utils.get_rl_id(item)
-            if action_type == "ARM" or action_type == "SLOTTED" or action_type == "RLX":
+            if action_type == "ARM" or action_type == "OBJECT" or action_type == "SLOTTED" or action_type == "RLX":
                 if props.filter_motion_set_type == "RIG":
                     allowed = rig_id and action_rig_id and rig_id == action_rig_id
                 elif props.filter_motion_set_type == "GEN":
@@ -1003,7 +1003,6 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             column.prop(PREFS, "import_reset_custom_normals")
             column.prop(PREFS, "import_fix_5_1_normals")
             column.prop(PREFS, "clean_empty_mesh_data")
-            column.prop(PREFS, "action_use_action_slots")
             column.prop(PREFS, "action_add_key_slots_per_obj")
             #column.prop(PREFS, "action_clean_actions")
             column.prop(PREFS, "action_add_empty_key_channels")
@@ -2711,8 +2710,9 @@ def motion_set_ui(layout: bpy.types.UILayout, chr_cache, rlx_cache, show_nla=Fal
     if rlx_cache:
         set_generation = rlx_cache.get_generation()
     elif chr_cache:
-        rig = chr_cache.get_armature()
+        rig = chr_cache.get_primary_object()
         set_generation = rigutils.get_set_generation(rig)
+
 
     col = layout.column(align=True)
     split = col.split(factor=0.4)
@@ -4190,7 +4190,6 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
             column.prop(PREFS, "import_reset_custom_normals")
             column.prop(PREFS, "import_fix_5_1_normals")
             column.prop(PREFS, "clean_empty_mesh_data")
-            column.prop(PREFS, "action_use_action_slots")
             column.prop(PREFS, "action_add_key_slots_per_obj")
             #column.prop(PREFS, "action_clean_actions")
             column.prop(PREFS, "action_add_empty_key_channels")

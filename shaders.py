@@ -460,10 +460,6 @@ def func_sss_radius_skin_eevee(cc, r, f, s):
 
 def func_roughness_power(cc, p):
     prefs = vars.prefs()
-    #if prefs.build_skin_shader_dual_spec:
-    #    return p * 1.0
-    #else:
-    #    return p
     if cc.get_render_target() == "CYCLES":
         if utils.B410():
             return p * prefs.cycles_roughness_power_b443b
@@ -1186,8 +1182,8 @@ def connect_skin_shader(chr_cache, obj_cache, obj, mat, mat_json, processed_imag
     mix_shader_group = ""
 
     custom_bsdf = None
-    if prefs.build_skin_shader_dual_spec:
-        custom_bsdf = "rl_bsdf_dual_specular"
+    #if prefs.build_skin_shader_dual_spec:
+    #    custom_bsdf = "rl_bsdf_dual_specular"
 
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links,
                                          shader_label, shader_name, shader_group, mix_shader_group,

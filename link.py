@@ -7,7 +7,7 @@ import os, socket, time, select, struct, json, copy, shutil, tempfile
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix, Color, Euler
 from . import (rlx, importer, exporter, facerig, bones, geom, colorspace,
-               world, rigging, rigutils, drivers, modifiers,
+               world, characters, rigging, rigutils, drivers, modifiers,
                cc, jsonutils, utils, vars)
 from typing import Tuple, List
 import textwrap
@@ -873,11 +873,11 @@ def create_fcurves_cache(count, indices, defaults, cache_type="VALUE"):
     return cache
 
 
-def get_datalink_rig_action(rig, motion_id=None, slotted=False):
+def get_datalink_rig_action(rig, motion_id=None):
     if not motion_id:
         motion_id = "DataLink"
     rig_id = rigutils.get_rig_id(rig)
-    action_name = rigutils.make_armature_action_name(rig_id, motion_id, LINK_DATA.motion_prefix, slotted=slotted)
+    action_name = rigutils.make_armature_action_name(rig_id, motion_id, LINK_DATA.motion_prefix)
     action = bpy.data.actions.new(action_name)
     slot, channel = rigutils.add_action_ob_slot_channelbag(action, rig)
     utils.safe_set_action(rig, action, slot=slot)
@@ -986,19 +986,18 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
         if rig:
             rig_id = rigutils.get_rig_id(rig)
             rl_id = utils.get_rl_id(rig)
-            use_slotted = prefs.use_action_slots()
             utils.log_info(f"Preparing Character Rig: {actor.name} {rig_id} / {len(actor.bones)} bones")
 
             if LINK_DATA.set_keyframes:
 
                 # generate new action set data
                 # always import into a new action set, then decide what to do with it after writing the action
-                motion_id = rigutils.get_unique_set_motion_id(rig_id, motion_id, LINK_DATA.motion_prefix, slotted=use_slotted, rlob=rig)
+                motion_id = rigutils.get_unique_set_motion_id(rig_id, motion_id, LINK_DATA.motion_prefix, rlob=rig)
                 set_id, set_generation = rigutils.generate_motion_set(rig, motion_id, LINK_DATA.motion_prefix)
 
                 # rig action
-                action = get_datalink_rig_action(rig, motion_id, slotted=use_slotted)
-                rigutils.add_motion_set_data(action, set_id, set_generation, arm_id=rl_id, slotted=use_slotted)
+                action = get_datalink_rig_action(rig, motion_id)
+                rigutils.add_motion_set_data(action, set_id, set_generation, arm_id=rl_id)
                 utils.log_info(f"Preparing rig action: {action.name}")
 
                 # shape key actions
@@ -1008,7 +1007,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                     for obj in objects:
                         obj_id = rigutils.get_obj_id(obj)
 
-                        if use_slotted:
+                        if prefs.use_action_slots():
                             slot, channel = rigutils.add_action_key_slot_channelbag(action, obj)
                             utils.safe_set_action(obj.data.shape_keys, action, slot=slot)
                         else:
@@ -4229,7 +4228,7 @@ class LinkService():
                                           use_fake_user=LINK_DATA.use_fake_user)
             except Exception as e:
                 utils.log_error(f"Error importing {fbx_path}", e)
-            motion_rig = utils.first(utils.get_selected_armatures())
+            motion_rig = utils.first(utils.get_selected_root_armatures_or_empties())
             if motion_rig:
                 self.replace_actor_motion(actor, motion_rig)
                 update_link_status(f"Motion Imported: {actor.name}")
@@ -4243,49 +4242,61 @@ class LinkService():
         if actor and motion_rig:
             incoming_motion_action = None
             motion_rig_action, motion_rig_slot = utils.safe_get_action_slot(motion_rig)
-            use_slotted = prefs.use_action_slots()
             motion_mesh_objects = utils.get_child_objects(motion_rig, of_type="MESH")
             motion_id = rigutils.get_motion_id(motion_rig_action)
             utils.log_info(f"Replacing Actor Motion:")
             utils.log_indent()
             utils.log_info(f"Motion rig action: {motion_rig_action.name}")
             # fetch actor rig
-            actor_rig = actor.get_armature()
+            actor_rig = actor.get_primary_object()
             chr_cache = actor.get_chr_cache()
             actor_rig_id = rigutils.get_rig_id(actor_rig)
             rl_id = utils.get_rl_id(actor_rig)
             # store existing motion
             action_store_id = props.store_actions(actor_rig)
-
             # generate new action set data
-            motion_id = rigutils.get_unique_set_motion_id(actor_rig_id, motion_id, LINK_DATA.motion_prefix, slotted=use_slotted, rlob=actor_rig)
+            motion_id = rigutils.get_unique_set_motion_id(actor_rig_id, motion_id, LINK_DATA.motion_prefix, rlob=actor_rig)
             set_id, set_generation = rigutils.generate_motion_set(actor_rig, motion_id, LINK_DATA.motion_prefix)
+            utils.log_info(f"Motion Rig: {motion_rig}")
+            utils.log_info(f"Actor Rig: {actor_rig} {actor_rig_id} {rl_id}")
 
             remove_actions = []
             if actor_rig:
 
                 if actor.get_type() == "PROP":
-                    # if it's a prop retarget the animation (or copy the rest pose):
+
+                    actor_map = rigutils.get_rig_name_map(actor_rig)
+                    motion_map = rigutils.get_rig_name_map(motion_rig)
+                    for mmn, mmd in motion_map.items():
+                        if mmd[4] == "ARMATURE":
+                            # TODO prop motions change the name of the root... +_motion
+                            # how does avatar motion imports deal with that?
+                            for amn, amd in actor_map.items():
+                                # base_name, base_index, type must match
+                                if amd[0] == mmd[0] and amd[1] == mmd[1] and amd[4] == mmd[4]:
+                                    print(mmd)
+                                    print(amd)
+
+                    utils.log_info(f"Loading motion set {motion_rig_action.name} onto {actor_rig.name}")
+                    incoming_motion_action = rigutils.load_motion_set(actor_rig, motion_rig_action,
+                                                                      move=True)
+
+                    # Empty based props no longer need retargeting, skinned props still do.
+                    # if it's a prop retarget the armature animation channels:
                     #    props have no bind pose so the rest pose is the first frame of
                     #    the animation, which changes with every new animation import...
-                    if prefs.datalink_retarget_prop_actions:
-                        # retarget the action to the existing rig
-                        update_link_status(f"Retargeting Motion...")
-                        baked_action = rigutils.bake_rig_action_from_source(motion_rig, actor_rig)
-                        baked_action.use_fake_user = LINK_DATA.use_fake_user
-                        rigutils.add_motion_set_data(baked_action, set_id, set_generation, arm_id=rl_id, slotted=use_slotted)
-                        rigutils.set_armature_action_name(baked_action, actor_rig_id, motion_id, LINK_DATA.motion_prefix, slotted=use_slotted)
-                        rigutils.copy_action_shape_key_channels(actor_rig, motion_rig_action, baked_action, fake_user=LINK_DATA.use_fake_user)
-                        rigutils.delete_motion_set(motion_rig_action)
-                        rigutils.load_motion_set(actor_rig, baked_action)
-                        incoming_motion_action = baked_action
-                    else:
-                        # update the existing rig bind pose from the new motion
-                        rigutils.copy_rest_pose(motion_rig, actor_rig)
-                        motion_rig_action.use_fake_user = LINK_DATA.use_fake_user
-                        # load_motion_set will create a new motion set when loading onto a different prop rig
-                        incoming_motion_action = rigutils.load_motion_set(actor_rig, motion_rig_action, move=True)
-                    rigutils.update_prop_rig(actor_rig)
+                    # so retarget the action to the existing rig
+
+                    #update_link_status(f"Retargeting Motion...")
+                    #baked_action = rigutils.bake_rig_action_from_source(motion_rig, actor_rig)
+                    #baked_action.use_fake_user = LINK_DATA.use_fake_user
+                    #rigutils.add_motion_set_data(baked_action, set_id, set_generation, arm_id=rl_id)
+                    #rigutils.set_armature_action_name(baked_action, actor_rig_id, motion_id, LINK_DATA.motion_prefix)
+                    #rigutils.copy_action_shape_key_channels(actor_rig, motion_rig_action, baked_action, fake_user=LINK_DATA.use_fake_user)
+                    #rigutils.delete_motion_set(motion_rig_action)
+                    #rigutils.load_motion_set(actor_rig, baked_action)
+                    #incoming_motion_action = baked_action
+                    #rigutils.update_prop_rig(actor_rig)
 
                 else: # Avatar
                     if chr_cache.rigified:
@@ -4293,8 +4304,8 @@ class LinkService():
                         baked_action = rigging.adv_bake_retarget_to_rigify(None, chr_cache, motion_rig, motion_rig_action)
                         if baked_action:
                             baked_action.use_fake_user = LINK_DATA.use_fake_user
-                            rigutils.add_motion_set_data(baked_action, set_id, set_generation, arm_id=rl_id, slotted=use_slotted)
-                            rigutils.set_armature_action_name(baked_action, actor_rig_id, motion_id, LINK_DATA.motion_prefix, slotted=use_slotted)
+                            rigutils.add_motion_set_data(baked_action, set_id, set_generation, arm_id=rl_id)
+                            rigutils.set_armature_action_name(baked_action, actor_rig_id, motion_id, LINK_DATA.motion_prefix)
                             rigutils.copy_action_shape_key_channels(actor_rig, motion_rig_action, baked_action, fake_user=LINK_DATA.use_fake_user)
                             rigutils.delete_motion_set(motion_rig_action)
                             rigutils.load_motion_set(actor_rig, baked_action)
@@ -4309,11 +4320,14 @@ class LinkService():
                     rigutils.update_avatar_rig(actor_rig)
 
             for obj in motion_mesh_objects:
+                utils.log_info(f" - deleting motion mesh object {obj.name}")
                 utils.delete_mesh_object(obj)
             if motion_rig:
-                utils.delete_armature_object(motion_rig)
+                utils.log_info(f" - deleting motion rig {motion_rig.name}")
+                utils.delete_object_tree(motion_rig)
 
-            if actor_rig and incoming_motion_action:
+            # not yet...
+            if False and actor_rig and incoming_motion_action:
                 rigutils.finalize_motion_import(actor.get_chr_cache(), actor_rig, incoming_motion_action, action_store_id)
 
             utils.log_recess()

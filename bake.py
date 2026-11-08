@@ -1550,13 +1550,13 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
                  reuse_existing = reuse,
                  max_size=pack_max_tex_size)
 
-    if prefs.build_skin_shader_dual_spec:
-        # pack SSS and Transmission
-        pack_rgb_a(mat, bake_dir, vars.PACK_MICRODETAIL_NAME, shader_node, vars.PACK_MICRODETAIL_ID,
-                   "MICRONORMAL", "SKINSPECDETAIL",
-                   "Micro Normal Map", "Specular Detail Mask", 1.0, 1.0,
-                   reuse_existing = reuse,
-                   max_size=pack_max_tex_size)
+    #if prefs.build_skin_shader_dual_spec:
+    #    # pack SSS and Transmission
+    #    pack_rgb_a(mat, bake_dir, vars.PACK_MICRODETAIL_NAME, shader_node, vars.PACK_MICRODETAIL_ID,
+    #               "MICRONORMAL", "SKINSPECDETAIL",
+    #               "Micro Normal Map", "Specular Detail Mask", 1.0, 1.0,
+    #               reuse_existing = reuse,
+    #               max_size=pack_max_tex_size)
 
 
 def pack_default_shader(chr_cache, mat_cache, shader_node):

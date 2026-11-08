@@ -30,21 +30,23 @@ from . import (hik, rigging, rigutils, bake, shaders, physics, rigidbody, wrinkl
 UNPACK_INDEX = 1001
 
 
-def get_export_armature(chr_cache, objects):
+def get_export_root(chr_cache, objects):
     arm = None
     if chr_cache:
-        arm = chr_cache.get_armature()
+        arm = chr_cache.get_primary_object()
         if arm:
             return arm
 
-    arm = utils.get_armature_from_objects(objects)
+    roots = utils.get_root_armatures_or_empties(objects)
+    if roots:
+        arm = roots[0]
     return arm
 
 def check_valid_export_fbx(chr_cache, objects):
     report = []
     check_valid = True
     check_warn = False
-    arm = get_export_armature(chr_cache, objects)
+    arm = get_export_root(chr_cache, objects)
 
     standard = False
     if chr_cache:
@@ -106,10 +108,11 @@ def check_valid_export_fbx(chr_cache, objects):
 
 def remove_modifiers_for_export(chr_cache, objects, reset_pose, rig=None):
     if not rig:
-        rig = get_export_armature(chr_cache, objects)
+        rig = get_export_root(chr_cache, objects)
     if not rig:
         return
-    rig.data.pose_position = "POSE"
+    if rig.type == "ARMATURE":
+        rig.data.pose_position = "POSE"
     obj : bpy.types.Object
     for obj in objects:
         if reset_pose:
@@ -123,7 +126,7 @@ def remove_modifiers_for_export(chr_cache, objects, reset_pose, rig=None):
                     for mod in obj.modifiers:
                         if vars.NODE_PREFIX in mod.name:
                             obj.modifiers.remove(mod)
-    if reset_pose:
+    if reset_pose and rig.type == "ARMATURE":
         utils.safe_set_action(rig, None)
         bones.clear_pose(rig)
 
@@ -164,7 +167,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
     if as_blend_file:
         if prefs.export_unity_remove_objects:
             # remove everything not part of the character for blend file exports.
-            arm = get_export_armature(chr_cache, objects)
+            arm = get_export_root(chr_cache, objects)
             for obj in bpy.data.objects:
                 if not (obj == arm or utils.is_child_of(arm, obj) or chr_cache.has_object(obj)):
                     utils.log_info(f"Removing {obj.name} from blend file")
@@ -1145,7 +1148,7 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
     selected = bpy.context.selected_objects.copy()
 
     if chr_cache:
-        arm = chr_cache.get_armature()
+        arm = chr_cache.get_primary_object()
         if arm:
             utils.unhide(arm)
             if arm not in objects:
@@ -1777,10 +1780,11 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
 
         # export objects
         objects = get_export_objects(chr_cache, include_selected)
-        arm = get_export_armature(chr_cache, objects)
+        arm = get_export_root(chr_cache, objects)
 
         # store states and settings
-        armature_settings = bones.store_armature_settings(arm, include_pose=True)
+        if arm.type == "ARMATURE":
+            armature_settings = bones.store_armature_settings(arm, include_pose=True)
         object_state = utils.store_object_state(objects)
 
         utils.log_info("Preparing character for export:")
@@ -1846,7 +1850,8 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
 
         # restore states and settings
         utils.restore_object_state(object_state)
-        bones.restore_armature_settings(arm, armature_settings, include_pose=True)
+        if arm.type == "ARMATURE":
+            bones.restore_armature_settings(arm, armature_settings, include_pose=True)
 
         restore_modifiers(chr_cache, objects)
 
@@ -1899,7 +1904,7 @@ def export_non_standard(self, context, file_path, include_selected):
 
     # export objects
     objects = get_export_objects(None, include_selected)
-    arm = get_export_armature(None, objects)
+    arm = get_export_root(None, objects)
 
     # store states and settings
     armature_settings = bones.store_armature_settings(arm, include_pose=True)
@@ -2011,7 +2016,7 @@ def export_to_unity(self, context, chr_cache, export_anim, file_path, include_se
 
     # export objects
     objects = get_export_objects(chr_cache, include_selected)
-    arm = get_export_armature(chr_cache, objects)
+    arm = get_export_root(chr_cache, objects)
 
     # store states and settings
     armature_settings = bones.store_armature_settings(arm, include_pose=True)
@@ -2162,7 +2167,7 @@ def update_to_unity(self, context, chr_cache, export_anim, include_selected):
     prep_export(context, chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir, True, False, False, as_blend_file, False)
 
     # make the T-pose as an action
-    arm = get_export_armature(chr_cache, objects)
+    arm = get_export_root(chr_cache, objects)
     utils.safe_set_action(arm, None)
     chr_json = None
     if json_data:
@@ -2411,7 +2416,7 @@ def export_baked_gltf(self, context, chr_cache, file_path, use_anim, include_sel
 
     # export objects
     objects = get_export_objects(chr_cache, include_selected)
-    arm = get_export_armature(chr_cache, objects)
+    arm = get_export_root(chr_cache, objects)
 
     # store states and settings
     armature_settings = bones.store_armature_settings(arm, include_pose=True)

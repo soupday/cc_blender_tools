@@ -429,6 +429,8 @@ def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
     utils.log_info(f"Remap Action Names:")
     utils.log_info(f"Armature: {source_id} => {rig_id}")
 
+    rigutils.get_rig_name_map(arm, rename=True)
+
     # don't change the armature id if it exists
     rl_id = utils.get_rl_id(arm)
     if not rl_id:
@@ -480,12 +482,16 @@ def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
         if motion_id in motion_ids:
             set_id, set_generation = motion_sets[motion_id]
             if action in armature_actions:
-                action_name = rigutils.make_armature_action_name(rig_id, motion_id, motion_prefix, slotted=prefs.use_action_slots())
+                action_name = rigutils.make_armature_action_name(rig_id, motion_id, motion_prefix)
                 utils.log_info(f"Renaming action: {action.name} to {action_name}")
                 action.name = action_name
-                rigutils.add_motion_set_data(action, set_id, set_generation,
-                                             arm_id=rl_id,
-                                             slotted=(action in slotted_actions))
+                if arm.type == "ARMATURE":
+                    rigutils.add_motion_set_data(action, set_id, set_generation,
+                                                    arm_id=rl_id)
+                else:
+                    rigutils.add_motion_set_data(action, set_id, set_generation,
+                                                 obj_id=rl_id)
+
             else:
                 for obj_id, key_name in key_map.items():
                     if action_key_name == key_name:
@@ -493,7 +499,7 @@ def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
                         utils.log_info(f"Renaming action: {action.name} to {action_name}")
                         action.name = action_name
                         rigutils.add_motion_set_data(action, set_id, set_generation,
-                                                     key_id=obj_id, arm_id=rl_id, slotted=False)
+                                                     key_id=obj_id, arm_id=rl_id)
                         shapekey_actions.append(action)
 
     return armature_actions, shapekey_actions
@@ -728,9 +734,12 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, empties,
             else:
                 chr_cache.import_embedded = True
 
-            arm.name = character_name
-            if arm.data:
-                arm.data.name = character_name
+            # props are named correctly (almost: spaces to underscores)
+            # but we need to keep the name from the fbx as it
+            # relates to the name duplication untanglement
+            #arm.name = character_name
+            #if arm.data:
+            #    arm.data.name = character_name
 
             # in case of duplicate names: character_name contains the name currently in Blender.
             #                             import_name contains the original name.
@@ -1390,6 +1399,8 @@ class CC3Import(bpy.types.Operator):
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
             if ImportFlags.FBX not in ImportFlags(chr_cache.import_flags): continue
 
+
+
             # for any objects with shape keys expand the slider range to -1.5 - 1.5
             # Character Creator and iClone both use negative ranges extensively.
             for obj in chr_cache.get_cache_objects():
@@ -1436,6 +1447,7 @@ class CC3Import(bpy.types.Operator):
 
             # reload motion set as this will cull any driven shapekeys from the action channels
             action = utils.safe_get_action(rig)
+            utils.log_info(f"Relading Motion Set ... {rig} {action}")
             rigutils.load_motion_set(rig, action)
 
             if rebuild_wrinkle:
@@ -1984,12 +1996,19 @@ class CC3ImportAnimations(bpy.types.Operator):
         old_actions = utils.get_set(bpy.data.actions)
         old_materials = utils.get_set(bpy.data.materials)
 
-        bpy.ops.wm.fbx_import(filepath=path,
-                              directory=dir,
-                              use_anim=True,
-                              use_custom_normals=False,
-                              mtl_name_collision_mode="MAKE_UNIQUE",
-                              anim_offset=self.start_frame)
+        if utils.B500():
+            bpy.ops.wm.fbx_import(filepath=path,
+                                  directory=dir,
+                                  use_anim=True,
+                                  use_custom_normals=False,
+                                  mtl_name_collision_mode="MAKE_UNIQUE",
+                                  anim_offset=self.start_frame)
+        else:
+            bpy.ops.wm.fbx_import(filepath=path,
+                                  directory=dir,
+                                  use_anim=True,
+                                  use_custom_normals=False,
+                                  anim_offset=self.start_frame)
         #bpy.ops.import_scene.fbx(filepath=path,
         #                         directory=dir,
         #                         use_anim=True,
@@ -2012,20 +2031,17 @@ class CC3ImportAnimations(bpy.types.Operator):
         utils.log_indent()
 
         # find all armatures
-        armatures = []
-        for obj in objects:
-            if obj.type == "ARMATURE":
-                armatures.append(obj)
+        root_objects = utils.get_root_armatures_or_empties(objects)
 
         # assign animation sets
-        for arm in armatures:
-            armature_objects = utils.get_child_objects(arm, include_parent=True)
-            source_id = arm.name
+        for obj in root_objects:
+            child_objects = utils.get_child_objects(obj, include_parent=True)
+            source_id = obj.name
             # just one armature is always named 'Armature'
-            if len(armatures) == 1:
-                arm.name = name
-                arm.data.name = name
-            shapekey_actions = remap_action_names(arm, armature_objects, actions, source_id,
+            if len(root_objects) == 1 and obj.type == "ARMATURE":
+                obj.name = name
+                obj.data.name = name
+            shapekey_actions = remap_action_names(obj, child_objects, actions, source_id,
                                                   motion_prefix=self.motion_prefix)[1]
 
         utils.log_recess()

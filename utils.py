@@ -520,6 +520,21 @@ def get_selected_armatures(context = None):
                 objects.append(context.object)
     return objects
 
+def get_selected_root_armatures_or_empties(context = None):
+    """Gets selected armatures and includes any current context armature"""
+    objects = [ obj for obj in bpy.context.selected_objects if obj.parent == None and (object_exists_is_armature(obj) or object_exists_is_empty(obj) or object_exists_is_mesh(obj))]
+    if context and context.object:
+        if object_exists_is_armature(context.object) or object_exists_is_empty(context.object):
+            if context.object not in objects and context.object.parent == None:
+                objects.append(context.object)
+    return objects
+
+
+def get_root_armatures_or_empties(objects):
+    """Gets selected armatures and includes any current context armature"""
+    root_objects = [ obj for obj in objects if obj.parent == None and (object_exists_is_armature(obj) or object_exists_is_empty(obj) or object_exists_is_mesh(obj))]
+    return root_objects
+
 
 def safe_remove(item, force = False):
 
@@ -2134,18 +2149,17 @@ def make_action(name, reuse=False, slot_type=None, target_obj=None, slot_name=No
         action = bpy.data.actions.new(name)
     if clear:
         clear_action(action)
-    if B440():
-        if target_obj:
-            if not slot_type:
-                slot_type = get_slot_type_for(target_obj)
-        if not slot_name:
-            slot_name = f"SLOT-{slot_type}"
-        make_action_slot(action, slot_type, slot_name)
+    if target_obj:
+        if not slot_type:
+            slot_type = get_slot_type_for(target_obj)
+    if not slot_name:
+        slot_name = f"SLOT-{slot_type}"
+    make_action_slot(action, slot_type, slot_name)
     return action
 
 
 def make_action_slot(action, slot_type, slot_name):
-    if action and B440():
+    if action:
         for slot in action.slots:
             if slot.target_id_type == slot_type and strip_name(slot.name) == slot_name:
                 return slot
@@ -2157,7 +2171,7 @@ def make_action_slot(action, slot_type, slot_name):
 
 
 def get_action_slot(action: bpy.types.Action, slot_type: str=None, slot_id=None, target_obj: bpy.types.Object=None, create=False):
-    if action and B440():
+    if action:
         if target_obj and not slot_type:
             slot_type = get_slot_type_for(target_obj)
         for slot in action.slots:
@@ -2172,7 +2186,7 @@ def get_action_slot(action: bpy.types.Action, slot_type: str=None, slot_id=None,
 
 
 def find_action_slot(action, slot_type=None, slot_name=None, slot_id=None):
-    if action and B440():
+    if action:
         for slot in action.slots:
             if slot_type and slot_id:
                 if slot.target_id_type == slot_type and slot.identifier == slot_id:
@@ -2200,10 +2214,9 @@ def get_slot_type_for(obj: bpy.types.Object):
 
 
 def set_action_slot(obj, action, slot=None, create=False):
-    """Blender 4.4+ Only:
-       Set the obj.animation_data.action_slot to the supplied slot or
+    """Set the obj.animation_data.action_slot to the supplied slot or
        the first action slot with the matching slot_type"""
-    if obj and action and B440():
+    if obj and action:
         if slot:
             obj.animation_data.action_slot = slot
             return True
@@ -2226,13 +2239,11 @@ def safe_get_action(obj) -> bpy.types.Action:
     return None
 
 
-def safe_get_action_slot(obj) -> bpy.types.Action:
+def safe_get_action_slot(obj):
     if obj:
         try:
             if obj.animation_data:
-                if B440():
-                    return obj.animation_data.action, obj.animation_data.action_slot
-                return obj.animation_data.action, None
+                return obj.animation_data.action, obj.animation_data.action_slot
         except:
             log_warn(f"Unable to get action from {obj.name}")
     return None, None
@@ -2256,15 +2267,12 @@ def safe_set_action(obj, action, slot=None, create=True, create_slot=False):
 def clear_action(action):
     if action:
         try:
-            if B440():
-                for layer in action.layers:
-                    for strip in layer.strips:
-                        for channelbag in strip.channelbags:
-                            channelbag.fcurves.clear()
-                while action.slots:
-                    action.slots.remove(action.slots[0])
-            else:
-                action.fcurves.clear()
+            for layer in action.layers:
+                for strip in layer.strips:
+                    for channelbag in strip.channelbags:
+                        channelbag.fcurves.clear()
+            while action.slots:
+                action.slots.remove(action.slots[0])
             return True
         except:
             log_error(f"Unable to clear action: {action}")
@@ -2274,53 +2282,41 @@ def clear_action(action):
 def get_action_channelbags_list(action: bpy.types.Action):
     channels = []
     if action:
-        if B440():
-            channelbags = get_action_channelbags(action)
-            if channelbags:
-                for channelbag in channelbags:
-                    channels.append(channelbag)
-        else:
-            channels.append(action)
+        channelbags = get_action_channelbags(action)
+        if channelbags:
+            for channelbag in channelbags:
+                channels.append(channelbag)
     return channels
 
 
 def get_action_channelbags(action: bpy.types.Action):
     if action:
-        if B440():
-            if not action.layers:
-                layer = action.layers.new("Layer")
-            else:
-                layer = action.layers[0]
-            if not layer.strips:
-                strip = layer.strips.new(type='KEYFRAME')
-            else:
-                strip = layer.strips[0]
-            return strip.channelbags
+        if not action.layers:
+            layer = action.layers.new("Layer")
+        else:
+            layer = action.layers[0]
+        if not layer.strips:
+            strip = layer.strips.new(type='KEYFRAME')
+        else:
+            strip = layer.strips[0]
+        return strip.channelbags
     return None
 
 
 def get_action_groups(action: bpy.types.Action) -> List[bpy.types.ActionGroup]:
     groups = []
-    if B440():
-        channels = get_action_channelbags_list(action)
-        for channel in channels:
-            for group in channel.groups:
-                groups.append(group)
-    else:
-        for group in action.groups:
+    channels = get_action_channelbags_list(action)
+    for channel in channels:
+        for group in channel.groups:
             groups.append(group)
     return groups
 
 
 def get_action_fcurves(action: bpy.types.Action) -> List[bpy.types.FCurve]:
     fcurves = []
-    if B440():
-        channels = get_action_channelbags_list(action)
-        for channel in channels:
-            for fcurve in channel.fcurves:
-                fcurves.append(fcurve)
-    else:
-        for fcurve in action.fcurves:
+    channels = get_action_channelbags_list(action)
+    for channel in channels:
+        for fcurve in channel.fcurves:
             fcurves.append(fcurve)
     return fcurves
 
@@ -2329,9 +2325,9 @@ def get_action_channelbag(action: bpy.types.Action, slot=None, slot_type=None, c
     """Warning creating slot on the fly can cause access violations"""
     if not action:
         return None
-    if B440() and (not slot and not slot_type):
+    if not slot and not slot_type:
         return None
-    if B440() and (slot or slot_type):
+    if slot or slot_type:
         if not action.layers:
             layer = action.layers.new("Layer")
         else:

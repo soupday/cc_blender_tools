@@ -156,20 +156,17 @@ def add_rlx_motion_set_data(obj, actions, old_action=None):
             set_id = rigutils.get_motion_set_ids(old_action)[0]
         else:
             set_id = rigutils.generate_set_id()
-        is_slotted = len(actions) == 1 and rigutils.is_slotted_action(actions[0])
         for action in actions:
             is_light = action == data_action and obj.type == "LIGHT"
             is_camera = action == data_action and obj.type == "CAMERA"
             rigutils.add_motion_set_data(action, set_id, set_generation,
-                                         rlx_id=obj_id, slotted=is_slotted,
-                                         is_light=is_light, is_camera=is_camera)
+                                         rlx_id=obj_id, is_light=is_light, is_camera=is_camera)
         return True
     return False
 
 
 def prep_rlx_actions(actor: 'RLXActor', motion_id, timestamp=False, motion_prefix=None):
     props = vars.props()
-    prefs = vars.prefs()
 
     if not motion_id:
         motion_id = "DataLink"
@@ -181,22 +178,14 @@ def prep_rlx_actions(actor: 'RLXActor', motion_id, timestamp=False, motion_prefi
     actor.action_store_id = props.store_actions(obj)
     # generate names
     T = utils.get_slot_type_for(obj.data)
-    use_slotted = prefs.use_action_slots()
-    ob_name = rigutils.make_rlx_action_name(name, motion_id, motion_prefix, slotted=use_slotted)
+    ob_name = rigutils.make_rlx_action_name(name, motion_id, motion_prefix)
     ob_slot_name = f"{obj.name} (Object)"
     data_name = rigutils.make_data_action_name(obj, name, motion_id, motion_prefix)
     data_slot_name = f"{obj.name} ({obj.type.capitalize()})"
     ob_action = bpy.data.actions.new(ob_name)
-    if use_slotted:
-        data_action = ob_action
-    else:
-        data_action = bpy.data.actions.new(data_name)
-    if utils.B440():
-        ob_slot = ob_action.slots.new("OBJECT", ob_slot_name)
-        data_slot = data_action.slots.new(T, data_slot_name)
-    else:
-        ob_slot = None
-        data_slot = None
+    data_action = ob_action
+    ob_slot = ob_action.slots.new("OBJECT", ob_slot_name)
+    data_slot = data_action.slots.new(T, data_slot_name)
     # motion set ids
     add_rlx_motion_set_data(obj, [ob_action, data_action])
     # set the actions
