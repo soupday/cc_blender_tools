@@ -873,13 +873,16 @@ def create_fcurves_cache(count, indices, defaults, cache_type="VALUE"):
     return cache
 
 
-def get_datalink_rig_action(rig, motion_id=None):
+def get_datalink_rig_action(rig, motion_id=None, rig_map=None):
     if not motion_id:
         motion_id = "DataLink"
+    if not rig_map:
+        rig_map = rigutils.get_rig_name_map(rig)
     rig_id = rigutils.get_rig_id(rig)
     action_name = rigutils.make_armature_action_name(rig_id, motion_id, LINK_DATA.motion_prefix)
     action = bpy.data.actions.new(action_name)
-    slot, channel = rigutils.add_action_ob_slot_channelbag(action, rig)
+    slot, channel = rigutils.add_action_ob_slot_channelbag(action, rig, rig_map=rig_map)
+    print(rig, action, slot, channel)
     utils.safe_set_action(rig, action, slot=slot)
     action.use_fake_user = LINK_DATA.use_fake_user
     return action
@@ -986,6 +989,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
         if rig:
             rig_id = rigutils.get_rig_id(rig)
             rl_id = utils.get_rl_id(rig)
+            rig_map = rigutils.get_rig_name_map(rig)
             utils.log_info(f"Preparing Character Rig: {actor.name} {rig_id} / {len(actor.bones)} bones")
 
             if LINK_DATA.set_keyframes:
@@ -996,7 +1000,7 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                 set_id, set_generation = rigutils.generate_motion_set(rig, motion_id, LINK_DATA.motion_prefix)
 
                 # rig action
-                action = get_datalink_rig_action(rig, motion_id)
+                action = get_datalink_rig_action(rig, motion_id, rig_map)
                 rigutils.add_motion_set_data(action, set_id, set_generation, arm_id=rl_id)
                 utils.log_info(f"Preparing rig action: {action.name}")
 
@@ -1006,18 +1010,8 @@ def prep_pose_actor(actor: LinkActor, start_frame, end_frame):
                 if objects:
                     for obj in objects:
                         obj_id = rigutils.get_obj_id(obj)
-
-                        if prefs.use_action_slots():
-                            slot, channel = rigutils.add_action_key_slot_channelbag(action, obj)
-                            utils.safe_set_action(obj.data.shape_keys, action, slot=slot)
-                        else:
-                            action_name = rigutils.make_key_action_name(rig_id, motion_id, obj_id, LINK_DATA.motion_prefix)
-                            utils.log_info(f"Preparing shape key action: {action_name} / {num_expressions}+{num_visemes} shape keys")
-                            action = bpy.data.actions.new(action_name)
-                            slot, channel = rigutils.add_action_key_slot_channelbag(action, obj)
-                            rigutils.add_motion_set_data(action, set_id, set_generation, key_id=obj_id, arm_id=rl_id)
-                            utils.safe_set_action(obj.data.shape_keys, action, slot=slot)
-                            action.use_fake_user = LINK_DATA.use_fake_user
+                        slot, channel = rigutils.add_action_key_slot_channelbag(action, obj, rig_map=rig_map)
+                        utils.safe_set_action(obj.data.shape_keys, action, slot=slot)
                     # remove actions from non sequence objects
                     for obj in none_objects:
                         utils.safe_set_action(obj.data.shape_keys, None)
@@ -1416,8 +1410,8 @@ def write_sequence_actions(actor: LinkActor, num_frames, start_frame):
 
             if rig_action:
                 rigutils.load_motion_set(rig, rig_action, refactor_rotations=False)
-                rigutils.finalize_motion_import(actor.get_chr_cache(), rig, rig_action, actor.action_store_id,
-                                                overwrite=True)
+                #rigutils.finalize_motion_import(actor.get_chr_cache(), rig, rig_action, actor.action_store_id,
+                #                                overwrite=True)
 
         elif actor.get_type() == "LIGHT":
 

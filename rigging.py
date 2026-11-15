@@ -3800,6 +3800,7 @@ def bake_shape_key_animation(rig, objects):
 
     prefs = vars.prefs()
     rig_action, rig_slot = utils.safe_get_action_slot(rig)
+    rig_map = rigutils.get_rig_name_map(rig)
     shape_key_actions = {}
     shape_key_objects = [ o for o in objects if utils.object_exists_has_shape_keys(o) ]
     object_names = [ o.name for o in shape_key_objects ]
@@ -3834,28 +3835,15 @@ def bake_shape_key_animation(rig, objects):
 
         # write actions/slots and fcurves for the shape key key-frames
         for obj in shape_key_objects:
-            if prefs.use_action_slots():
-                obj_slot, obj_channelbag = rigutils.add_action_key_slot_channelbag(rig_action, obj, reuse=True, clear=True)
-                utils.safe_set_action(obj.data.shape_keys, rig_action, create=True, slot=obj_slot)
-                key_cache = frame_cache[obj.name]
-                for key_name, cache_data in key_cache.items():
-                    data_path = f"key_blocks[\"{key_name}\"].value"
-                    fcurve: bpy.types.FCurve = obj_channelbag.fcurves.new(data_path)
-                    fcurve.keyframe_points.add(num_frames)
-                    fcurve.keyframe_points.foreach_set("co", cache_data)
-                    rigutils.reset_fcurve_interpolation(fcurve)
-            else:
-                key_action = bpy.data.actions.new("Key")
-                key_slot, key_channelbag = rigutils.add_action_key_slot_channelbag(key_action, obj, reuse=True, clear=True)
-                utils.safe_set_action(obj.data.shape_keys, key_action, slot=key_slot)
-                key_cache = frame_cache[obj.name]
-                for key_name, cache_data in key_cache.items():
-                    data_path = f"key_blocks[\"{key_name}\"].value"
-                    fcurve: bpy.types.FCurve = key_channelbag.fcurves.new(data_path)
-                    fcurve.keyframe_points.add(num_frames)
-                    fcurve.keyframe_points.foreach_set("co", cache_data)
-                    rigutils.reset_fcurve_interpolation(fcurve)
-                shape_key_actions[rigutils.get_obj_id(obj)] = key_action
+            obj_slot, obj_channelbag = rigutils.add_action_key_slot_channelbag(rig_action, obj, reuse=True, clear=True, rig_map=rig_map)
+            utils.safe_set_action(obj.data.shape_keys, rig_action, create=True, slot=obj_slot)
+            key_cache = frame_cache[obj.name]
+            for key_name, cache_data in key_cache.items():
+                data_path = f"key_blocks[\"{key_name}\"].value"
+                fcurve: bpy.types.FCurve = obj_channelbag.fcurves.new(data_path)
+                fcurve.keyframe_points.add(num_frames)
+                fcurve.keyframe_points.foreach_set("co", cache_data)
+                rigutils.reset_fcurve_interpolation(fcurve)
 
     return shape_key_actions
 

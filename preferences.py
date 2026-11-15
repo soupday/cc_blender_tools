@@ -613,11 +613,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 		max=59
 		)
 
-
-    def use_action_slots(self):
-        return True
-
-
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True

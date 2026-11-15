@@ -1137,9 +1137,7 @@ class CC3Import(bpy.types.Operator):
 
                 # combine actions (B440 action slots)
                 if actions:
-                    if prefs.use_action_slots():
-                        actions = rigutils.refactor_to_slotted_action(imported, actions)
-
+                    actions = rigutils.refactor_to_slotted_action(imported, actions)
                     for action in actions:
                         action.use_fake_user = self.use_fake_user
 
@@ -2020,9 +2018,7 @@ class CC3ImportAnimations(bpy.types.Operator):
         images = utils.get_set_new(bpy.data.images, old_images)
         materials = utils.get_set_new(bpy.data.materials, old_materials)
 
-        # combine actions (B440 action slots)
-        if prefs.use_action_slots():
-            actions = rigutils.refactor_to_slotted_action(objects, actions)
+        actions = rigutils.refactor_to_slotted_action(objects, actions)
 
         for action in actions:
             action.use_fake_user = self.use_fake_user

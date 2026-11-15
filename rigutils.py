@@ -687,6 +687,7 @@ def new_motion_set(rig: bpy.types.Object, motion_id=None, motion_prefix=""):
     rig_id = get_rig_id(rig)
     rl_id = utils.get_rl_id(rig)
     set_id = generate_set_id()
+    rig_map = get_rig_name_map(rig)
     set_generation = utils.get_prop(rig, "rl_set_generation")
     if not motion_id:
         motion_id = "New"
@@ -696,7 +697,7 @@ def new_motion_set(rig: bpy.types.Object, motion_id=None, motion_prefix=""):
     else:
         action_name = make_rlx_action_name(rig_id, motion_id, motion_prefix)
     action = bpy.data.actions.new(action_name)
-    slot, channel = add_action_ob_slot_channelbag(action, rig)
+    slot, channel = add_action_ob_slot_channelbag(action, rig, rig_map=rig_map)
     if rig.type == "ARMATURE":
         add_motion_set_data(action, set_id, set_generation, arm_id=rl_id)
     elif rig.type == "LIGHT" or rig.type == "CAMERA":
@@ -2558,6 +2559,14 @@ def de_pivot(chr_cache):
 
 
 #region Actions
+def generate_action_slot_indexed_base_name(obj, rig_map):
+    if rig_map:
+        base_name, index = get_rig_map_base_name_index(rig_map, obj.name)
+        name = f"{base_name}|{index}"
+    else:
+        name = obj.name
+    return name
+
 def add_action_slot_channelbag(action, name: str, slot_type: str, reuse=False, clear=False):
     slot_name = f"{name} ({slot_type.capitalize()})"
     channelbags = utils.get_action_channelbags(action)
@@ -2575,31 +2584,19 @@ def add_action_slot_channelbag(action, name: str, slot_type: str, reuse=False, c
 
 
 def add_action_key_slot_channelbag(action, obj: bpy.types.Object, reuse=False, clear=False, rig_map=None):
-    if rig_map:
-        base_name, index = get_rig_map_base_name_index(rig_map, obj.name)
-        name = f"{base_name}|{index}"
-    else:
-        name = obj.name
+    name = generate_action_slot_indexed_base_name(obj, rig_map)
     return add_action_slot_channelbag(action, name, "KEY", reuse=reuse, clear=clear)
 
 
 def add_action_ob_slot_channelbag(action, obj: bpy.types.Object, reuse=False, clear=False, rig_map=None):
-    if rig_map:
-        base_name, index = get_rig_map_base_name_index(rig_map, obj.name)
-        name = f"{base_name}|{index}"
-    else:
-        name = obj.name
+    name = generate_action_slot_indexed_base_name(obj, rig_map)
     return add_action_slot_channelbag(action, name, "OBJECT", reuse=reuse, clear=clear)
 
 
 def add_action_data_slot_channelbag(action, obj: bpy.types.Object, slot_type=None, reuse=False, clear=False, rig_map=None):
     if not slot_type:
         slot_type = obj.type
-    if rig_map:
-        base_name, index = get_rig_map_base_name_index(rig_map, obj.name)
-        name = f"{base_name}|{index}"
-    else:
-        name = obj.name
+    name = generate_action_slot_indexed_base_name(obj, rig_map)
     return add_action_slot_channelbag(action, name, slot_type, reuse=reuse, clear=clear)
 
 
@@ -2620,26 +2617,7 @@ def copy_slot_actions(src_action, dst_action, slot_type):
 def copy_action_shape_key_channels(rig, src_action, dst_action, fake_user=True):
     prefs = vars.prefs()
     copy_actions = [dst_action]
-    if prefs.use_action_slots():
-        copy_slot_actions(src_action, dst_action, "KEY")
-    else:
-        rig_id = get_rig_id(rig)
-        rl_id = utils.get_rl_id(rig)
-        motion_set = get_motion_set_ids(dst_action)
-        set_id = motion_set[0]
-        set_generation = motion_set[1]
-        motion_prefix = get_motion_prefix(dst_action)
-        motion_id = get_motion_id(dst_action)
-        key_actions = fetch_key_actions(src_action)
-        for key_action in key_actions:
-            key_object = utils.get_prop(key_action, "rl_key_object")
-            action_name = make_key_action_name(rig_id, motion_id, key_object, motion_prefix)
-            utils.log_info(f" - Copying Key Action: {key_action.name} to {action_name}")
-            copy_action: bpy.types.Action = key_action.copy()
-            copy_action.name = action_name
-            copy_action.use_fake_user = fake_user
-            add_motion_set_data(copy_action, set_id, set_generation, key_id=key_object, arm_id=rl_id)
-            copy_actions.append(copy_action)
+    copy_slot_actions(src_action, dst_action, "KEY")
     return copy_actions
 
 
@@ -2703,6 +2681,9 @@ def fetch_action_curve_database(source_action):
         if a in done_actions: continue
         done_actions.append(a)
         base_root_name = utils.get_prop(a, "rl_root_name")
+        if not base_root_name:
+            base_root_name, base_root_index = get_first_ob_slot_name_index(source_action)
+            print(f"Using first base_root_name: {base_root_name}")
         channelbags = utils.get_action_channelbags(a)
         # build database of fcurves by slot
         for channel in channelbags:
@@ -3118,10 +3099,9 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
             used_ids = set()
 
             # add data slot
-            data_slot, data_channel = add_action_slot_channelbag(action, f"{rig.name} ({slot_type.capitalize()})", slot_type,
-                                                                 reuse=True, clear=True)
-
-            add_action_data_slot_channelbag(action, rig, slot_type=slot_type, reuse=True, clear=True, rig_map=rig_map)
+            data_slot, data_channel = add_action_data_slot_channelbag(action, rig,
+                                                                      slot_type=slot_type, reuse=True,
+                                                                      clear=True, rig_map=rig_map)
 
             # for each fcurve data path in the database
             for id, fcurve in slot_curves.items():
@@ -3762,66 +3742,12 @@ def shift_motion_frames(motion_action, to_frame):
 
 def add_slot_channels_to_rig_motion(rig, obj, slot_type, action, reuse=False, clear=False):
     prefs = vars.prefs()
-
     is_rig = utils.object_exists_is_armature(rig)
     arm_id = utils.get_rl_id(rig)
-
-    if prefs.use_action_slots():
-
-        # add slot channel for src action slot channel
-        slot, channel = add_action_slot_channelbag(action, obj.name, slot_type, reuse=reuse, clear=clear)
-
-    else:
-
-        if is_rig:
-            # determine motion set info
-            rig_id = get_rig_id(rig)
-            obj_id = get_obj_id(obj)
-            set_id = utils.get_prop(action, "rl_set_id")
-            set_generation = utils.get_prop(action, "rl_set_generation")
-            motion_prefix = get_motion_prefix(action)
-            motion_id = get_motion_id(action)
-            use_fake_user = action.use_fake_user
-
-            # generate a slot channel for the object
-            if set_id:
-                if slot_type == "OBJECT":
-                    action_name = make_armature_action_name(rig_id, motion_id, motion_prefix)
-                elif slot_type == "KEY":
-                    action_name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
-
-        else:
-            set_id = None
-            motion_id = get_motion_id(action, f"{utils.datetimes()}")
-            motion_prefix = get_motion_prefix(action)
-
-            if slot_type == "OBJECT":
-                action_name = generate_action_name(obj.name, "O", "", motion_id, motion_prefix)
-            if slot_type == "LIGHT" or slot_type == "CAMERA":
-                action_name = generate_action_name(obj.name, slot_type[0], "", motion_id, motion_prefix)
-
-        # make a new dst_action for this object
-        if reuse and action_name in bpy.data.actions:
-            action = bpy.data.actions[action_name]
-        else:
-            action = bpy.data.actions.new(action_name)
-            utils.force_action_name(action, action_name)
-        if clear:
-            utils.clear_action(action)
-        action.use_fake_user = use_fake_user
-
-        if set_id:
-            add_motion_set_data(action, set_id, set_generation,
-                                key_id=obj_id, arm_id=arm_id)
-
-        # add slot and motion set data
-        if slot_type == "OBJECT":
-            slot, channel = add_action_ob_slot_channelbag(action, rig, reuse=True, clear=True)
-        elif slot_type == "KEY":
-            slot, channel = add_action_key_slot_channelbag(action, obj, reuse=True, clear=True)
-        elif slot_type == "LIGHT" or slot_type == "CAMERA":
-            slot, channel = add_action_slot_channelbag(action, obj.name, slot_type, reuse=True, clear=True)
-
+    rig_map = get_rig_name_map(rig)
+    # add slot channel for src action slot channel
+    name = generate_action_slot_indexed_base_name(obj, rig_map)
+    slot, channel = add_action_slot_channelbag(action, name, slot_type, reuse=reuse, clear=clear)
     return action, slot, channel
 
 
@@ -5038,6 +4964,14 @@ def get_rig_map_base_name_index(rig_map, obj_name):
             base_name, index, action, slot, type = rig_map[name]
             return base_name, index
     return "", -1
+
+
+def get_first_ob_slot_name_index(action):
+    channelbags = utils.get_action_channelbags(action)
+    for channelbag in channelbags:
+        if channelbag.slot.target_id_type == "OBJECT":
+            return get_slot_base_name_index(channelbag.slot)
+    return "", 0
 
 
 def get_slot_base_name_index(slot):
