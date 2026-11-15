@@ -291,7 +291,21 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
         utils.try_select_child_objects(obj)
 
     objects = bpy.context.selected_objects.copy()
-    chr_rig = utils.get_armature_from_objects(objects)
+    roots = utils.get_root_objects(objects)
+    if len(roots) == 0:
+        return
+    if len(roots) > 1 or (roots[0].type != "EMPTY" or roots[0].type != "ARMATURE"):
+        loc = Vector((0,0,0))
+        for root in roots:
+            loc += root.location
+        loc /= len(roots)
+        bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius = 0.5, location=loc)
+        chr_rig = utils.get_active_object()
+        utils.try_select_objects(roots, clear_selection=True)
+        utils.set_active_object(chr_rig)
+        bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+    else:
+        chr_rig = roots[0]
 
     utils.log_info(f"Generic character objects:")
     for obj in objects:
@@ -328,18 +342,14 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
 
     utils.log_info(f"Generic character name: {chr_name}")
 
-    # if no rig: generate one from the objects and empty parent transforms
-    if not chr_rig:
-        utils.log_info(f"Generating Prop Rig...")
-        chr_rig = make_prop_armature(objects)
-
     # now treat the armature as any generic character
-    objects = get_character_objects(chr_rig)
+    objects = utils.get_child_objects(chr_rig, include_parent=True, follow_armatures=True)
 
     utils.log_info(f"Creating Character Data...")
 
     chr_rig.name = chr_name
-    chr_rig.data.name = chr_name
+    if chr_rig.type == "ARMATURE":
+        chr_rig.data.name = chr_name
     chr_cache = props.import_cache.add()
     chr_cache.import_file = ""
     chr_cache.set_name(chr_name)
@@ -352,11 +362,11 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
 
     chr_cache.add_object_cache(chr_rig)
 
-    utils.log_info(f"Adding Character Objects:")
+    utils.log_info(f"Adding Character Objects: {[o.name for o in objects]}")
 
     # add child objects to chr_cache
     for obj in objects:
-        if utils.object_exists_is_mesh(obj):
+        if utils.object_exists_is_mesh(obj) or utils.object_exists_is_armature(obj) or utils.object_exists_is_empty(obj):
             add_object_to_character(chr_cache, obj, reparent=False,
                                     no_materials=not prefs.auto_convert_materials)
 
