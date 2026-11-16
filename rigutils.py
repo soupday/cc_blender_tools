@@ -3642,27 +3642,30 @@ def target_slot(target):
     return None
 
 
-def fetch_target_channels(rig, rig_action=None):
-    rig_slot = target_slot(rig)
-    if not rig_action:
-        rig_action = utils.safe_get_action(rig)
-    rig_channelbag = utils.get_action_channelbag(rig_action, slot=rig_slot)
-    rig_channel = (rig_action, rig_slot, rig_channelbag)
+def fetch_target_channels(rig):
+    obj_channels = {}
     key_channels = {}
-    for child in utils.get_child_meshes(rig):
-        if utils.object_exists_has_shape_keys(child):
-            key_slot = target_slot(child.data.shape_keys)
-            key_action = utils.safe_get_action(child.data.shape_keys)
+    data_channels = {}
+    for obj in utils.get_child_objects(rig, include_parent=True, follow_armatures=True):
+        if obj.type == "ARMATURE" or obj.type == "MESH" or obj.type == "EMPTY" or obj.type == "LIGHT" or obj.type == "CAMERA":
+            obj_slot = target_slot(obj)
+            obj_action = utils.safe_get_action(obj)
+            obj_channelbag = utils.get_action_channelbag(obj_action, slot=obj_slot)
+            if obj_action:
+                obj_channels[obj.name] = (obj_action, obj_slot, obj_channelbag)
+        if utils.object_exists_has_shape_keys(obj):
+            key_slot = target_slot(obj.data.shape_keys)
+            key_action = utils.safe_get_action(obj.data.shape_keys)
             key_channelbag = utils.get_action_channelbag(key_action, slot=key_slot)
-            key_channels[child.name] = (key_action, key_slot, key_channelbag)
-    data_slot = target_slot(rig.data)
-    if rig.type == "LIGHT" or rig.type == "CAMERA":
-        data_action = utils.safe_get_action(rig.data)
-    else:
-        data_action = None
-    data_channelbag = utils.get_action_channelbag(data_action, slot=data_slot)
-    data_channel = (data_action, data_slot, data_channelbag)
-    return rig_channel, key_channels, data_channel
+            if key_action:
+                key_channels[obj.name] = (key_action, key_slot, key_channelbag)
+        if obj.type == "LIGHT" or obj.type == "CAMERA":
+            data_slot = target_slot(obj.data)
+            data_action = utils.safe_get_action(obj.data)
+            data_channelbag = utils.get_action_channelbag(data_action, slot=data_slot)
+            if data_action:
+                data_channels[obj.name] = (data_action, data_slot, data_channelbag)
+    return obj_channels, key_channels, data_channels
 
 
 def fetch_key_targets(rig):
@@ -3673,9 +3676,22 @@ def fetch_key_targets(rig):
     return key_targets
 
 
+def fetch_obj_targets(rig):
+    objects = utils.get_child_objects(rig)
+    obj_targets = []
+    for obj in objects:
+        if (utils.object_exists_is_armature(obj) or
+            utils.object_exists_is_empty(obj) or
+            utils.object_exists_is_light(obj) or
+            utils.object_exists_is_camera(obj) or
+            utils.object_exists_is_mesh(obj)):
+            obj_targets.append(obj.name)
+    return obj_targets
+
+
 def mix_motion_set(rig, action_store_id, frame_start, frame_end):
     props = vars.props()
-    stored_main_action, stored_main_slot = props.fetch_stored_rig_channel(action_store_id)
+    stored_main_action, stored_main_slot = props.fetch_stored_object_channels(action_store_id)
     done = False
     objects = utils.get_child_objects(rig, include_parent=True)
     mix_pairs = []
@@ -3796,18 +3812,18 @@ def finalize_rlx_import(rlx_cache, obj, actions, action_store_id, frame_start=No
         return
 
     if actions:
-        stored_actions = props.fetch_stored_actions(action_store_id)
-        motion_rig_channel, motion_key_channels, motion_data_channel = fetch_target_channels(obj, motion_action)
+        motion_rig_channel, motion_key_channels, motion_data_channel = fetch_target_channels(obj)
         key_targets = []
-        stored_rig_channel = props.fetch_stored_rig_channel(action_store_id)
+        obj_targets = [obj]
+        stored_obj_channels = props.fetch_stored_object_channels(action_store_id)
         stored_key_channels = props.fetch_stored_key_channels(action_store_id)
-        stored_data_channel = props.fetch_stored_data_channel(action_store_id)
+        stored_data_channels = props.fetch_stored_data_channels(action_store_id)
         opts, blend_in_data, blend_out_data, use_masked = get_import_opts(rlx_cache)
         if opts.relative_root or opts.current_root or opts.use_blend or use_masked or overwrite:
             resample_blend(rlx_cache, obj,
                            motion_rig_channel, motion_key_channels, motion_data_channel,
-                           stored_rig_channel, stored_key_channels, stored_data_channel,
-                           key_targets,
+                           stored_obj_channels, stored_key_channels, stored_data_channels,
+                           obj_targets, key_targets,
                            frame_start, frame_end,
                            relative_root=opts.relative_root,
                            current_root=opts.current_root,
@@ -3820,7 +3836,7 @@ def finalize_rlx_import(rlx_cache, obj, actions, action_store_id, frame_start=No
                            overall_strength=opts.blend_strength)
 
         if overwrite:
-            stored_action = props.fetch_stored_rig_action(action_store_id)
+            stored_action = props.fetch_stored_root_action(action_store_id)
             # reload target (stored) motion set
             load_motion_set(obj, stored_action, refactor_rotations=False)
             # delete the source motion set
@@ -3830,12 +3846,6 @@ def finalize_rlx_import(rlx_cache, obj, actions, action_store_id, frame_start=No
         else:
             # Do nothing else
             utils.log_info(f"Loaded new motion set: {motion_action.name}")
-
-        #if action_mode == "BLEND":
-        #    old_action = stored_actions[0]
-        #    utils.log_info(f"Action Mode BLEND: blending motion set: {motion_action.name} over existing motion: {old_action.name}")
-        #    mix_motion_set(obj, action_store_id, frame_start, frame_end)
-        #    utils.delete_actions(actions)
 
         props.delete_action_store(action_store_id)
 
@@ -3873,20 +3883,18 @@ def finalize_motion_import(chr_cache, rig, motion_rig_action, action_store_id,
 
     if motion_rig_action:
         set_id = get_motion_set_ids(motion_rig_action)[0]
-        stored_actions = props.fetch_stored_actions(action_store_id)
-        motion_rig_channel, motion_key_channels, motion_data_channel = fetch_target_channels(rig, motion_rig_action)
+        motion_rig_channels, motion_key_channels, motion_data_channels = fetch_target_channels(rig)
         key_targets = fetch_key_targets(rig)
-        stored_rig_channel = props.fetch_stored_rig_channel(action_store_id)
+        obj_targets = fetch_obj_targets(rig)
+        stored_rig_channels = props.fetch_stored_object_channels(action_store_id)
         stored_key_channels = props.fetch_stored_key_channels(action_store_id)
-        stored_data_channel = props.fetch_stored_data_channel(action_store_id)
-        #masked_bones: list = []
-        #mask_bones(rig, motion_rig_action, motion_rig_slot, masked_bones)
+        stored_data_channels = props.fetch_stored_data_channels(action_store_id)
         opts, blend_in_data, blend_out_data, use_masked = get_import_opts(chr_cache)
         if opts.relative_root or opts.current_root or opts.use_blend or use_masked or overwrite:
             resample_blend(chr_cache, rig,
-                           motion_rig_channel, motion_key_channels, motion_data_channel,
-                           stored_rig_channel, stored_key_channels, stored_data_channel,
-                           key_targets,
+                           motion_rig_channels, motion_key_channels, motion_data_channels,
+                           stored_rig_channels, stored_key_channels, stored_data_channels,
+                           obj_targets, key_targets,
                            frame_start, frame_end,
                            relative_root=opts.relative_root,
                            current_root=opts.current_root,
@@ -3899,7 +3907,7 @@ def finalize_motion_import(chr_cache, rig, motion_rig_action, action_store_id,
                            overall_strength=opts.blend_strength)
 
         if overwrite:
-            stored_rig_action = props.fetch_stored_rig_action(action_store_id)
+            stored_rig_action = props.fetch_stored_root_action(action_store_id)
             # reload target (stored) motion set
             load_motion_set(rig, stored_rig_action, refactor_rotations=False)
             # delete the source motion set
@@ -3909,13 +3917,6 @@ def finalize_motion_import(chr_cache, rig, motion_rig_action, action_store_id,
         else:
             # already loaded, do nothing else
             utils.log_info(f"Loaded new motion set: {motion_rig_action.name} / ({set_id})")
-
-        #if action_mode == "BLEND":
-        #    old_action = stored_actions[0]
-        #    old_set_id = get_motion_set_ids(old_action)[0]
-        #    utils.log_info(f"Action Mode BLEND: blending motion set: {motion_rig_action.name} / ({set_id}) over existing motion: {old_action.name} / ({old_set_id})")
-        #    mix_motion_set(rig, action_store_id, frame_start, frame_end)
-        #    delete_motion_set(set_id)
 
         props.delete_action_store(action_store_id)
 
@@ -4085,9 +4086,9 @@ def remove_key_from_channelbag(channelbag, key_name):
 
 
 def resample_blend(chr_rlx_cache, rig,
-                   motion_rig_channel, motion_key_channels, motion_data_channel,
-                   stored_rig_channel, stored_key_channels, stored_data_channel,
-                   key_targets,
+                   motion_rig_channels, motion_key_channels, motion_data_channels,
+                   stored_rig_channels, stored_key_channels, stored_data_channels,
+                   obj_targets, key_targets,
                    from_frame, to_frame,
                    relative_root=False,
                    current_root=False,
@@ -4144,47 +4145,50 @@ def resample_blend(chr_rlx_cache, rig,
 
     processed_fcurves: List[bpy.types.FCurve] = []
 
-    # resample bone tracks
+    # resample object and bone tracks
     #
-    if rig.type == "ARMATURE":
+    if rig.type == "ARMATURE" or rig.type == "EMPTY" or rig.type == "LIGHT" or rig.type == "CAMERA":
 
-        if not bone_names:
+        if rig.type == "ARMATURE" and not bone_names:
             if use_blend or overwrite:
                 bone_names = [ b.name for b in rig.pose.bones ]
             elif relative_root or current_root:
                 bone_names = [ rig.pose.bones[0].name ]
 
-        blend_bone_curves(motion_rig_channel, stored_rig_channel,
-                          from_frame, to_frame,
-                          rig, bone_names, relative_root, current_root,
-                          use_blend, overwrite, overall_strength,
-                          blend_in_frames, blend_out_frames,
-                          blend_in_data, blend_out_data,
-                          use_mask_bones, blend_mask_bones,
-                          processed_fcurves=processed_fcurves)
+        for obj_name in obj_targets:
+            print(f"OBJ: {obj_name}")
 
-        blend_data_curves(rig, motion_rig_channel, stored_rig_channel,
-                          from_frame, to_frame,
-                          use_blend, overwrite, overall_strength,
-                          blend_in_frames, blend_out_frames,
-                          blend_in_data, blend_out_data,
-                          processed_fcurves=processed_fcurves)
+            motion_rig_channel = motion_rig_channels.get(obj_name, (None, None, None))
+            stored_rig_channel = stored_rig_channels.get(obj_name, (None, None, None))
+
+            if rig.type == "ARMATURE":
+                blend_bone_curves(motion_rig_channel, stored_rig_channel,
+                                  from_frame, to_frame,
+                                  rig, bone_names, relative_root, current_root,
+                                  use_blend, overwrite, overall_strength,
+                                  blend_in_frames, blend_out_frames,
+                                  blend_in_data, blend_out_data,
+                                  use_mask_bones, blend_mask_bones,
+                                  processed_fcurves=processed_fcurves)
+
+            blend_data_curves(rig, motion_rig_channel, stored_rig_channel,
+                              from_frame, to_frame,
+                              use_blend, overwrite, overall_strength,
+                              blend_in_frames, blend_out_frames,
+                              blend_in_data, blend_out_data,
+                              processed_fcurves=processed_fcurves)
 
     # resample shape key tracks
     #
-    if rig.type == "ARMATURE":
+    if rig.type == "ARMATURE" or rig.type == "EMPTY":
 
         if not key_names:
             key_names = get_shape_key_names(rig) if (use_blend or overwrite) else []
 
         for obj_name in key_targets:
 
-            motion_key_channel = motion_key_channels[obj_name] \
-                                    if obj_name in motion_key_channels \
-                                    else (None, None, None)
-            stored_key_channel = stored_key_channels[obj_name] \
-                                    if obj_name in stored_key_channels \
-                                    else (None, None, None)
+            motion_key_channel = motion_key_channels.get(obj_name, (None, None, None))
+            stored_key_channel = stored_key_channels.get(obj_name, (None, None, None))
 
             blend_key_curves(motion_key_channel, stored_key_channel,
                              from_frame, to_frame,
@@ -4195,23 +4199,21 @@ def resample_blend(chr_rlx_cache, rig,
                              use_mask_keys, blend_mask_keys,
                              processed_fcurves=processed_fcurves)
 
-    # process data
+    # process data tracks
     #
     if rig.type == "LIGHT" or rig.type == "CAMERA":
 
-        blend_data_curves(rig, motion_rig_channel, stored_rig_channel,
-                          from_frame, to_frame,
-                          use_blend, overwrite, overall_strength,
-                          blend_in_frames, blend_out_frames,
-                          blend_in_data, blend_out_data,
-                          processed_fcurves=processed_fcurves)
+        for obj in obj_targets:
 
-        blend_data_curves(rig, motion_data_channel, stored_data_channel,
-                          from_frame, to_frame,
-                          use_blend, overwrite, overall_strength,
-                          blend_in_frames, blend_out_frames,
-                          blend_in_data, blend_out_data,
-                          processed_fcurves=processed_fcurves)
+            motion_data_channel = motion_data_channels.get(obj_name, (None, None, None))
+            stored_data_channel = stored_data_channels.get(obj_name, (None, None, None))
+
+            blend_data_curves(rig, motion_data_channel, stored_data_channel,
+                              from_frame, to_frame,
+                              use_blend, overwrite, overall_strength,
+                              blend_in_frames, blend_out_frames,
+                              blend_in_data, blend_out_data,
+                              processed_fcurves=processed_fcurves)
     return
 
 
@@ -4224,6 +4226,7 @@ def blend_bone_curves(motion_channel, stored_channel,
                       use_mask_bones, blend_mask_bones,
                       processed_fcurves: List[bpy.types.FCurve]=None):
 
+    if motion_channel == (None, None, None) and stored_channel == (None, None, None): return
     motion_action, motion_slot, motion_channelbag = motion_channel
     stored_action, stored_slot, stored_channelbag = stored_channel
 
@@ -4425,6 +4428,8 @@ def blend_key_curves(motion_channel, stored_channel,
                      use_mask_keys, blend_mask_keys,
                      processed_fcurves: List[bpy.types.FCurve]=None):
 
+    if motion_channel == (None, None, None) and stored_channel == (None, None, None): return
+
     motion_action, motion_slot, motion_channelbag = motion_channel
     stored_action, stored_slot, stored_channelbag = stored_channel
 
@@ -4559,6 +4564,8 @@ def blend_data_curves(rig, motion_channel, stored_channel,
                       blend_in_frames, blend_out_frames,
                       blend_in_data, blend_out_data,
                       processed_fcurves: List[bpy.types.FCurve]=None):
+
+    if motion_channel == (None, None, None) and stored_channel == (None, None, None): return
 
     motion_action, motion_slot, motion_channelbag = motion_channel
     stored_action, stored_slot, stored_channelbag = stored_channel
@@ -4928,8 +4935,6 @@ def get_rig_name_map(root: bpy.types.Object, rename = False):
     objects = utils.get_child_objects(root, include_parent=True, follow_armatures=True)
     names = [ o.name for o in objects ]
     names.sort()
-    print(f"Untangle: {root.name}")
-    print(names)
     count = {}
     result = {}
     base_root_name = utils.strip_name(root.name)
@@ -4944,7 +4949,6 @@ def get_rig_name_map(root: bpy.types.Object, rename = False):
             utils.set_prop(action, "rl_root_name", base_root_name)
         type = obj.type
         result[name] = (base_name, index, action, slot, type)
-        print(f" - {name}:{base_name},{index}")
         slot_suffix = "Arm" if obj.type == "ARMATURE" else "Object"
         if slot and rename:
             # rename the action slots to indentify their *source* objects.

@@ -1410,8 +1410,8 @@ def write_sequence_actions(actor: LinkActor, num_frames, start_frame):
 
             if rig_action:
                 rigutils.load_motion_set(rig, rig_action, refactor_rotations=False)
-                #rigutils.finalize_motion_import(actor.get_chr_cache(), rig, rig_action, actor.action_store_id,
-                #                                overwrite=True)
+                rigutils.finalize_motion_import(actor.get_chr_cache(), rig, rig_action, actor.action_store_id,
+                                                overwrite=True)
 
         elif actor.get_type() == "LIGHT":
 
@@ -4320,8 +4320,7 @@ class LinkService():
                 utils.log_info(f" - deleting motion rig {motion_rig.name}")
                 utils.delete_object_tree(motion_rig)
 
-            # not yet...
-            if False and actor_rig and incoming_motion_action:
+            if actor_rig and incoming_motion_action:
                 rigutils.finalize_motion_import(actor.get_chr_cache(), actor_rig, incoming_motion_action, action_store_id)
 
             utils.log_recess()

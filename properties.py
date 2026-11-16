@@ -3834,7 +3834,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         return data_action["rl_set_id"]
         return None
 
-    def fetch_stored_rig_action(self, store_id):
+    def fetch_stored_root_action(self, store_id):
         action_store: CCICActionStore
         first_action = None
         for action_store in self.action_options.action_store:
@@ -3850,41 +3850,24 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         first_action = action
         return first_action
 
-    def fetch_stored_rig_channel(self, store_id):
-        action_store: CCICActionStore
-        for action_store in self.action_options.action_store:
-            if action_store.store_id == store_id:
-                if (utils.object_exists_is_armature(action_store.object) or
-                    utils.object_exists_is_light(action_store.object) or
-                    utils.object_exists_is_camera(action_store.object) or
-                    utils.object_exists_is_empty(action_store.object)):
-                    action = action_store.object_action
-                    if utils.action_exists(action):
-                        slot_id = action_store.object_slot_id
-                        slot = utils.get_action_slot(action, slot_id=slot_id)
-                        channelbag = utils.get_action_channelbag(action, slot=slot)
-                        return action, slot, channelbag
-        return None, None, None
-
-
     def fetch_stored_object_channels(self, store_id):
         action_store: CCICActionStore
-        object_actions = {}
+        obj_actions = {}
         for action_store in self.action_options.action_store:
             if action_store.store_id == store_id:
                 if (utils.object_exists_is_armature(action_store.object) or
                     utils.object_exists_is_light(action_store.object) or
                     utils.object_exists_is_camera(action_store.object) or
-                    utils.object_exists_is_empty(action_store.object)):
+                    utils.object_exists_is_empty(action_store.object) or
+                    utils.object_exists_is_mesh(action_store.object)):
                     obj = action_store.object
                     action = action_store.object_action
                     if utils.action_exists(action):
                         slot_id = action_store.object_slot_id
                         slot = utils.get_action_slot(action, slot_id=slot_id)
                         channelbag = utils.get_action_channelbag(action, slot=slot)
-                        object_actions[obj.name] = (action, slot, channelbag)
-        return object_actions
-
+                        obj_actions[obj.name] = (action, slot, channelbag)
+        return obj_actions
 
     def fetch_stored_key_channels(self, store_id):
         action_store: CCICActionStore
@@ -3901,19 +3884,21 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         key_actions[obj.name] = (action, slot, channelbag)
         return key_actions
 
-    def fetch_stored_data_channel(self, store_id):
+    def fetch_stored_data_channels(self, store_id):
         action_store: CCICActionStore
+        data_channels = {}
         for action_store in self.action_options.action_store:
             if action_store.store_id == store_id:
                 if (utils.object_exists_is_light(action_store.object) or
                     utils.object_exists_is_camera(action_store.object)):
+                    obj = action_store.object
                     action = action_store.data_action
                     if utils.action_exists(action):
                         slot_id = action_store.data_slot_id
                         slot = utils.get_action_slot(action, slot_id=slot_id)
                         channelbag = utils.get_action_channelbag(action, slot=slot)
-                        return action, slot, channelbag
-        return None, None, None
+                        data_channels[obj.name] = (action, slot, channelbag)
+        return data_channels
 
 
     def fetch_action_stores(self, store_id: str):
