@@ -2730,12 +2730,12 @@ def get_channelbag_group(channelbag, group_name):
 
 
 def refactor_channelbag_bone_rotations(rig, channelbag):
-    bone_dict: dict = get_bone_transform_dict(rig, channelbag)
+    bone_dict: dict = get_transform_dict(rig, channelbag)
     pose_bone: bpy.types.PoseBone = None
     for pose_bone in rig.pose.bones:
         bone_name = pose_bone.name
         if bone_name in bone_dict:
-            rig_rot_type = get_bone_rotation_type(rig, bone_name)
+            rig_rot_type = get_rotation_type(rig, bone_name)
             loc_curves, rot_curves, sca_curves, rot_type, has_curves = bone_dict[bone_name]
             if has_curves and rig_rot_type and rot_type and rig_rot_type != rot_type:
                 utils.log_info(f"Refactoring bone curves: {bone_name} - {rot_type} to {rig_rot_type}")
@@ -2897,17 +2897,18 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
                 for id, fcurve in slot_curves.items():
                     base_name, base_index, curve_path, index, is_root = id
                     if (obj_base_name == base_name and obj_base_index == base_index) or (is_root and obj == rig):
-                        print(f"{obj_base_name} == {base_name} and {obj_base_index} == {base_index}) or ({is_root} and {obj == rig}")
+                        #print(f"{obj_base_name} == {base_name} and {obj_base_index} == {base_index}) or ({is_root} and {obj == rig}")
                         # that have valid data paths on this rig:
                         if id not in used_ids and utils.has_data_path(obj, curve_path):
                             if not obj_channel:
                                 obj_slot, obj_channel = add_action_ob_slot_channelbag(action, obj, reuse=True, clear=True, rig_map=rig_map)
                             clone = copy_fcurve_to_channel(fcurve, obj_channel)
-                            # add fcurve to Object group
-                            group_name = utils.get_data_path_object_name(curve_path)
-                            clone.group = get_channelbag_group(obj_channel, group_name)
-                            # store used id's
-                            used_ids.add(id)
+                            if clone:
+                                # add fcurve to Object group
+                                group_name = utils.get_data_path_object_name(curve_path)
+                                clone.group = get_channelbag_group(obj_channel, group_name)
+                                # store used id's
+                                used_ids.add(id)
 
             # refactor bone rotations
             if obj_channel and refactor_rotations and obj.type == "ARMATURE":
@@ -2917,7 +2918,7 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
             if obj_slot and obj_channel:
                 keep_slots.append(obj_slot)
                 keep_channels.append(obj_channel)
-                print(f"loading action slot: {obj.name} {action.name} {obj_slot.name_display}")
+                #print(f"loading action slot: {obj.name} {action.name} {obj_slot.name_display}")
                 utils.safe_set_action(obj, action, create=True, slot=obj_slot)
 
             if False:
@@ -3211,9 +3212,13 @@ def get_shape_key_group_name(key_name):
 def copy_fcurve_to_channel(from_fcurve: bpy.types.FCurve, to_channel, no_frames=False) -> bpy.types.FCurve:
     if from_fcurve and to_channel:
         if utils.B500():
-            to_fcurve: bpy.types.FCurve = to_channel.fcurves.new_from_fcurve(from_fcurve)
-            if no_frames:
-                to_fcurve.keyframe_points.clear()
+            try:
+                to_fcurve: bpy.types.FCurve = to_channel.fcurves.new_from_fcurve(from_fcurve)
+                if no_frames:
+                    to_fcurve.keyframe_points.clear()
+            except:
+                utils.log_error(f"Unable to copy fcurve: {from_fcurve.data_path}({from_fcurve.array_index}) into channel: {to_channel.slot.name_display}")
+                return None
         else:
             data_path = from_fcurve.data_path
             index = from_fcurve.array_index
@@ -4013,14 +4018,29 @@ def add_resampled_bone_curve(bone_name, i: int, target_rot_type: RotationType, c
     return fcurve
 
 
-def get_bone_rotation_type(rig: bpy.types.Object, bone_name):
-    pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
-    if pose_bone.rotation_mode == "QUATERNION":
-        return RotationType.QUATERNION
-    elif pose_bone.rotation_mode == "AXIS_ANGLE":
-        return RotationType.AXIS_ANGLE
-    else:
-        return RotationType.EULER
+def get_rotation_type(rig: bpy.types.Object, bone_name=None):
+    if rig.type != "ARMATURE" or not bone_name or bone_name.startswith("OBJECT:"):
+        return get_obj_rotation_type(rig)
+    if rig and rig.type == "ARMATURE" and bone_name in rig.pose.bones:
+        pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
+        if pose_bone.rotation_mode == "QUATERNION":
+            return RotationType.QUATERNION
+        elif pose_bone.rotation_mode == "AXIS_ANGLE":
+            return RotationType.AXIS_ANGLE
+        else:
+            return RotationType.EULER
+    return RotationType.NONE
+
+
+def get_obj_rotation_type(rig):
+    if rig:
+        if rig.rotation_mode == "QUATERNION":
+            return RotationType.QUATERNION
+        elif rig.rotation_mode == "AXIS_ANGLE":
+            return RotationType.AXIS_ANGLE
+        else:
+            return RotationType.EULER
+    return RotationType.NONE
 
 
 def get_blend_mask_bones(chr_cache):
@@ -4114,7 +4134,7 @@ def resample_blend(chr_rlx_cache, rig,
     blend_mask_data = {}
     use_mask_data = False
 
-    if chr_rlx_cache and rig.type == "ARMATURE":
+    if chr_rlx_cache and rig.type == "ARMATURE" or rig.type == "EMPTY":
         blend_mask_bones, use_mask_bone_blend, use_mask_bones = get_blend_mask_bones(chr_rlx_cache)
         blend_mask_keys, use_mask_key_blend, use_mask_keys = get_blend_mask_keys(chr_rlx_cache)
 
@@ -4147,35 +4167,40 @@ def resample_blend(chr_rlx_cache, rig,
 
     # resample object and bone tracks
     #
-    if rig.type == "ARMATURE" or rig.type == "EMPTY" or rig.type == "LIGHT" or rig.type == "CAMERA":
+    for obj_name in obj_targets:
+        #print(f"OBJ: {obj_name}")
+        obj = bpy.data.objects[obj_name]
 
-        if rig.type == "ARMATURE" and not bone_names:
-            if use_blend or overwrite:
-                bone_names = [ b.name for b in rig.pose.bones ]
-            elif relative_root or current_root:
-                bone_names = [ rig.pose.bones[0].name ]
+        if obj.type == "ARMATURE" or obj.type == "EMPTY" or obj.type == "LIGHT" or obj.type == "CAMERA":
 
-        for obj_name in obj_targets:
-            print(f"OBJ: {obj_name}")
+            if obj.type == "ARMATURE" and not bone_names:
+                if use_blend or overwrite:
+                    bone_names = [ b.name for b in obj.pose.bones ]
+                elif relative_root or current_root:
+                    bone_names = [ obj.pose.bones[0].name ]
+
+
 
             motion_rig_channel = motion_rig_channels.get(obj_name, (None, None, None))
             stored_rig_channel = stored_rig_channels.get(obj_name, (None, None, None))
 
-            if rig.type == "ARMATURE":
+            if obj.type == "ARMATURE":
                 blend_bone_curves(motion_rig_channel, stored_rig_channel,
                                   from_frame, to_frame,
-                                  rig, bone_names, relative_root, current_root,
+                                  obj, bone_names, relative_root, current_root,
                                   use_blend, overwrite, overall_strength,
                                   blend_in_frames, blend_out_frames,
                                   blend_in_data, blend_out_data,
                                   use_mask_bones, blend_mask_bones,
                                   processed_fcurves=processed_fcurves)
 
-            blend_data_curves(rig, motion_rig_channel, stored_rig_channel,
+            blend_data_curves(obj, motion_rig_channel, stored_rig_channel,
                               from_frame, to_frame,
+                              relative_root, current_root,
                               use_blend, overwrite, overall_strength,
                               blend_in_frames, blend_out_frames,
                               blend_in_data, blend_out_data,
+                              use_mask_bones, blend_mask_bones,
                               processed_fcurves=processed_fcurves)
 
     # resample shape key tracks
@@ -4201,21 +4226,23 @@ def resample_blend(chr_rlx_cache, rig,
 
     # process data tracks
     #
-    if rig.type == "LIGHT" or rig.type == "CAMERA":
+    for obj_name in obj_targets:
+        obj = bpy.data.objects[obj_name]
 
-        for obj in obj_targets:
+        if obj.type == "LIGHT" or obj.type == "CAMERA":
 
             motion_data_channel = motion_data_channels.get(obj_name, (None, None, None))
             stored_data_channel = stored_data_channels.get(obj_name, (None, None, None))
 
-            blend_data_curves(rig, motion_data_channel, stored_data_channel,
+            blend_data_curves(obj, motion_data_channel, stored_data_channel,
                               from_frame, to_frame,
+                              relative_root, current_root,
                               use_blend, overwrite, overall_strength,
                               blend_in_frames, blend_out_frames,
                               blend_in_data, blend_out_data,
+                              False, None,
                               processed_fcurves=processed_fcurves)
     return
-
 
 def blend_bone_curves(motion_channel, stored_channel,
                       from_frame, to_frame,
@@ -4243,53 +4270,89 @@ def blend_bone_curves(motion_channel, stored_channel,
             base_frames.add(i)
 
     root_bone: bpy.types.PoseBone = rig.pose.bones[0]
+    root_matrix = root_bone.matrix
 
-    motion_bone_dict = get_bone_transform_dict(rig, motion_channelbag)
-    stored_bone_dict = get_bone_transform_dict(rig, stored_channelbag)
+    motion_transform_dict = get_transform_dict(rig, motion_channelbag)
+    stored_transform_dict = get_transform_dict(rig, stored_channelbag)
 
     for bone_name in bone_names:
 
         is_root = (bone_name == root_bone.name)
-        motion_transform_set, motion_has_curves = fetch_action_bone_transform_set_dict(motion_bone_dict, bone_name)
-        stored_transform_set, stored_has_curves = fetch_action_bone_transform_set_dict(stored_bone_dict, bone_name)
+        blend_transform_set(motion_channelbag, stored_channelbag,
+                            motion_transform_dict, stored_transform_dict,
+                            rig, bone_name, is_root, root_matrix,
+                            relative_root, current_root,
+                            from_frame, to_frame, base_frames,
+                            use_blend, overwrite, overall_strength,
+                            blend_in_frames, blend_in_data,
+                            blend_out_frames, blend_out_data,
+                            use_mask_bones, blend_mask_bones,
+                            processed_fcurves)
 
-        if not motion_has_curves and not stored_has_curves:
-            continue
 
-        if is_root and relative_root:
-            # relative transformation between from_frame of stored motion and start of new motion
-            stored_start_loc, stored_start_rot, stored_start_sca = evaluate_action_bone_transform_set(stored_transform_set, from_frame)
-            motion_start_loc, motion_start_rot, motion_start_sca = evaluate_action_bone_transform_set(motion_transform_set, 1)
-            MS = utils.make_transform_matrix(stored_start_loc, stored_start_rot, stored_start_sca)
-            MM = utils.make_transform_matrix(motion_start_loc, motion_start_rot, motion_start_sca)
-            MD = MS @ MM.inverted()
-        elif is_root and current_root:
-            # relative transformation between current rig root bone position and start of new motion
-            motion_start_loc, motion_start_rot, motion_start_sca = evaluate_action_bone_transform_set(motion_transform_set, 1)
-            MS = root_bone.matrix.copy()
-            MM = utils.make_transform_matrix(motion_start_loc, motion_start_rot, motion_start_sca)
-            MD = MS @ MM.inverted()
 
-        utils.log_detail(f"Blending motion bone: {bone_name} {from_frame}-{to_frame}")
+def blend_transform_set(motion_channelbag, stored_channelbag,
+                        motion_transform_dict, stored_transform_dict,
+                        rig, bone_name, is_root, root_matrix,
+                        relative_root, current_root,
+                        from_frame, to_frame, base_frames,
+                        use_blend, overwrite, overall_strength,
+                        blend_in_frames, blend_in_data,
+                        blend_out_frames, blend_out_data,
+                        use_mask_bones, blend_mask_bones,
+                        processed_fcurves):
 
-        target_rot_type = get_bone_rotation_type(rig, bone_name)
+    motion_transform_set, motion_has_curves = fetch_action_transform_set_dict(motion_transform_dict, bone_name)
+    stored_transform_set, stored_has_curves = fetch_action_transform_set_dict(stored_transform_dict, bone_name)
 
-        # build a list of motion bone transform fcurves
-        motion_loc_curves, motion_rot_curves, motion_sca_curves, motion_rot_type = motion_transform_set
-        motion_curves = motion_sca_curves + motion_loc_curves + motion_rot_curves
-        # should be 10
-        num_target_curves = 9 if target_rot_type == RotationType.EULER else 10
-        #num_curves = len(motion_curves)
+    if not motion_has_curves and not stored_has_curves:
+        return
 
-        # build a list of stored bone transform fcurves
-        stored_loc_curves, stored_rot_curves, stored_sca_curves, stored_rot_type = stored_transform_set
-        stored_curves = stored_sca_curves + stored_loc_curves + stored_rot_curves
+    if is_root and relative_root:
+        # relative transformation between from_frame of stored motion and start of new motion
+        stored_start_loc, stored_start_rot, stored_start_sca = evaluate_action_transform_set(stored_transform_set, from_frame)
+        motion_start_loc, motion_start_rot, motion_start_sca = evaluate_action_transform_set(motion_transform_set, 1)
+        MS = utils.make_transform_matrix(stored_start_loc, stored_start_rot, stored_start_sca)
+        MM = utils.make_transform_matrix(motion_start_loc, motion_start_rot, motion_start_sca)
+        MD = MS @ MM.inverted()
+    elif is_root and current_root:
+        # relative transformation between current rig root bone position and start of new motion
+        motion_start_loc, motion_start_rot, motion_start_sca = evaluate_action_transform_set(motion_transform_set, 1)
+        MS = root_matrix.copy()
+        MM = utils.make_transform_matrix(motion_start_loc, motion_start_rot, motion_start_sca)
+        MD = MS @ MM.inverted()
 
-        frames = base_frames.copy()
+    utils.log_detail(f"Blending motion bone: {bone_name} {from_frame}-{to_frame}")
 
-        # include all frames from the motion curve
-        fcurve: bpy.types.FCurve = None
-        for fcurve in motion_curves:
+    target_rot_type = get_rotation_type(rig, bone_name)
+
+    # build a list of motion bone transform fcurves
+    motion_loc_curves, motion_rot_curves, motion_sca_curves, motion_rot_type = motion_transform_set
+    motion_curves = motion_sca_curves + motion_loc_curves + motion_rot_curves
+    # should be 10
+    num_target_curves = 9 if target_rot_type == RotationType.EULER else 10
+    #num_curves = len(motion_curves)
+
+    # build a list of stored bone transform fcurves
+    stored_loc_curves, stored_rot_curves, stored_sca_curves, stored_rot_type = stored_transform_set
+    stored_curves = stored_sca_curves + stored_loc_curves + stored_rot_curves
+
+    frames = base_frames.copy()
+
+    # include all frames from the motion curves
+    fcurve: bpy.types.FCurve = None
+    for fcurve in motion_curves:
+        if fcurve:
+            num_points = len(fcurve.keyframe_points)
+            data = [0.0, 0.0] * num_points
+            fcurve.keyframe_points.foreach_get('co', data)
+            for i in range(0, len(data), 2):
+                frame = data[i]
+                frames.add(frame)
+
+    # include all frames from the source curves
+    if use_blend or overwrite:
+        for fcurve in stored_curves:
             if fcurve:
                 num_points = len(fcurve.keyframe_points)
                 data = [0.0, 0.0] * num_points
@@ -4298,125 +4361,117 @@ def blend_bone_curves(motion_channel, stored_channel,
                     frame = data[i]
                     frames.add(frame)
 
-        # include all frames from the source curve
+    # sort the frames in order
+    num_frames = len(frames)
+    sorted_frames = list(frames)
+    sorted_frames.sort()
+    utils.log_detail(f" - {num_frames} resampled frames")
+
+    # generate resampled data lists for the curves in the motion bone transform
+    resampled_data = []
+    for i in range(0, num_target_curves):
+        data = [0.0, 0.0] * num_frames
+        resampled_data.append(data)
+
+    # evaluate the motion transform at each frame ...
+    for f, frame in enumerate(sorted_frames):
+        motion_loc, motion_rot, motion_sca = evaluate_action_transform_set(motion_transform_set, frame)
+
+        # apply relative root:
+        if is_root and (relative_root or current_root):
+            MF = utils.make_transform_matrix(motion_loc, motion_rot, motion_sca)
+            MR: Matrix = MD @ MF
+            motion_loc = MR.to_translation()
+            motion_rot = MR.to_quaternion()
+            motion_sca = MR.to_scale()
+
+        # if blending, apply motion blend:
         if use_blend or overwrite:
-            for fcurve in stored_curves:
-                if fcurve:
-                    num_points = len(fcurve.keyframe_points)
-                    data = [0.0, 0.0] * num_points
-                    fcurve.keyframe_points.foreach_get('co', data)
-                    for i in range(0, len(data), 2):
-                        frame = data[i]
-                        frames.add(frame)
-
-        # sort the frames in order
-        num_frames = len(frames)
-        sorted_frames = list(frames)
-        sorted_frames.sort()
-        utils.log_detail(f" - {num_frames} resampled frames")
-
-        # generate resampled data lists for the curves in the motion bone transform
-        resampled_data = []
-        for i in range(0, num_target_curves):
-            data = [0.0, 0.0] * num_frames
-            resampled_data.append(data)
-
-        # evaluate the motion root transform at each frame ...
-        for f, frame in enumerate(sorted_frames):
-            motion_loc, motion_rot, motion_sca = evaluate_action_bone_transform_set(motion_transform_set, frame)
-
-            # apply relative root:
-            if is_root and (relative_root or current_root):
-                MF = utils.make_transform_matrix(motion_loc, motion_rot, motion_sca)
-                MR: Matrix = MD @ MF
-                motion_loc = MR.to_translation()
-                motion_rot = MR.to_quaternion()
-                motion_sca = MR.to_scale()
-
-            # if blending, apply motion blend:
-            if use_blend or overwrite:
-                blend_strength = overall_strength if use_blend else 1.0
-                stored_loc, stored_rot, stored_sca = evaluate_action_bone_transform_set(stored_transform_set, frame)
-                if frame < from_frame or frame > to_frame:
-                    blend_strength = 0
-                elif blend_in_frames > 0 and frame < (from_frame + blend_in_frames):
-                    pos = (frame - from_frame + 1) / (blend_in_frames + 1)
-                    blend_strength *= ui.eval_curve(blend_in_data, pos)
-                elif blend_out_frames > 0 and frame > (to_frame - blend_out_frames):
-                    pos = (frame - to_frame + blend_out_frames) / (blend_out_frames + 1)
-                    blend_strength *= ui.eval_curve(blend_out_data, pos)
-                if use_mask_bones:
-                    if bone_name in blend_mask_bones:
-                        blend_strength *= blend_mask_bones[bone_name]
-                    else:
-                        blend_strength = 0.0
-
-                if blend_strength <= 0:
-                    blend_loc = stored_loc
-                    blend_rot = stored_rot
-                    blend_sca = stored_sca
-                elif blend_strength >= 1:
-                    blend_loc = motion_loc
-                    blend_rot = motion_rot
-                    blend_sca = motion_sca
+            blend_strength = overall_strength if use_blend else 1.0
+            stored_loc, stored_rot, stored_sca = evaluate_action_transform_set(stored_transform_set, frame)
+            if frame < from_frame or frame > to_frame:
+                blend_strength = 0
+            elif blend_in_frames > 0 and frame < (from_frame + blend_in_frames):
+                pos = (frame - from_frame + 1) / (blend_in_frames + 1)
+                blend_strength *= ui.eval_curve(blend_in_data, pos)
+            elif blend_out_frames > 0 and frame > (to_frame - blend_out_frames):
+                pos = (frame - to_frame + blend_out_frames) / (blend_out_frames + 1)
+                blend_strength *= ui.eval_curve(blend_out_data, pos)
+            if use_mask_bones:
+                rig_mask_name = f"OBJECT:{rig.name}"
+                if bone_name in blend_mask_bones:
+                    blend_strength *= blend_mask_bones[bone_name]
+                elif rig_mask_name in blend_mask_bones:
+                    blend_strength *= blend_mask_bones[rig_mask_name]
                 else:
-                    blend_loc = stored_loc.lerp(motion_loc, blend_strength)
-                    blend_rot = stored_rot.slerp(motion_rot, blend_strength)
-                    blend_sca = stored_sca.lerp(motion_sca, blend_strength)
+                    blend_strength = 0.0
 
-            # if not blending or overwriting, use the motion transform directly
-            else:
+            if blend_strength <= 0:
+                blend_loc = stored_loc
+                blend_rot = stored_rot
+                blend_sca = stored_sca
+            elif blend_strength >= 1:
                 blend_loc = motion_loc
                 blend_rot = motion_rot
                 blend_sca = motion_sca
+            else:
+                blend_loc = stored_loc.lerp(motion_loc, blend_strength)
+                blend_rot = stored_rot.slerp(motion_rot, blend_strength)
+                blend_sca = stored_sca.lerp(motion_sca, blend_strength)
 
-            transform_data = make_flat_transform(target_rot_type, loc=blend_loc, rot=blend_rot, sca=blend_sca)
-
-            # write frame to the resampled curve data:
-            index = f * 2
-            for i in range(0, num_target_curves):
-                resampled_data[i][index] = frame
-                resampled_data[i][index+1] = transform_data[i]
-
-        if overwrite:
-            # write the resampled curve data back to the stored transform curves:
-            for i in range(0, 10):
-                fcurve = stored_curves[i] if i < len(stored_curves) else None
-                if processed_fcurves:
-                    if fcurve and fcurve in processed_fcurves: continue
-                    processed_fcurves.append(fcurve)
-                # make sure not to delete location and scale curves
-                if fcurve and ((i > 5 and stored_rot_type != target_rot_type) or
-                               (i >= num_target_curves)):
-                    stored_channelbag.fcurves.remove(fcurve)
-                    fcurve = None
-                if i < num_target_curves:
-                    if not fcurve:
-                        fcurve = add_resampled_bone_curve(bone_name, i, target_rot_type, stored_channelbag)
-                    if fcurve:
-                        fcurve.keyframe_points.clear()
-                        fcurve.keyframe_points.add(num_frames)
-                        fcurve.keyframe_points.foreach_set('co', resampled_data[i])
-                        reset_fcurve_interpolation(fcurve)
+        # if not blending or overwriting, use the motion transform directly
         else:
-            # write the resampled curve data back to the motion transform curves:
-            for i in range(0, 10):
-                fcurve = motion_curves[i] if i < len(motion_curves) else None
-                if processed_fcurves:
-                    if fcurve and fcurve in processed_fcurves: continue
-                    processed_fcurves.append(fcurve)
-                if fcurve and ((i > 5 and motion_rot_type != target_rot_type) or
-                               (i >= num_target_curves)):
-                    motion_channelbag.fcurves.remove(fcurve)
-                    fcurve = None
-                if i < num_target_curves:
-                    if not fcurve:
-                        fcurve = add_resampled_bone_curve(bone_name, i, target_rot_type, motion_channelbag)
-                    if fcurve:
-                        fcurve.keyframe_points.clear()
-                        fcurve.keyframe_points.add(num_frames)
-                        fcurve.keyframe_points.foreach_set('co', resampled_data[i])
-                        reset_fcurve_interpolation(fcurve)
+            blend_loc = motion_loc
+            blend_rot = motion_rot
+            blend_sca = motion_sca
+
+        transform_data = make_flat_transform(target_rot_type, loc=blend_loc, rot=blend_rot, sca=blend_sca)
+
+        # write frame to the resampled curve data:
+        index = f * 2
+        for i in range(0, num_target_curves):
+            resampled_data[i][index] = frame
+            resampled_data[i][index+1] = transform_data[i]
+
+    if overwrite:
+        # write the resampled curve data back to the stored transform curves:
+        for i in range(0, 10):
+            fcurve = stored_curves[i] if i < len(stored_curves) else None
+            if processed_fcurves:
+                if fcurve and fcurve in processed_fcurves: continue
+                processed_fcurves.append(fcurve)
+            # make sure not to delete location and scale curves
+            if fcurve and ((i > 5 and stored_rot_type != target_rot_type) or
+                            (i >= num_target_curves)):
+                stored_channelbag.fcurves.remove(fcurve)
+                fcurve = None
+            if i < num_target_curves:
+                if not fcurve:
+                    fcurve = add_resampled_bone_curve(bone_name, i, target_rot_type, stored_channelbag)
+                if fcurve:
+                    fcurve.keyframe_points.clear()
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', resampled_data[i])
+                    reset_fcurve_interpolation(fcurve)
+    else:
+        # write the resampled curve data back to the motion transform curves:
+        for i in range(0, 10):
+            fcurve = motion_curves[i] if i < len(motion_curves) else None
+            if processed_fcurves:
+                if fcurve and fcurve in processed_fcurves: continue
+                processed_fcurves.append(fcurve)
+            if fcurve and ((i > 5 and motion_rot_type != target_rot_type) or
+                            (i >= num_target_curves)):
+                motion_channelbag.fcurves.remove(fcurve)
+                fcurve = None
+            if i < num_target_curves:
+                if not fcurve:
+                    fcurve = add_resampled_bone_curve(bone_name, i, target_rot_type, motion_channelbag)
+                if fcurve:
+                    fcurve.keyframe_points.clear()
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', resampled_data[i])
+                    reset_fcurve_interpolation(fcurve)
 
 
 def blend_key_curves(motion_channel, stored_channel,
@@ -4558,11 +4613,13 @@ def blend_key_curves(motion_channel, stored_channel,
                 reset_fcurve_interpolation(motion_key_curve)
 
 
-def blend_data_curves(rig, motion_channel, stored_channel,
+def blend_data_curves(rig: bpy.types.Object, motion_channel, stored_channel,
                       from_frame, to_frame,
+                      relative_root, current_root,
                       use_blend, overwrite, overall_strength,
                       blend_in_frames, blend_out_frames,
                       blend_in_data, blend_out_data,
+                      use_mask_bones, blend_mask_bones,
                       processed_fcurves: List[bpy.types.FCurve]=None):
 
     if motion_channel == (None, None, None) and stored_channel == (None, None, None): return
@@ -4583,17 +4640,20 @@ def blend_data_curves(rig, motion_channel, stored_channel,
             base_frames.add(i)
 
     paths = {}
+    skip_paths = ["location", "scale", "rotation_quaternion", "rotation_euler", "rotation_axis_angle"]
     if motion_channelbag:
         for fcurve in motion_channelbag.fcurves:
             if (fcurve.data_path.startswith("pose.bones") or
-                fcurve.data_path.startswith("key_blocks")):
+                fcurve.data_path.startswith("key_blocks") or
+                fcurve.data_path in skip_paths):
                 continue
             path_id = (fcurve.data_path, fcurve.array_index)
             paths[path_id] = [fcurve, None]
     if stored_channelbag:
         for fcurve in stored_channelbag.fcurves:
             if (fcurve.data_path.startswith("pose.bones") or
-                fcurve.data_path.startswith("key_blocks")):
+                fcurve.data_path.startswith("key_blocks") or
+                fcurve.data_path in skip_paths):
                 continue
             path_id = (fcurve.data_path, fcurve.array_index)
             if path_id in paths:
@@ -4715,6 +4775,26 @@ def blend_data_curves(rig, motion_channel, stored_channel,
                 motion_data_curve.keyframe_points.foreach_set('co', resampled_data)
                 reset_fcurve_interpolation(motion_data_curve)
 
+    motion_transform_dict = get_transform_dict(rig, motion_channelbag)
+    stored_transform_dict = get_transform_dict(rig, stored_channelbag)
+
+    if motion_transform_dict or stored_transform_dict:
+
+        rig_transform_name = f"OBJECT:{rig.name}"
+        is_root = True
+        root_matrix = rig.matrix_world
+
+        blend_transform_set(motion_channelbag, stored_channelbag,
+                            motion_transform_dict, stored_transform_dict,
+                            rig, rig_transform_name, is_root, root_matrix,
+                            relative_root, current_root,
+                            from_frame, to_frame, base_frames,
+                            use_blend, overwrite, overall_strength,
+                            blend_in_frames, blend_in_data,
+                            blend_out_frames, blend_out_data,
+                            use_mask_bones, blend_mask_bones,
+                            processed_fcurves)
+
 
 def get_relative_transformation(motion_loc: Vector, motion_rot: Quaternion,
                            stored_loc: Vector, stored_rot: Quaternion):
@@ -4734,33 +4814,24 @@ def fetch_action_key_curve(channelbag, key_name: str):
     return None
 
 
-def get_bone_rotation_type(rig, bone_name):
-    if rig and bone_name in rig.pose.bones:
-        pose_bone = rig.pose.bones[bone_name]
-        if pose_bone.rotation_mode == "QUATERNION":
-            return RotationType.QUATERNION
-        elif pose_bone.rotation_mode == "AXIS_ANGLE":
-            return RotationType.AXIS_ANGLE
-        else:
-            return RotationType.EULER
-    return RotationType.NONE
-
-
-def get_bone_transform_dict(rig, channelbag):
-    curves_by_bone = {}
+def get_transform_dict(rig, channelbag):
+    curves_by_name = {}
+    rig_transform_name = f"OBJECT:{rig.name}"
     if channelbag:
         for fcurve in channelbag.fcurves:
             if fcurve:
                 data_path = fcurve.data_path
                 if data_path.startswith("pose.bones["):
                     bone_name = data_path[12:data_path.find('"', 12)]
-                    if bone_name not in curves_by_bone:
-                        curves_by_bone[bone_name] = []
-                    curves_by_bone[bone_name].append(fcurve)
+                    curves_by_name.setdefault(bone_name, [])
+                    curves_by_name[bone_name].append(fcurve)
+                if data_path == "location" or data_path == "scale" or data_path.startswith("rotation_"):
+                    curves_by_name.setdefault(rig_transform_name, [])
+                    curves_by_name[rig_transform_name].append(fcurve)
 
     # build a dictionary of fcurves for the bones
-    bone_dict = {}
-    for bone_name, fcurves in curves_by_bone.items():
+    transform_dict = {}
+    for bone_name, fcurves in curves_by_name.items():
         loc_curves = [None, None, None]
         rot_curves = [None, None, None, None]
         sca_curves = [None, None, None]
@@ -4776,23 +4847,23 @@ def get_bone_transform_dict(rig, channelbag):
         has_curves = True
         for fcurve in fcurves:
             # location curves
-            if fcurve.data_path.endswith(".location"):
+            if fcurve.data_path.endswith(".location") or fcurve.data_path == "location":
                 loc_curves[fcurve.array_index] = fcurve
             # scale
-            elif fcurve.data_path.endswith(".scale"):
+            elif fcurve.data_path.endswith(".scale") or fcurve.data_path == "scale":
                 sca_curves[fcurve.array_index] = fcurve
             # rotation curvess
-            elif fcurve.data_path.endswith(".rotation_quaternion"):
+            elif fcurve.data_path.endswith(".rotation_quaternion") or fcurve.data_path == "rotation_quaternion":
                 if rot_type == RotationType.NONE: rot_type = RotationType.QUATERNION
                 if rot_types[RotationType.QUATERNION] == 0: num_types += 1
                 rot_types[RotationType.QUATERNION] += 1
                 rot_type_curves[RotationType.QUATERNION].append(fcurve)
-            elif fcurve.data_path.endswith(".rotation_euler"):
+            elif fcurve.data_path.endswith(".rotation_euler") or fcurve.data_path == "rotation_euler":
                 if rot_type == RotationType.NONE: rot_type = RotationType.EULER
                 if rot_types[RotationType.EULER] == 0: num_types += 1
                 rot_types[RotationType.EULER] += 1
                 rot_type_curves[RotationType.EULER].append(fcurve)
-            elif fcurve.data_path.endswith(".rotation_axis_angle"):
+            elif fcurve.data_path.endswith(".rotation_axis_angle") or fcurve.data_path == "rotation_axis_angle":
                 if rot_type == RotationType.NONE: rot_type = RotationType.AXIS_ANGLE
                 if rot_types[RotationType.AXIS_ANGLE] == 0: num_types += 1
                 rot_types[RotationType.AXIS_ANGLE] += 1
@@ -4800,7 +4871,7 @@ def get_bone_transform_dict(rig, channelbag):
         # if there are multiple rotation type fcurves in the action for this bone
         if num_types > 1:
             utils.log_warn(f"Ambiguous rotation curves for bone {bone_name} {rot_types[RotationType.QUATERNION]}/{rot_types[RotationType.EULER]}/{rot_types[RotationType.AXIS_ANGLE]}")
-            rig_rot_type = get_bone_rotation_type(rig, bone_name)
+            rig_rot_type = get_rotation_type(rig, bone_name)
             # choose the curve type that matches the rig pose bone rotation mode (if they exist)
             # otherwise go with the first one we found
             if rot_type != rig_rot_type and rot_types[rig_rot_type] > 0:
@@ -4808,17 +4879,21 @@ def get_bone_transform_dict(rig, channelbag):
                 rot_type = rig_rot_type
             else:
                 utils.log_warn(f" - using first detected rotation type: {rot_type}")
+        elif num_types == 0:
+            utils.log_warn(f"No rotations for: {bone_name}!")
+
         # use only the chosen rotation type fcurves
-        for fcurve in rot_type_curves[rot_type]:
-            rot_curves[fcurve.array_index] = fcurve
+        if rot_type != RotationType.NONE:
+            for fcurve in rot_type_curves[rot_type]:
+                rot_curves[fcurve.array_index] = fcurve
 
         # add to bone transform dictionary
-        bone_dict[bone_name] = (loc_curves, rot_curves, sca_curves, rot_type, has_curves)
+        transform_dict[bone_name] = (loc_curves, rot_curves, sca_curves, rot_type, has_curves)
 
-    return bone_dict
+    return transform_dict
 
 
-def fetch_action_bone_transform_set_dict(bone_dict, bone_name: str):
+def fetch_action_transform_set_dict(bone_dict, bone_name: str):
     if bone_name in bone_dict:
         loc_curves, rot_curves, sca_curves, rot_type, has_curves = bone_dict[bone_name]
     else:
@@ -4914,7 +4989,7 @@ def evaluate_action_bone_scale(sca_curves, frame) -> Vector:
     return sca
 
 
-def evaluate_action_bone_transform_set(transform_set: tuple, frame: int):
+def evaluate_action_transform_set(transform_set: tuple, frame: int):
     loc_curves, rot_curves, sca_curves, rot_type = transform_set
     loc = evaluate_action_bone_location(loc_curves, frame)
     rot = evaluate_action_bone_rotation(rot_curves, rot_type, frame)
@@ -6157,8 +6232,8 @@ class CCICMotionBlend(bpy.types.Operator):
             props.available_bones.clear()
             props.available_keys.clear()
 
-            arm = self.chr_rlx_cache.get_armature()
-            if arm:
+            arm = self.chr_rlx_cache.get_primary_object()
+            if arm and arm.type == "ARMATURE":
                 for bone in arm.data.bones:
                     if self.is_valid_bone(bone):
                         bone_item = props.available_bones.add()
@@ -6174,6 +6249,12 @@ class CCICMotionBlend(bpy.types.Operator):
                 for key in keys:
                     key_item = props.available_keys.add()
                     key_item.name = key
+            elif arm and arm.type == "EMPTY":
+                objects = utils.get_child_objects(arm)
+                for obj in objects:
+                    bone_item = props.available_bones.add()
+                    bone_item.name = "OBJECT:" + obj.name
+
 
     def get_new_motion_name(self):
         name = ""
