@@ -2259,7 +2259,7 @@ def safe_set_action(obj, action, slot=None, create=True, create_slot=False):
     result = False
     if obj:
         try:
-            if create and not obj.animation_data:
+            if create and action and not obj.animation_data:
                 obj.animation_data_create()
             if obj.animation_data:
                 obj.animation_data.action = action
