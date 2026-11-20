@@ -36,6 +36,9 @@ Links
 ### 2.4.5 (Preview)
 - Patch fixes:
     - Fix for Blender 4.5 - 5.1 normal map nodes.
+- Fix to Empty transform based props import and export.
+- Updated convert generic to use Empty transform based props.
+- Updated motion blending for new prop structure.
 
 ### 2.4.4
 - Detects newly introduced object name duplication suffix on accessories.

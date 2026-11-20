@@ -536,10 +536,21 @@ def get_root_armatures_or_empties(objects):
     return root_objects
 
 
+def find_root_parent(obj):
+    if obj.parent == None:
+        return obj
+    else:
+        return find_root_parent(obj.parent)
+
+
 def get_root_objects(objects):
     """Gets selected armatures and includes any current context armature"""
-    root_objects = [ obj for obj in objects if obj.parent == None ]
-    return root_objects
+    roots = []
+    for obj in objects:
+        root = find_root_parent(obj)
+        if root not in roots:
+            roots.append(root)
+    return roots
 
 
 def safe_remove(item, force = False):

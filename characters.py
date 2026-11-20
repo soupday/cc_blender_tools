@@ -294,7 +294,7 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
     roots = utils.get_root_objects(objects)
     if len(roots) == 0:
         return
-    if len(roots) > 1 or (roots[0].type != "EMPTY" or roots[0].type != "ARMATURE"):
+    if len(roots) > 1 or (roots[0].type != "EMPTY" and roots[0].type != "ARMATURE"):
         loc = Vector((0,0,0))
         for root in roots:
             loc += root.location
