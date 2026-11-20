@@ -283,9 +283,10 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
 
         if obj_cache and not is_split:
             obj_expected_source_name = utils.safe_export_name(utils.strip_name(obj_name))
-            obj_source_name = obj_cache.source_name
+            obj_source_name = utils.safe_export_name(obj_cache.source_name)
             utils.log_info(f"Object source name: {obj_source_name}")
-            source_changed = obj.name != obj_source_name and obj_expected_source_name != obj_source_name
+            source_changed = (obj.name != obj_source_name and
+                              obj_expected_source_name != obj_source_name)
             if source_changed:
                 obj_safe_name = utils.safe_export_name(obj_name)
                 utils.log_info(f"Object name changed from source, using: {obj_safe_name}")
@@ -364,8 +365,9 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
                 mat_expected_source_name = (utils.safe_export_name(utils.strip_name(mat_name), is_material=True)
                                             if revert_duplicates else
                                             utils.safe_export_name(mat_name, is_material=True))
-                mat_source_name = mat_cache.source_name
-                source_changed = mat.name != mat_source_name and mat_expected_source_name != mat_source_name
+                mat_source_name = utils.safe_export_name(mat_cache.source_name, is_material=True)
+                source_changed = (mat.name != mat_source_name and
+                                  mat_expected_source_name != mat_source_name)
                 if source_changed:
                     mat_safe_name = utils.safe_export_name(mat_name, is_material=True)
                 else:
