@@ -88,9 +88,9 @@ def rig_has_bones(armature: bpy.types.Object, bones: list):
 
 
 def action_has_bones(action: bpy.types.Action, bones: list):
-    channel = utils.get_action_channelbag(action, slot_type="OBJECT")
-    if channel:
-        if len(channel.fcurves) > 0:
+    channelbags = utils.get_action_channelbags(action)
+    for channelbag in channelbags:
+        if len(channelbag.fcurves) > 0:
             for bone_name in bones:
                 if type(bone_name) is list:
                     found = False
@@ -102,6 +102,17 @@ def action_has_bones(action: bpy.types.Action, bones: list):
                 elif not name_in_data_paths(action, bone_name, slot_type="OBJECT"):
                     return False
             return True
+    return False
+
+
+def action_is_for_armature(action: bpy.types.Action, bones: list):
+    channelbags = utils.get_action_channelbags(action)
+    search = "pose.bones["
+    for channelbag in channelbags:
+        if len(channelbag.fcurves) > 0:
+            for fcurve in channelbag.fcurves:
+                if fcurve.data_path.startswith(search):
+                    return True
     return False
 
 
@@ -218,6 +229,8 @@ def get_armature_action_source_type(armature, action=None):
             return "Rigify+", "Rigify+"
         if is_rigify_armature(armature) and is_rigify_action(action):
             return "Rigify", "Rigify"
+    if armature and armature.type == "EMPTY":
+        return "Prop", "Prop"
     # detect other types as they become available...
     return "Unknown", "Unknown"
 
@@ -239,13 +252,13 @@ def find_source_actions(source_action, source_rig=None):
             "slotted": False,
         },
         "count": 0,
-        "armature": None,
+        "root": None,
         "armatures": [],
+        "objects": [],
         "keys": {},
         "rlx": None,
         "light": None,
         "camera": None,
-        "objects": {},
     }
 
     if src_set_id:
@@ -268,18 +281,25 @@ def find_source_actions(source_action, source_rig=None):
                     elif type_id == "CAMERA" and rlx_id:
                         utils.log_info(f" - Found rlx camera action: {action.name}")
                         actions["camera"] = action
-                    elif type_id == "ARM" or type_id == "SLOTTED":
-                        utils.log_info(f" - Found armature action: {action.name}")
-                        actions["armatures"].append(action)
-                        if not unused and not actions["armature"]:
-                            actions["armature"] = action
+                    elif type_id == "ARM" or type_id == "OBJECT" or type_id == "SLOTTED":
+                        if type_id == "SLOTTED":
+                            type_id = "ARM" if action_is_for_armature(action) else "OBJECT"
+                        if type_id == "ARM":
+                            utils.log_info(f" - Found armature action: {action.name}")
+                            actions["armatures"].append(action)
+                        elif type_id == "OBJECT":
+                            utils.log_info(f" - Found object action: {action.name}")
+                            actions["objects"].append(action)
+                        if not unused and not actions["root"]:
+                            if not actions["root"]:
+                                actions["root"] = action
                             actions["slotted"] = (type_id == "SLOTTED")
         return actions
 
     # try matching actions by action name pattern
     if src_type_id and src_motion_id:
         if is_slotted_action(source_action):
-            actions["armature"] = source_action
+            actions["root"] = source_action
             actions["armatures"].append(source_action)
             actions["slotted"] = True
             return actions
@@ -299,7 +319,7 @@ def find_source_actions(source_action, source_rig=None):
                         found = True
                     elif type_id == "A":
                         utils.log_info(f" - Found armature action: {action.name}")
-                        actions["armature"] = action
+                        actions["root"] = action
                         found = True
             if found:
                 return actions
@@ -310,7 +330,7 @@ def find_source_actions(source_action, source_rig=None):
         action = utils.safe_get_action(source_rig)
         if action:
             utils.log_info(f" - Found armature action: {action.name}")
-            actions["armature"] = action
+            actions["root"] = action
         for obj in utils.get_child_meshes(source_rig):
             if utils.object_has_shape_keys(obj):
                 obj_id = get_obj_id(obj)
@@ -318,162 +338,12 @@ def find_source_actions(source_action, source_rig=None):
                 if action:
                     utils.log_info(f" - Found shape-key action: {action.name} for {obj_id}")
                     actions["keys"][obj_id] = action
-                    actions["objects"][obj_id] = obj
+                    # reusing "objects" for prop object transform channels
+                    #actions["objects"][obj_id] = obj
         return actions
 
     return actions
 
-"""
-# TODO: No longer used.
-def get_main_body_action(source_actions):
-    # find the "Body" action
-    for obj_id in source_actions["keys"]:
-        action: bpy.types.Action = source_actions["keys"][obj_id]
-        l_name = obj_id.lower()
-        if l_name == "body":
-            utils.log_info(f" - Using main body action: {action.name}")
-            return action
-    # find the action with the most shape keys
-    action_with_most_keys = None
-    num_keys = 0
-    for obj_id in source_actions["keys"]:
-        action = source_actions["keys"][obj_id]
-        channel = utils.get_action_channelbag(action, slot_type="KEY")
-        if channel:
-            if len(channel.fcurves) > num_keys:
-                num_keys = len(channel.fcurves)
-                action_with_most_keys = action
-    if action_with_most_keys:
-        utils.log_info(f" - Using action with most shape keys: {action_with_most_keys.name}")
-    else:
-        utils.log_info(f" - No shape key actions in this Motion set!")
-    return action_with_most_keys
-
-# TODO: No longer used.
-def apply_source_actions(dst_rig, source_actions, copy=False,
-                         motion_id=None, motion_prefix=None,
-                         set_id=None, set_generation=None,
-                         all_matching=False, filter=None):
-    apply_source_armature_action(dst_rig, source_actions, copy=copy,
-                                 motion_id=motion_id, motion_prefix=motion_prefix,
-                                 set_id=set_id, set_generation=set_generation)
-    apply_source_key_actions(dst_rig, source_actions, copy=copy,
-                             all_matching=all_matching,
-                             motion_id=motion_id, motion_prefix=motion_prefix,
-                             set_id=set_id, set_generation=set_generation,
-                             filter=filter)
-
-# TODO: No longer used.
-def apply_source_armature_action(dst_rig, source_actions, copy=False,
-                                 motion_id=None, motion_prefix=None,
-                                 set_id=None, set_generation=None):
-    obj_used = []
-    actions_used = []
-    rig_id = get_rig_id(dst_rig)
-    rl_arm_id = utils.get_rl_object_id(dst_rig)
-    if not motion_id:
-        motion_id = source_actions["motion_info"]["motion_id"]
-    if motion_prefix is None:
-        motion_prefix = source_actions["motion_info"]["prefix"]
-    utils.log_info(f"Applying source armature action:")
-    action = source_actions["armature"]
-    is_slotted = source_actions["slotted"]
-    if action:
-        if copy and motion_id:
-            action_name = make_armature_action_name(rig_id, motion_id, motion_prefix)
-            utils.log_info(f" - Copying action: {action.name} to {action_name}")
-            action = utils.copy_action(action, action_name)
-            if set_id and set_generation:
-                add_motion_set_data(action, set_id, set_generation, rl_arm_id=rl_arm_id, slotted=is_slotted)
-        utils.log_info(f" - Applying action: {action.name} to {rig_id}")
-        load_slotted_action(dst_rig, action)
-        obj_used.append(dst_rig)
-        actions_used.append(action)
-    return obj_used, actions_used
-
-
-# TODO: No longer used.
-def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=False,
-                             motion_id=None, motion_prefix=None,
-                             set_id=None, set_generation=None,
-                             filter=None):
-    obj_used = []
-    key_actions = {}
-    if source_actions["slotted"]:
-        return key_actions
-    rig_id = get_rig_id(dst_rig)
-    if motion_id == "" or motion_id == "TEMP":
-        motion_id = "TEMP_" + utils.generate_random_id(12)
-    if motion_id is None:
-        motion_id = source_actions["motion_info"]["motion_id"]
-    if motion_prefix is None:
-        motion_prefix = source_actions["motion_info"]["prefix"]
-
-    # TODO this should really collect all named shape key animation tracks across all source objects
-    #      and create actions specific to each target object.
-    #      e.g. facial hair meshes have tongue shape keys which the body action alone doesn't have.
-
-    # apply to exact matches first
-    utils.log_info(f"Applying source key actions: (copy={copy}, motion_id={motion_id})")
-    objects = utils.get_child_objects(dst_rig)
-    for obj in objects:
-        if filter and obj not in filter: continue
-        if obj.type == "MESH":
-            if utils.object_has_shape_keys(obj):
-                obj_id = get_action_obj_id(obj)
-                old_action = utils.safe_get_action(obj.data.shape_keys)
-                if (obj_id in source_actions["keys"] and
-                    obj_has_action_shape_keys(obj, source_actions["keys"][obj_id])):
-                    action = source_actions["keys"][obj_id]
-                    if copy and motion_id:
-                        action_name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
-                        utils.log_info(f" - Copying action: {action.name} to {action_name}")
-                        action = utils.copy_action(action, action_name)
-                        if set_id and set_generation:
-                            add_motion_set_data(action, set_id, set_generation, obj_id=obj_id)
-                    utils.log_info(f" - Applying action: {action.name} to {obj_id}")
-                    utils.safe_set_action(obj.data.shape_keys, action)
-                    obj_used.append(obj)
-                    key_actions[obj_id] = (action, old_action)
-                else:
-                    utils.safe_set_action(obj.data.shape_keys, None)
-
-    # apply to other compatible shape key objects
-    if all_matching:
-        utils.log_info(f"Applying other matching source key actions:")
-        body_action = get_main_body_action(source_actions)
-        for obj in objects:
-            if filter and obj not in filter: continue
-            if obj not in obj_used and utils.object_has_shape_keys(obj):
-                obj_id = get_action_obj_id(obj)
-                old_action = utils.safe_get_action(obj.data.shape_keys)
-                if body_action:
-                    if obj_has_action_shape_keys(obj, body_action):
-                        action = body_action
-                        if copy and motion_id:
-                            action_name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
-                            utils.log_info(f" - Copying action: {action.name} to {action_name}")
-                            action = utils.copy_action(action, action_name)
-                            if set_id and set_generation:
-                                add_motion_set_data(action, set_id, set_generation, obj_id=obj_id)
-                        utils.log_info(f" - Applying action: {action.name} to {obj_id}")
-                        utils.safe_set_action(obj.data.shape_keys, action)
-                        obj_used.append(obj)
-                        key_actions[obj_id] = (action, old_action)
-    return key_actions
-
-# TODO: No longer used.
-def obj_has_action_shape_keys(obj, action: bpy.types.Action):
-    channel = utils.get_action_channelbag(action, slot_type="KEY")
-    if channel:
-        if utils.object_has_shape_keys(obj):
-            for key in obj.data.shape_keys.key_blocks:
-                for fcurve in channel.fcurves:
-                    if key.name in fcurve.data_path:
-                        return True
-    return False
-
-"""
 
 def get_rig_id(rig):
     if rig:
@@ -595,11 +465,11 @@ def get_formatted_prefix(motion_prefix):
 
 
 def get_unique_set_motion_id(rig_id, motion_id, motion_prefix, exclude_set_id=None,
-                             slotted=False, rlob=None, rlx=False):
+                             rlob=None, rlx=False):
     if rlx or (rlob and rlob.type != "ARMATURE"):
-        test_name = make_rlx_action_name(rig_id, motion_id, motion_prefix, slotted=slotted)
+        test_name = make_rlx_action_name(rig_id, motion_id, motion_prefix)
     else:
-        test_name = make_armature_action_name(rig_id, motion_id, motion_prefix, slotted=slotted)
+        test_name = make_armature_action_name(rig_id, motion_id, motion_prefix)
     base_name = test_name
     num_suffix = 0
     while test_name in bpy.data.actions:
@@ -634,22 +504,16 @@ def generate_action_name(rig_id, code_id, obj_id, motion_id, motion_prefix):
     #return f"{f_prefix}{rig_id}|{code_id}|{motion_id}"
 
 
-def make_armature_action_name(rig_id, motion_id, motion_prefix, slotted=False):
-    if slotted:
-        return generate_action_name(rig_id, "", "", motion_id, motion_prefix)
-    else:
-        return generate_action_name(rig_id, "A", "", motion_id, motion_prefix)
+def make_armature_action_name(rig_id, motion_id, motion_prefix):
+    return generate_action_name(rig_id, "", "", motion_id, motion_prefix)
 
 
 def make_key_action_name(rig_id, motion_id, obj_id, motion_prefix):
     return generate_action_name(rig_id, "K", obj_id, motion_id, motion_prefix)
 
 
-def make_rlx_action_name(rlob_id, motion_id, motion_prefix, slotted=False):
-    if slotted:
-        return generate_action_name(rlob_id, "", "", motion_id, motion_prefix)
-    else:
-        return generate_action_name(rlob_id, "O", "", motion_id, motion_prefix)
+def make_rlx_action_name(rlob_id, motion_id, motion_prefix):
+    return generate_action_name(rlob_id, "", "", motion_id, motion_prefix)
 
 
 def make_data_action_name(obj, rlob_id, motion_id, motion_prefix):
@@ -657,8 +521,8 @@ def make_data_action_name(obj, rlob_id, motion_id, motion_prefix):
     return generate_action_name(rlob_id, code_id, "", motion_id, motion_prefix)
 
 
-def set_armature_action_name(action, rig_id, motion_id, motion_prefix, slotted=False):
-    action.name = make_armature_action_name(rig_id, motion_id, motion_prefix, slotted=slotted)
+def set_armature_action_name(action, rig_id, motion_id, motion_prefix):
+    action.name = make_armature_action_name(rig_id, motion_id, motion_prefix)
 
 
 def set_key_action_name(action, rig_id, motion_id, obj_id, motion_prefix):
@@ -766,16 +630,15 @@ def replace_motion_set(set_id, old_set_id):
 
 
 def add_motion_set_data(action, set_id, set_generation,
-                        key_id=None, arm_id=None, rlx_id=None,
-                        is_light=False, is_camera=False,
-                        slotted=False):
+                        key_id=None, arm_id=None, obj_id=None, rlx_id=None,
+                        is_light=False, is_camera=False):
     action["rl_set_id"] = set_id
     action["rl_set_generation"] = set_generation
 
-    if slotted:
-        action["rl_action_type"] = "SLOTTED"
-    elif arm_id and key_id:
+    if (arm_id or obj_id) and key_id:
         action["rl_action_type"] = "KEY"
+    elif obj_id:
+        action["rl_action_type"] = "OBJECT"
     elif arm_id:
         action["rl_action_type"] = "ARM"
     elif rlx_id and is_light:
@@ -787,6 +650,8 @@ def add_motion_set_data(action, set_id, set_generation,
 
     if arm_id:
         action["rl_armature_id"] = arm_id
+    if obj_id:
+        action["rl_object_id"] = obj_id
     if key_id:
         action["rl_key_object"] = key_id
     if rlx_id:
@@ -801,7 +666,6 @@ def update_motion_set_index(action):
 # TODO face rig control only keep location
 #      other bones include scale
 def load_motion_set(rig, action, move=False, temp=None, force=None, refactor_rotations=True):
-    prefs = vars.prefs()
     if action:
         utils.log_info(f"Load Motion Set: {action.name} {'Move ' if move else ''}{'Temp ' if temp else ''}")
     else:
@@ -811,56 +675,58 @@ def load_motion_set(rig, action, move=False, temp=None, force=None, refactor_rot
     arm_action = action
     if action:
         utils.log_indent()
-        if prefs.use_action_slots():
-            arm_action = load_slotted_action(rig, action, move=move, temp=temp, force=force, refactor_rotations=refactor_rotations)
-        else:
-            arm_action = load_separate_actions(rig, action, move=move, temp=temp, force=force, refactor_rotations=refactor_rotations)
+        arm_action = load_slotted_action(rig, action, move=move, temp=temp, force=force, refactor_rotations=refactor_rotations)
         if arm_action:
             update_motion_set_index(arm_action)
         utils.log_recess()
-
     return arm_action
 
 
 def new_motion_set(rig: bpy.types.Object, motion_id=None, motion_prefix=""):
-    prefs = vars.prefs()
+    new_empty_motion_set(rig, motion_id=motion_id, motion_prefix=motion_prefix)
 
-    slotted = prefs.use_action_slots()
+
+def new_empty_motion_set(rig: bpy.types.Object, motion_id=None, motion_prefix=""):
+    #current_frame = bpy.context.scene.frame_current
+    #bpy.context.scene.frame_current = 1
     rig_id = get_rig_id(rig)
     rl_id = utils.get_rl_id(rig)
     set_id = generate_set_id()
+    rig_map = get_rig_name_map(rig)
     set_generation = utils.get_prop(rig, "rl_set_generation")
     if not motion_id:
         motion_id = "New"
-    motion_id = get_unique_set_motion_id(rig_id, motion_id, motion_prefix, slotted=slotted, rlob=rig)
-    if rig.type == "ARMATURE":
-        action_name = make_armature_action_name(rig_id, motion_id, motion_prefix, slotted=slotted)
+    motion_id = get_unique_set_motion_id(rig_id, motion_id, motion_prefix, rlob=rig)
+    if rig.type == "ARMATURE" or rig.type == "EMPTY":
+        action_name = make_armature_action_name(rig_id, motion_id, motion_prefix)
     else:
-        action_name = make_rlx_action_name(rig_id, motion_id, motion_prefix, slotted=slotted)
+        action_name = make_rlx_action_name(rig_id, motion_id, motion_prefix)
     action = bpy.data.actions.new(action_name)
-    slot, channel = add_action_ob_slot_channelbag(action, rig)
+    slot, channel = add_action_ob_slot_channelbag(action, rig, rig_map=rig_map)
     if rig.type == "ARMATURE":
-        add_motion_set_data(action, set_id, set_generation, arm_id=rl_id, slotted=slotted)
+        add_motion_set_data(action, set_id, set_generation, arm_id=rl_id)
+    elif rig.type == "EMPTY":
+        add_motion_set_data(action, set_id, set_generation, obj_id=rl_id)
     elif rig.type == "LIGHT" or rig.type == "CAMERA":
-        add_motion_set_data(action, set_id, set_generation, rlx_id=rl_id, slotted=slotted)
+        add_motion_set_data(action, set_id, set_generation, rlx_id=rl_id)
     utils.safe_set_action(rig, action, slot=slot)
     utils.safe_set_action(rig.data, None, create=False)
-    if rig.type == "ARMATURE":
-        for child in utils.get_child_meshes(rig):
-            if utils.object_exists_has_shape_keys(child):
-                utils.safe_set_action(child, None, create=False)
-                utils.safe_set_action(child.data, None, create=False)
-                utils.safe_set_action(child.data.shape_keys, None, create=False)
-    elif rig.type == "LIGHT" or rig.type == "CAMERA":
+    for child in utils.get_child_objects(rig, include_parent=False):
+        utils.safe_set_action(child, None, create=False)
+        utils.safe_set_action(child.data, None, create=False)
+        if utils.object_exists_has_shape_keys(child):
+            utils.safe_set_action(child.data.shape_keys, None, create=False)
+    if rig.type == "LIGHT" or rig.type == "CAMERA":
         utils.safe_set_action(rig.data, None, create=False)
     update_motion_set_index(action)
+    #bpy.context.scene.frame_current = current_frame
     return action
 
 
 def ensure_motion_set(rlob, motion_id="New", motion_prefix=""):
     action = utils.safe_get_action(rlob)
     if not action:
-        action = new_motion_set(rlob, motion_id, motion_prefix)
+        action = new_empty_motion_set(rlob, motion_id, motion_prefix)
         if action:
             load_motion_set(rlob, action)
 
@@ -868,13 +734,13 @@ def ensure_motion_set(rlob, motion_id="New", motion_prefix=""):
 def clear_motion_set(rig):
     mode_selection = utils.store_mode_selection_state()
     has_actions = utils.safe_get_action(rig)
-    if rig.type == "ARMATURE" and not has_actions:
-        reset_pose(rig)
-    utils.safe_set_action(rig, None)
-    if rig.type == "LIGHT" or rig.type == "CAMERA":
-        utils.safe_set_action(rig.data, None, create=False)
     objects = utils.get_child_objects(rig)
     for obj in objects:
+        utils.safe_set_action(obj, None)
+        if obj.type == "ARMATURE" and not utils.safe_get_action(obj):
+            reset_pose(obj)
+        if obj.type != "EMPTY":
+            utils.safe_set_action(obj.data, None)
         if utils.object_exists_has_shape_keys(obj):
             utils.safe_set_action(obj.data.shape_keys, None, create=False)
             if not has_actions:
@@ -891,27 +757,49 @@ def clear_all_actions(objects):
                 utils.safe_set_action(obj.data.shape_keys, None)
 
 
-def push_motion_set(rig: bpy.types.Object, set_armature_action, push_index = 0):
+def push_track(o, action, slot, track_index, start, end, frame, push_index):
+    if o.animation_data is None:
+        o.animation_data_create()
+        if not o.animation_data.nla_tracks or track_index == -1:
+            track = o.animation_data.nla_tracks.new()
+        else:
+            track = o.animation_data.nla_tracks[track_index]
+    try:
+        strip = track.strips.new(action.name, frame, action)
+    except:
+        track = o.animation_data.nla_tracks.new()
+        strip = track.strips.new(action.name, frame, action)
+        strip.action_slot = slot
+        strip.action_frame_start = start
+        strip.action_frame_end = end
+        strip.name = f"{action.name}|{push_index:03d}"
+    return track, strip
+
+
+def push_motion_set(rig: bpy.types.Object, action, push_index = 0):
     prefs = vars.prefs()
-    source_actions = find_source_actions(set_armature_action, None)
     frame = bpy.context.scene.frame_current
-    set_arm_action: bpy.types.Action = source_actions["armature"]
-    start = int(set_arm_action.frame_range[0])
-    end = int(set_arm_action.frame_range[1])
+    start = int(action.frame_range[0])
+    end = int(action.frame_range[1])
     length = end - start
-    is_slotted = prefs.use_action_slots() and utils.get_prop(set_arm_action, "rl_action_type") == "SLOTTED"
     objects = utils.get_child_objects(rig)
+    rig_map = get_rig_name_map(rig)
     # find all available NLA tracks
-    nla_data = []
-    if rig.animation_data.nla_tracks:
-        nla_data.append(rig.animation_data.nla_tracks)
+    obj_nla_data = []
+    key_nla_data = []
+    dat_nla_data = []
     for obj in objects:
+        if obj.animation_data and obj.animation_data.nla_tracks:
+            obj_nla_data.append(obj.animation_data.nla_tracks)
+        if obj.data and obj.data.animation_data and obj.data.animation_data.nla_tracks:
+            dat_nla_data.append(obj.data.animation_data.nla_tracks)
         if utils.object_has_shape_keys(obj):
             if obj.data.shape_keys.animation_data and obj.data.shape_keys.animation_data.nla_tracks:
-                nla_data.append(obj.data.shape_keys.animation_data.nla_tracks)
+                key_nla_data.append(obj.data.shape_keys.animation_data.nla_tracks)
     # count the mininum number of shared tracks across all action objects
     min_tracks = 0
-    for nla_tracks in nla_data:
+    all_nla_data = obj_nla_data + dat_nla_data + key_nla_data
+    for nla_tracks in all_nla_data:
         l = len(nla_tracks)
         if l > 0:
             if min_tracks == 0:
@@ -919,7 +807,7 @@ def push_motion_set(rig: bpy.types.Object, set_armature_action, push_index = 0):
             min_tracks = min(min_tracks, l)
     # find the first available track that can fit the motion set
     available_tracks = [True] * min_tracks
-    for nla_tracks in nla_data:
+    for nla_tracks in all_nla_data:
         for i in range(0, min_tracks):
             track: bpy.types.NlaTrack = nla_tracks[i]
             strip: bpy.types.NlaStrip
@@ -935,66 +823,15 @@ def push_motion_set(rig: bpy.types.Object, set_armature_action, push_index = 0):
         if available:
             track_index = i
             break
-    # push the actions
-    action: bpy.types.Action = source_actions["armature"]
-    rig: bpy.types.Object
-    if rig.animation_data is None:
-        rig.animation_data_create()
-    if not rig.animation_data.nla_tracks or track_index == -1:
-        track = rig.animation_data.nla_tracks.new()
-    else:
-        track = rig.animation_data.nla_tracks[track_index]
-    try:
-        strip = track.strips.new(action.name, frame, action)
-    except:
-        track = rig.animation_data.nla_tracks.new()
-        strip = track.strips.new(action.name, frame, action)
-        strip.action_frame_start = start
-        strip.action_frame_end = end
-    strip.name = f"{action.name}|{push_index:03d}"
+    # push the action slots
     for obj in objects:
-        if is_slotted:
-            if "KEAll Keys" in action.slots:
-                obj_id = "KEAll Keys"
-            else:
-                obj_id = "KE" + obj.name
-            if obj.type == "MESH" and obj_id in action.slots:
-                slot = action.slots[obj_id]
-                if obj.data.shape_keys:
-                    if not obj.data.shape_keys.animation_data:
-                        obj.data.shape_keys.animation_data_create()
-                    if not obj.data.shape_keys.animation_data.nla_tracks or track_index == -1:
-                        track = obj.data.shape_keys.animation_data.nla_tracks.new()
-                    else:
-                        track = obj.data.shape_keys.animation_data.nla_tracks[track_index]
-                    try:
-                        strip = track.strips.new(action.name, frame, action)
-                    except:
-                        track = obj.data.shape_keys.animation_data.nla_tracks.new()
-                        strip = track.strips.new(action.name, frame, action)
-                    strip.action_slot = slot
-                    strip.action_frame_start = start
-                    strip.action_frame_end = end
-                    strip.name = f"{action.name}|{push_index:03d}"
-        else:
-            obj_id = get_obj_id(obj)
-            if obj.type == "MESH" and obj_id in source_actions["keys"]:
-                action = source_actions["keys"][obj_id]
-                if obj.data.shape_keys:
-                    if not obj.data.shape_keys.animation_data:
-                        obj.data.shape_keys.animation_data_create()
-                    if not obj.data.shape_keys.animation_data.nla_tracks or track_index == -1:
-                        track = obj.data.shape_keys.animation_data.nla_tracks.new()
-                    else:
-                        track = obj.data.shape_keys.animation_data.nla_tracks[track_index]
-                    try:
-                        strip = track.strips.new(action.name, frame, action)
-                    except:
-                        track = obj.data.shape_keys.animation_data.nla_tracks.new()
-                        strip = track.strips.new(action.name, frame, action)
-                    strip.action_frame_start = start
-                    strip.action_frame_end = end
-                    strip.name = f"{action.name}|{push_index:03d}"
+        obj_slot, dat_slot, key_slot = get_rig_mapped_action_slots(rig_map, action, obj)
+        if obj_slot:
+            push_track(obj, action, obj_slot, track_index, start, end, frame, push_index)
+        if dat_slot:
+            push_track(obj, action, dat_slot, track_index, start, end, frame, push_index)
+        if key_slot:
+            push_track(obj, action, key_slot, track_index, start, end, frame, push_index)
 
 
 def clear_animation_data(obj: bpy.types.Object):
@@ -1374,7 +1211,6 @@ def duplicate_motion_set(source_action):
                 rlob_id = utils.get_rl_id(action)
                 rlx_id = utils.get_prop(action, "rl_rlx_id")
                 arm_id = utils.get_prop(action, "rl_armature_id")
-                is_slotted = action_type_id == "SLOTTED"
                 is_light = action_type_id == "LIGHT"
                 is_camera = action_type_id == "CAMERA"
                 is_rlx = action_type_id == "RLX" or rlx_id is not None
@@ -1383,8 +1219,7 @@ def duplicate_motion_set(source_action):
                 duplicate_action = action.copy()
                 add_motion_set_data(duplicate_action, new_set_id, set_generation,
                                     key_id=obj_id, arm_id=arm_id, rlx_id=rlx_id,
-                                    is_light=is_light, is_camera=is_camera,
-                                    slotted=is_slotted),
+                                    is_light=is_light, is_camera=is_camera)
                 duplicates.append(duplicate_action)
                 if action_type_id == "SLOTTED" or action_type_id == "ARM" or action_type_id == "RLX":
                     new_action = duplicate_action
@@ -1405,13 +1240,12 @@ def duplicate_motion_set(source_action):
 
 def get_new_motion_set_action_name(action_type, set_id, prefix, rig_id, motion_id, rlob=None):
     motion_id = get_unique_set_motion_id(rig_id, motion_id, prefix,
-                                         exclude_set_id=set_id,
-                                         slotted=(action_type == "SLOTTED"), rlob=rlob)
+                                         exclude_set_id=set_id, rlob=rlob)
     name = ""
     if action_type == "SLOTTED":
-        name = make_armature_action_name(rig_id, motion_id, prefix, slotted=True)
+        name = make_armature_action_name(rig_id, motion_id, prefix)
     else:
-        name = make_armature_action_name(rig_id, motion_id, prefix, slotted=False)
+        name = make_armature_action_name(rig_id, motion_id, prefix)
     return name
 
 
@@ -1419,21 +1253,20 @@ def rename_motion_set(action_type, set_id, prefix, rig_id, motion_id):
     actions = get_motion_set_actions(set_id)
     is_rlx = is_rlx_motion(actions)
     motion_id = get_unique_set_motion_id(rig_id, motion_id, prefix,
-                                         exclude_set_id=set_id,
-                                         slotted=(action_type == "SLOTTED"), rlx=is_rlx)
+                                         exclude_set_id=set_id, rlx=is_rlx)
     for action in actions:
         a_set_id, a_set_generation, action_type_id, obj_id = get_motion_set_ids(action)
         if action_type_id == "ARM":
-            name = make_armature_action_name(rig_id, motion_id, prefix, slotted=False)
+            name = make_armature_action_name(rig_id, motion_id, prefix)
             action.name = name
         elif action_type_id == "KEY":
             name = make_key_action_name(rig_id, motion_id, obj_id, prefix)
             action.name = name
         elif action_type_id == "SLOTTED":
-            name = make_armature_action_name(rig_id, motion_id, prefix, slotted=True)
+            name = make_armature_action_name(rig_id, motion_id, prefix)
             action.name = name
         elif action_type_id == "RLX":
-            name = make_rlx_action_name(rig_id, motion_id, prefix, slotted=True)
+            name = make_rlx_action_name(rig_id, motion_id, prefix)
             action.name = name
 
 
@@ -2725,42 +2558,49 @@ def de_pivot(chr_cache):
 
 
 #region Actions
+def generate_action_slot_indexed_base_name(obj, rig_map):
+    if rig_map:
+        base_name, index = get_rig_map_base_name_index(rig_map, obj.name)
+        name = f"{base_name}|{index}"
+    else:
+        name = obj.name
+    return name
+
 def add_action_slot_channelbag(action, name: str, slot_type: str, reuse=False, clear=False):
     slot_name = f"{name} ({slot_type.capitalize()})"
-    if utils.B440():
-        channelbags = utils.get_action_channelbags(action)
-        if reuse:
-            for channelbag in channelbags:
-                if channelbag.slot and channelbag.slot.target_id_type == slot_type and channelbag.slot.name_display == slot_name:
-                    slot = channelbag.slot
-                    channel = channelbag
-                    if clear:
-                        channel.fcurves.clear()
-                    return slot, channel
-        slot = action.slots.new(slot_type, slot_name)
-        channel = channelbags.new(slot)
-    else:
-        slot = None
-        channel = action
+    channelbags = utils.get_action_channelbags(action)
+    if reuse:
+        for channelbag in channelbags:
+            if channelbag.slot and channelbag.slot.target_id_type == slot_type and channelbag.slot.name_display == slot_name:
+                slot = channelbag.slot
+                channel = channelbag
+                if clear:
+                    channel.fcurves.clear()
+                return slot, channel
+    slot = action.slots.new(slot_type, slot_name)
+    channel = channelbags.new(slot)
     return slot, channel
 
 
-def add_action_key_slot_channelbag(action, obj: bpy.types.Object, reuse=False, clear=False):
-    return add_action_slot_channelbag(action, obj.name, "KEY", reuse=reuse, clear=clear)
+def add_action_key_slot_channelbag(action, obj: bpy.types.Object, reuse=False, clear=False, rig_map=None):
+    name = generate_action_slot_indexed_base_name(obj, rig_map)
+    return add_action_slot_channelbag(action, name, "KEY", reuse=reuse, clear=clear)
 
 
-def add_action_ob_slot_channelbag(action, obj: bpy.types.Object, reuse=False, clear=False):
-    return add_action_slot_channelbag(action, obj.name, "OBJECT", reuse=reuse, clear=clear)
+def add_action_ob_slot_channelbag(action, obj: bpy.types.Object, reuse=False, clear=False, rig_map=None):
+    name = generate_action_slot_indexed_base_name(obj, rig_map)
+    return add_action_slot_channelbag(action, name, "OBJECT", reuse=reuse, clear=clear)
 
 
-def add_action_data_slot_channelbag(action, obj: bpy.types.Object, slot_type=None, reuse=False, clear=False):
+def add_action_data_slot_channelbag(action, obj: bpy.types.Object, slot_type=None, reuse=False, clear=False, rig_map=None):
     if not slot_type:
         slot_type = obj.type
-    return add_action_slot_channelbag(action, obj.name, slot_type, reuse=reuse, clear=clear)
+    name = generate_action_slot_indexed_base_name(obj, rig_map)
+    return add_action_slot_channelbag(action, name, slot_type, reuse=reuse, clear=clear)
 
 
 def is_slotted_action(action):
-    return utils.B440() and len(action.slots) > 1
+    return len(action.slots) > 1
 
 
 def copy_slot_actions(src_action, dst_action, slot_type):
@@ -2776,26 +2616,7 @@ def copy_slot_actions(src_action, dst_action, slot_type):
 def copy_action_shape_key_channels(rig, src_action, dst_action, fake_user=True):
     prefs = vars.prefs()
     copy_actions = [dst_action]
-    if prefs.use_action_slots():
-        copy_slot_actions(src_action, dst_action, "KEY")
-    else:
-        rig_id = get_rig_id(rig)
-        rl_id = utils.get_rl_id(rig)
-        motion_set = get_motion_set_ids(dst_action)
-        set_id = motion_set[0]
-        set_generation = motion_set[1]
-        motion_prefix = get_motion_prefix(dst_action)
-        motion_id = get_motion_id(dst_action)
-        key_actions = fetch_key_actions(src_action)
-        for key_action in key_actions:
-            key_object = utils.get_prop(key_action, "rl_key_object")
-            action_name = make_key_action_name(rig_id, motion_id, key_object, motion_prefix)
-            utils.log_info(f" - Copying Key Action: {key_action.name} to {action_name}")
-            copy_action: bpy.types.Action = key_action.copy()
-            copy_action.name = action_name
-            copy_action.use_fake_user = fake_user
-            add_motion_set_data(copy_action, set_id, set_generation, key_id=key_object, arm_id=rl_id, slotted=False)
-            copy_actions.append(copy_action)
+    copy_slot_actions(src_action, dst_action, "KEY")
     return copy_actions
 
 
@@ -2808,16 +2629,18 @@ def fetch_action_curve_database(source_action):
     database = {}
     SOURCE_CHANNELS = ["CC_Base_Body", "CC_Game_Body", "CC_Base_Tongue"]
     source_actions = find_source_actions(source_action)
-    if source_actions["armature"]:
-        source_action = source_actions["armature"]
+    if source_actions["root"]:
+        source_action = source_actions["root"]
     elif source_actions["rlx"]:
         source_action = source_actions["rlx"]
     source_arm_actions = [a for a in source_actions["armatures"] if a is not None]
+    source_obj_actions = [a for a in source_actions["objects"] if a is not None]
     source_key_actions = [a for a in source_actions["keys"].values() if a is not None]
     source_rlx_action = source_actions["rlx"]
     source_light_action = source_actions["light"]
     source_camera_action = source_actions["camera"]
     arm_actions = [a.copy() for a in source_arm_actions if a is not None]
+    obj_actions = [a.copy() for a in source_obj_actions if a is not None]
     key_actions = [a.copy() for a in source_key_actions if a is not None]
     rlx_action = source_rlx_action.copy() if source_rlx_action else None
     light_action = source_light_action.copy() if source_light_action else None
@@ -2826,6 +2649,8 @@ def fetch_action_curve_database(source_action):
     rlx_actions = utils.list_if(rlx_action, light_action, camera_action)
     for arm_action in arm_actions:
         arm_action.name = "DB_AC_TMP"
+    for obj_action in obj_actions:
+        obj_action.name = "DB_OC_TMP"
     for key_action in key_actions:
         key_action.name = "DB_KC_TMP"
     if rlx_action:
@@ -2837,77 +2662,53 @@ def fetch_action_curve_database(source_action):
     data_curves = { "OBJECT": {}, "KEY": {}, "LIGHT": {}, "CAMERA": {} }
     database["source_action"] = source_action
     database["source_arm_actions"] = source_arm_actions
+    database["source_obj_actions"] = source_obj_actions
     database["source_key_actions"] = source_key_actions
     database["source_rlx_actions"] = source_rlx_actions
     database["arm_actions"] = arm_actions
+    database["obj_actions"] = obj_actions
     database["key_actions"] = key_actions
     database["rlx_actions"] = rlx_actions
     database["curves"] = data_curves
     first_frame = None
-    if utils.B440():
-        all_actions = arm_actions + key_actions + rlx_actions
-        a: bpy.types.Action
-        done_channelbags = []
-        done_actions = []
-        for a in all_actions:
-            if a in done_actions: continue
-            done_actions.append(a)
-            channelbags = utils.get_action_channelbags(a)
-            # build database of fcurves by slot
-            for channel in channelbags:
-                if channel in done_channelbags: continue
-                if channel.slot == None:
-                    utils.log_info(f"No slot in channel {channel}")
-                    continue
-                done_channelbags.append(channel)
-                slot = channel.slot
-                is_source_channel = False
-                for MC in SOURCE_CHANNELS:
-                    if slot.name_display.startswith(MC):
-                        is_source_channel = True
-                slot_type = slot.target_id_type
-                if slot_type not in data_curves:
-                    utils.log_info(f"Found unexpected slot type: {slot_type}")
-                    data_curves[slot_type] = {}
-                slot_curves = data_curves[slot_type]
-                fcurve: bpy.types.FCurve = None
-                for fcurve in channel.fcurves:
-                    data_path = fcurve.data_path
-                    index = fcurve.array_index
-                    id = (data_path, index)
-                    if id not in slot_curves or is_source_channel:
-                        slot_curves[id] = fcurve
-                    if fcurve.keyframe_points and len(fcurve.keyframe_points) > 0:
-                        frame = fcurve.keyframe_points[0].co.x
-                        if first_frame is None or frame < first_frame:
-                            first_frame = frame
-    else:
-        all_actions = []
-        for arm_action in arm_actions:
-            all_actions.append(("OBJECT", arm_action))
-        for key_action in key_actions:
-            all_actions.append(("KEY", key_action))
-        if rlx_action:
-            all_actions.append(("OBJECT", rlx_action))
-        if light_action:
-            all_actions.append(("LIGHT", light_action))
-        if camera_action:
-            all_actions.append(("CAMERA", camera_action))
-        done_actions = []
-        for slot_type, a in all_actions:
-            if a in done_actions: continue
-            done_actions.append(a)
-            # build database of fcurves by slot
+
+    all_actions = arm_actions + obj_actions + key_actions + rlx_actions
+    a: bpy.types.Action
+    done_channelbags = []
+    done_actions = []
+    for a in all_actions:
+        if a in done_actions: continue
+        done_actions.append(a)
+        base_root_name = utils.get_prop(a, "rl_root_name")
+        if not base_root_name:
+            base_root_name, base_root_index = get_first_ob_slot_name_index(source_action)
+            print(f"Using first base_root_name: {base_root_name}")
+        channelbags = utils.get_action_channelbags(a)
+        # build database of fcurves by slot
+        for channel in channelbags:
+            if channel in done_channelbags: continue
+            if channel.slot == None:
+                utils.log_info(f"No slot in channel {channel}")
+                continue
+            done_channelbags.append(channel)
+            slot = channel.slot
+            is_source_channel = False
+            for MC in SOURCE_CHANNELS:
+                if slot.name_display.startswith(MC):
+                    is_source_channel = True
+            slot_type = slot.target_id_type
             if slot_type not in data_curves:
                 utils.log_info(f"Found unexpected slot type: {slot_type}")
                 data_curves[slot_type] = {}
             slot_curves = data_curves[slot_type]
+            base_name, base_index = get_slot_base_name_index(slot)
+            is_root = (base_name == base_root_name and base_index == 0)
             fcurve: bpy.types.FCurve = None
-            for fcurve in a.fcurves:
+            for fcurve in channel.fcurves:
                 data_path = fcurve.data_path
                 index = fcurve.array_index
-                id = (data_path, index)
-                if id not in slot_curves:
+                id = (base_name, base_index, data_path, index, is_root)
+                if id not in slot_curves or is_source_channel:
                     slot_curves[id] = fcurve
                 if fcurve.keyframe_points and len(fcurve.keyframe_points) > 0:
                     frame = fcurve.keyframe_points[0].co.x
@@ -2928,19 +2729,19 @@ def get_channelbag_group(channelbag, group_name):
 
 
 def refactor_channelbag_bone_rotations(rig, channelbag):
-    bone_dict: dict = get_bone_transform_dict(rig, channelbag)
+    bone_dict: dict = get_transform_dict(rig, channelbag)
     pose_bone: bpy.types.PoseBone = None
     for pose_bone in rig.pose.bones:
         bone_name = pose_bone.name
         if bone_name in bone_dict:
-            rig_rot_type = get_bone_rotation_type(rig, bone_name)
+            rig_rot_type = get_rotation_type(rig, bone_name)
             loc_curves, rot_curves, sca_curves, rot_type, has_curves = bone_dict[bone_name]
             if has_curves and rig_rot_type and rot_type and rig_rot_type != rot_type:
                 utils.log_info(f"Refactoring bone curves: {bone_name} - {rot_type} to {rig_rot_type}")
-                refactor_rot_curves(channelbag, bone_name, rot_curves, rot_type, rig_rot_type)
+                refactor_rot_curves(channelbag, bone_name, rot_curves, rot_type, rig_rot_type, rig)
 
 
-def refactor_rot_curves(channelbag, bone_name, rot_curves, from_rot_type, to_rot_type):
+def refactor_rot_curves(channelbag, bone_name, rot_curves, from_rot_type, to_rot_type, rig):
     if from_rot_type == to_rot_type: return
 
     frames = set()
@@ -2966,7 +2767,7 @@ def refactor_rot_curves(channelbag, bone_name, rot_curves, from_rot_type, to_rot
         resampled_data.append(data)
 
     for f, frame in enumerate(sorted_frames):
-        rot = evaluate_action_bone_rotation(rot_curves, from_rot_type, frame)
+        rot = evaluate_action_bone_rotation(rot_curves, from_rot_type, frame, rig)
         flat_rotation = make_flat_rotation(to_rot_type, rot)
         index = f * 2
         for i in range(0, num_curves):
@@ -2995,7 +2796,7 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
     # determine motion set info
     rig_id = get_rig_id(rig)
     rl_id = utils.get_rl_id(rig)
-    old_action = utils.safe_get_action(rig)
+    old_rig_action = utils.safe_get_action(rig)
     set_id = utils.get_prop(action, "rl_set_id")
     set_generation = utils.get_prop(action, "rl_set_generation")
     motion_prefix = get_motion_prefix(action)
@@ -3014,12 +2815,13 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
 
     # generate a database of fcurves in the motion set
     database = fetch_action_curve_database(action)
+    rig_map = get_rig_name_map(rig)
 
     # re-use the existing source armature action
     if use_new_motion_set:
 
         # Point light, Export_20260630130902, Point light_1
-        motion_id = get_unique_set_motion_id(rig_id, motion_id, motion_prefix, slotted=True, rlob=rig)
+        motion_id = get_unique_set_motion_id(rig_id, motion_id, motion_prefix, rlob=rig)
         action_name = generate_action_name(rig_id, "", "", motion_id, motion_prefix)
 
         # if temp, re-use any existing temp action
@@ -3031,18 +2833,20 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
 
         # add motion set data
         arm_id = rl_id if rig.type == "ARMATURE" else None
+        obj_id = rl_id if (rig.type == "EMPTY" or rig.type == "MESH") else None
         rlx_id = None if rig.type == "ARMATURE" else rl_id
-        add_motion_set_data(action, set_id, set_generation, arm_id=arm_id, rlx_id=rlx_id, slotted=True)
+        add_motion_set_data(action, set_id, set_generation, arm_id=arm_id, obj_id=obj_id, rlx_id=rlx_id)
         action.use_fake_user = use_fake_user
 
         # if this is a temporary action, store the action it replaced
         if temp:
-            action["rl_temp_action"] = old_action.name if old_action else ""
+            action["rl_temp_action"] = old_rig_action.name if old_rig_action else ""
     elif force:
         # add motion set data
         arm_id = rl_id if rig.type == "ARMATURE" else None
+        obj_id = rl_id if (rig.type == "EMPTY" or rig.type == "MESH") else None
         rlx_id = None if rig.type == "ARMATURE" else rl_id
-        add_motion_set_data(action, set_id, set_generation, arm_id=arm_id, rlx_id=rlx_id, slotted=True)
+        add_motion_set_data(action, set_id, set_generation, arm_id=arm_id, obj_id=obj_id, rlx_id=rlx_id)
     else:
         action: bpy.types.Action = database["source_action"]
 
@@ -3053,73 +2857,92 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
     data_curves = database["curves"]
     first_frame = database["first_frame"]
 
-    # ARMATURE ACTION
+    # OBJECT & ARMATURE ACTION
     #
     if "OBJECT" in data_curves:
         slot_curves = data_curves["OBJECT"]
         used_ids = set()
 
-        # add armature (object) slot
-        rig_slot, rig_channel = add_action_ob_slot_channelbag(action, rig, reuse=True, clear=True)
+        for obj in utils.get_child_objects(rig):
 
-        if rig.type == "ARMATURE":
-            # for each bone fcurve in the database in the order of the pose bones on the rig ...
-            for bone in rig.pose.bones:
+            obj_base_name, obj_base_index = get_rig_map_base_name_index(rig_map, obj.name)
+            # TODO this will only load matching object keys
+            #      maybe extend it to add missing tracks
+            #      (in case of new objects)
+            #      Also deal with unused key tracks
+
+            obj_slot = obj_channel = None
+
+            if obj.type == "ARMATURE":
+                # for each bone fcurve in the database in the order of the pose bones on the rig ...
+                for bone in obj.pose.bones:
+                    for id, fcurve in slot_curves.items():
+                        base_name, base_index, curve_path, index, is_root = id
+                        if (obj_base_name == base_name and obj_base_index == base_index) or (is_root and obj == rig):
+                            # that exist on this obj:
+                            if id not in used_ids and bone.name in curve_path and utils.has_data_path(obj, curve_path):
+                                if not obj_channel:
+                                    obj_slot, obj_channel = add_action_ob_slot_channelbag(action, obj, reuse=True, clear=True, rig_map=rig_map)
+                                clone = copy_fcurve_to_channel(fcurve, obj_channel)
+                                # add fcurve to bone group
+                                group_name = utils.get_data_path_object_name(curve_path)
+                                clone.group = get_channelbag_group(obj_channel, group_name)
+                                # store used id's
+                                used_ids.add(id)
+
+            # Object transform curves:
+            if obj.type == "MESH" or obj.type == "LIGHT" or obj.type == "CAMERA" or obj.type == "EMPTY":
+                # for each remaining fcurve data path in the database
                 for id, fcurve in slot_curves.items():
-                    curve_path, index = id
-                    # that exist on this rig:
-                    if id not in used_ids and bone.name in curve_path and utils.has_data_path(rig, curve_path):
-                        clone = copy_fcurve_to_channel(fcurve, rig_channel)
-                        # add fcurve to bone group
-                        group_name = utils.get_data_path_object_name(curve_path)
-                        clone.group = get_channelbag_group(rig_channel, group_name)
-                        # store used id's
-                        used_ids.add(id)
+                    base_name, base_index, curve_path, index, is_root = id
+                    if (obj_base_name == base_name and obj_base_index == base_index) or (is_root and obj == rig):
+                        #print(f"{obj_base_name} == {base_name} and {obj_base_index} == {base_index}) or ({is_root} and {obj == rig}")
+                        # that have valid data paths on this rig:
+                        if id not in used_ids and utils.has_data_path(obj, curve_path):
+                            if not obj_channel:
+                                obj_slot, obj_channel = add_action_ob_slot_channelbag(action, obj, reuse=True, clear=True, rig_map=rig_map)
+                            clone = copy_fcurve_to_channel(fcurve, obj_channel)
+                            if clone:
+                                # add fcurve to Object group
+                                group_name = utils.get_data_path_object_name(curve_path)
+                                clone.group = get_channelbag_group(obj_channel, group_name)
+                                # store used id's
+                                used_ids.add(id)
 
-        if True: #if rig.type == "LIGHT" or rig.type == "CAMERA":
-            # for each remaining fcurve data path in the database
-            for id, fcurve in slot_curves.items():
-                curve_path, index = id
-                # that have valid data paths on this rig:
-                if id not in used_ids and utils.has_data_path(rig, curve_path):
-                    clone = copy_fcurve_to_channel(fcurve, rig_channel)
-                    # add fcurve to Object group
-                    group_name = utils.get_data_path_object_name(curve_path)
-                    clone.group = get_channelbag_group(rig_channel, group_name)
-                    # store used id's
-                    used_ids.add(id)
+            # refactor bone rotations
+            if obj_channel and refactor_rotations and obj.type == "ARMATURE":
+                refactor_channelbag_bone_rotations(obj, obj_channel)
 
-        # refactor bone rotations
-        if refactor_rotations and rig.type == "ARMATURE":
-            refactor_channelbag_bone_rotations(rig, rig_channel)
+            # keep this slot/channel and load onto rig slot
+            if obj_slot and obj_channel:
+                keep_slots.append(obj_slot)
+                keep_channels.append(obj_channel)
+                #print(f"loading action slot: {obj.name} {action.name} {obj_slot.name_display}")
+                utils.safe_set_action(obj, action, create=True, slot=obj_slot)
 
-        # keep this slot/channel and load onto rig slot
-        keep_slots.append(rig_slot)
-        keep_channels.append(rig_channel)
-        utils.safe_set_action(rig, action, create=True, slot=rig_slot)
+            if False:
+                # determine unused fcurves
+                # NOTE: unused fcurves are added after the action is loaded on to the rig,
+                #       as the unused curves can get stripped from the action if added before.
+                unused_ids = set()
+                for id in slot_curves:
+                    if id not in used_ids:
+                        unused_ids.add(id)
 
-        # determine unused fcurves
-        # NOTE: unused fcurves are added after the action is loaded on to the rig,
-        #       as the unused curves can get stripped from the action if added before.
-        unused_ids = set()
-        for id in slot_curves:
-            if id not in used_ids:
-                unused_ids.add(id)
+                if unused_ids:
 
-        if unused_ids:
+                    # add slot for unused fcurves
+                    obj_slot, obj_channel = add_action_slot_channelbag(action, "Unused Object", "OBJECT",
+                                                                    reuse=True, clear=True)
 
-            # add slot for unused fcurves
-            rig_slot, rig_channel = add_action_slot_channelbag(action, "Unused Object", "OBJECT",
-                                                               reuse=True, clear=True)
+                    # add unused fcurves
+                    for id in unused_ids:
+                        fcurve = slot_curves[id]
+                        copy_fcurve_to_channel(fcurve, obj_channel)
 
-            # add unused fcurves
-            for id in unused_ids:
-                fcurve = slot_curves[id]
-                copy_fcurve_to_channel(fcurve, rig_channel)
-
-            # always keep this slot/channel
-            keep_slots.append(rig_slot)
-            keep_channels.append(rig_channel)
+                    # always keep this slot/channel
+                    keep_slots.append(obj_slot)
+                    keep_channels.append(obj_channel)
 
     # SHAPE KEY ACTIONS
     #
@@ -3154,12 +2977,19 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
 
             if utils.object_exists_has_shape_keys(obj):
 
+                obj_base_name, obj_base_index = get_rig_map_base_name_index(rig_map, obj.name)
+                # TODO this will only load matching object keys
+                #      maybe extend it to add missing tracks
+                #      (in case of new objects)
+                #      Also deal with unused key tracks
+
                 # if generating key actions per mesh
                 if prefs.action_add_key_slots_per_obj:
 
                     # generate a specific shape key slot for each mesh object
                     key_slot, key_channel = add_action_key_slot_channelbag(action, obj,
-                                                                           reuse=True, clear=True)
+                                                                           reuse=True, clear=True,
+                                                                           rig_map=rig_map)
 
                     # done id's per mesh
                     done_ids = set()
@@ -3175,26 +3005,28 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
 
                 # for each key curve in the database ...
                 for id, fcurve in slot_curves.items():
-                    curve_path, index = id
+                    base_name, base_index, curve_path, index, is_root = id
 
-                    # whose data path exists on this object and is not driven
-                    if utils.has_data_path(obj.data.shape_keys, curve_path) and curve_path not in driver_paths:
+                    if (obj_base_name == base_name and obj_base_index == base_index) or (is_root and obj == rig):
 
-                        # this slot/channel has keys for this mesh
-                        has_keys = True
+                        # whose data path exists on this object and is not driven
+                        if utils.has_data_path(obj.data.shape_keys, curve_path) and curve_path not in driver_paths:
 
-                        # if not already added for this mesh
-                        if id not in done_ids:
-                            fcurve = slot_curves[id]
-                            key_name = utils.get_data_path_object_name(curve_path)
-                            clone = copy_fcurve_to_channel(fcurve, key_channel)
-                            # add fcurve to expression group
-                            group_name = get_shape_key_group_name(key_name)
-                            clone.group = get_channelbag_group(key_channel, group_name)
-                            # store used id's
-                            done_keys.add(key_name)
-                            used_ids.add(id)
-                            done_ids.add(id)
+                            # this slot/channel has keys for this mesh
+                            has_keys = True
+
+                            # if not already added for this mesh
+                            if id not in done_ids:
+                                fcurve = slot_curves[id]
+                                key_name = utils.get_data_path_object_name(curve_path)
+                                clone = copy_fcurve_to_channel(fcurve, key_channel)
+                                # add fcurve to expression group
+                                group_name = get_shape_key_group_name(key_name)
+                                clone.group = get_channelbag_group(key_channel, group_name)
+                                # store used id's
+                                done_keys.add(key_name)
+                                used_ids.add(id)
+                                done_ids.add(id)
 
                 if prefs.action_add_empty_key_channels and first_frame is not None:
 
@@ -3232,25 +3064,26 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
                 else:
                     utils.safe_set_action(obj.data.shape_keys, None)
 
-        # determine unused shape key fcurves
-        unused_ids = set()
-        for id in slot_curves:
-            if id not in used_ids:
-                unused_ids.add(id)
+        if False:
+            # determine unused shape key fcurves
+            unused_ids = set()
+            for id in slot_curves:
+                if id not in used_ids:
+                    unused_ids.add(id)
 
-        if unused_ids:
+            if unused_ids:
 
-            # add slot/channel for unused shape key fcuves
-            key_slot, key_channel = add_action_slot_channelbag(action, "Unused Keys", "KEY", reuse=True, clear=True)
+                # add slot/channel for unused shape key fcuves
+                key_slot, key_channel = add_action_slot_channelbag(action, "Unused Keys", "KEY", reuse=True, clear=True)
 
-            # add unused shape key fcurves to action
-            for id in unused_ids:
-                fcurve = slot_curves[id]
-                copy_fcurve_to_channel(fcurve, key_channel)
+                # add unused shape key fcurves to action
+                for id in unused_ids:
+                    fcurve = slot_curves[id]
+                    copy_fcurve_to_channel(fcurve, key_channel)
 
-            # always keep this slot/channel
-            keep_slots.append(key_slot)
-            keep_channels.append(key_channel)
+                # always keep this slot/channel
+                keep_slots.append(key_slot)
+                keep_channels.append(key_channel)
 
     # LIGHT / CAMERA (DATA) ACTIONS
     #
@@ -3266,14 +3099,14 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
             used_ids = set()
 
             # add data slot
-            data_slot, data_channel = add_action_slot_channelbag(action, f"{rig.name} ({slot_type.capitalize()})", slot_type,
-                                                                 reuse=True, clear=True)
-
-            add_action_data_slot_channelbag(action, rig, slot_type=slot_type, reuse=True, clear=True)
+            data_slot, data_channel = add_action_data_slot_channelbag(action, rig,
+                                                                      slot_type=slot_type, reuse=True,
+                                                                      clear=True, rig_map=rig_map)
 
             # for each fcurve data path in the database
             for id, fcurve in slot_curves.items():
-                curve_path, index = id
+                base_name, base_index, curve_path, index, is_root = id
+
                 # that exist on this rig:
                 if id not in used_ids and utils.has_data_path(rig.data, curve_path):
                     clone = copy_fcurve_to_channel(fcurve, data_channel)
@@ -3288,26 +3121,27 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
             keep_channels.append(data_channel)
             utils.safe_set_action(rig.data, action, create=True, slot=data_slot)
 
-            # determine unused fcurves
-            unused_ids = set()
-            for id in slot_curves:
-                if id not in used_ids:
-                    unused_ids.add(id)
+            if False:
+                # determine unused fcurves
+                unused_ids = set()
+                for id in slot_curves:
+                    if id not in used_ids:
+                        unused_ids.add(id)
 
-            if unused_ids:
+                if unused_ids:
 
-                # add slot for unused fcurves
-                data_slot, data_channel = add_action_slot_channelbag(action, "Unused Data", slot_type,
-                                                                        reuse=True, clear=True)
+                    # add slot for unused fcurves
+                    data_slot, data_channel = add_action_slot_channelbag(action, "Unused Data", slot_type,
+                                                                            reuse=True, clear=True)
 
-                # add unused fcurves
-                for id in unused_ids:
-                    fcurve = slot_curves[id]
-                    copy_fcurve_to_channel(fcurve, data_channel)
+                    # add unused fcurves
+                    for id in unused_ids:
+                        fcurve = slot_curves[id]
+                        copy_fcurve_to_channel(fcurve, data_channel)
 
-                # always keep this slot/channel
-                keep_slots.append(data_slot)
-                keep_channels.append(data_channel)
+                    # always keep this slot/channel
+                    keep_slots.append(data_slot)
+                    keep_channels.append(data_channel)
 
     # remove old and unused slots and channels
     delete_slots = []
@@ -3325,10 +3159,10 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
         action.slots.remove(slot)
 
     # remove all database copies
-    delete_actions = database["arm_actions"] + database["key_actions"] + database["rlx_actions"]
+    delete_actions = database["arm_actions"] + database["obj_actions"] + database["key_actions"] + database["rlx_actions"]
     if move or not use_new_motion_set:
         # remove old actions if moving to a new motion set
-        delete_actions += database["source_arm_actions"] + database["source_key_actions"] + database["source_rlx_actions"]
+        delete_actions += database["source_arm_actions"] + database["source_obj_actions"] + database["source_key_actions"] + database["source_rlx_actions"]
     # remove actions, except this action
     utils.log_detail(f"Deleting actions: {[a.name for a in delete_actions]}, except: {action.name}")
     for delete_action in delete_actions:
@@ -3337,7 +3171,10 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
                 bpy.data.actions.remove(delete_action)
 
     # ensure the action knows it is slotted
-    utils.set_prop(action, "rl_action_type", "SLOTTED")
+    if rig.type == "ARMATURE":
+        utils.set_prop(action, "rl_action_type", "ARM")
+    else:
+        utils.set_prop(action, "rl_action_type", "OBJECT")
 
     # optional: clean up action key frames
     if prefs.action_clean_actions:
@@ -3345,405 +3182,6 @@ def load_slotted_action(rig, action: bpy.types.Action, move=False, temp=None, fo
             clean_action_keyframes(action, channels=True)
 
     return action
-
-
-def load_separate_actions(rig: bpy.types.Object, action: bpy.types.Action, move=False, temp=None, force=False, refactor_rotations=True):
-    prefs = vars.prefs()
-
-    # determine motion set info
-    rig_id = get_rig_id(rig)
-    rl_id = utils.get_rl_id(rig)
-    old_action = utils.safe_get_action(rig)
-    set_id = utils.get_prop(action, "rl_set_id")
-    set_generation = utils.get_prop(action, "rl_set_generation")
-    motion_prefix = get_motion_prefix(action)
-    motion_id = get_motion_id(action)
-    src_rl_id = utils.get_rl_id(action)
-    use_fake_user = action.use_fake_user
-
-    # if loading onto a different rig_id, we want to create a new motion set ...
-    use_new_motion_set = not force and (((rl_id or src_rl_id) and rl_id != src_rl_id) or temp or move)
-    if temp:
-        motion_prefix = "TEMP"
-        motion_id = temp
-    if use_new_motion_set:
-        set_id = generate_set_id()
-
-    # generate database of fcurves in the motion set
-    database = fetch_action_curve_database(action)
-
-    # build channels for each object in rig
-    utils.log_info(f"Retargetting Separate Actions: {action.name}")
-    keep_actions = []
-    remove_actions = []
-    data_curves = database["curves"]
-    first_frame = database["first_frame"]
-
-    # ARMATURE ACTION
-    #
-    if "OBJECT" in data_curves:
-        slot_curves = data_curves["OBJECT"]
-        used_ids = set()
-
-        # re-use the existing source armature action
-        if use_new_motion_set:
-            motion_id = get_unique_set_motion_id(rig_id, motion_id, motion_prefix, slotted=False, rlob=rig)
-            action_name = generate_action_name(rig_id, "A" if rig.type == "ARMATURE" else "O",
-                                                       "", motion_id, motion_prefix)
-            # if temp, re-use any existing temp action
-            if temp and action_name in bpy.data.actions:
-                rig_action = bpy.data.actions[action_name]
-            else:
-                rig_action = bpy.data.actions.new(action_name)
-                utils.force_action_name(rig_action, action_name)
-        else:
-            rig_action: bpy.types.Action = database["source_action"]
-            utils.clear_action(rig_action)
-
-        # add slot and motion set data
-        rig_slot, rig_channel = add_action_ob_slot_channelbag(rig_action, rig, reuse=True, clear=True)
-        add_motion_set_data(rig_action, set_id, set_generation, arm_id=rl_id, slotted=False)
-        rig_action.use_fake_user = use_fake_user
-
-        # if this is a temporary action, store the action it replaced
-        if temp:
-            rig_action["rl_temp_action"] = old_action.name if old_action else ""
-
-        if rig.type == "ARMATURE":
-            # for each bone fcurve in the database in the order of the pose bones on the rig ...
-            for bone in rig.pose.bones:
-                for id, fcurve in slot_curves.items():
-                    curve_path, index = id
-                    # that exist on this rig:
-                    if id not in used_ids and bone.name in curve_path and utils.has_data_path(rig, curve_path):
-                        clone = copy_fcurve_to_channel(fcurve, rig_channel)
-                        # add fcurve to bone group
-                        group_name = utils.get_data_path_object_name(curve_path)
-                        clone.group = get_channelbag_group(rig_channel, group_name)
-                        # store used id's
-                        used_ids.add(id)
-
-        if True: #if rig.type == "LIGHT" or rig.type == "CAMERA":
-            # for each remaining fcurve data path in the database
-            for id, fcurve in slot_curves.items():
-                curve_path, index = id
-                # that have valid data paths on this rig:
-                if id not in used_ids and utils.has_data_path(rig, curve_path):
-                    clone = copy_fcurve_to_channel(fcurve, rig_channel)
-                    # add fcurve to Object group
-                    group_name = utils.get_data_path_object_name(curve_path)
-                    clone.group = get_channelbag_group(rig_channel, group_name)
-                    # store used id's
-                    used_ids.add(id)
-
-        # refactor bone rotations
-        if refactor_rotations and rig.type == "ARMATURE":
-            refactor_channelbag_bone_rotations(rig, rig_channel)
-
-        # keep this and load onto rig
-        keep_actions.append(rig_action)
-        utils.safe_set_action(rig, rig_action, create=True, slot=rig_slot)
-
-        # determine unused bone fcurves
-        unused_ids = set()
-        for id in slot_curves:
-            if id not in used_ids:
-                unused_ids.add(id)
-
-        if unused_ids:
-
-            # generate an action for unused bones
-            action_name = generate_action_name(rig_id, "UA", "", motion_id, motion_prefix)
-            if temp and action_name in bpy.data.actions:
-                rig_action = bpy.data.actions[action_name]
-            else:
-                rig_action = bpy.data.actions.new(action_name)
-                utils.force_action_name(rig_action, action_name)
-            rig_action["rl_unused_action"] = True
-
-            # add slot and motion set data
-            rig_slot, rig_channel = add_action_slot_channelbag(rig_action, "Unused Object", "OBJECT", reuse=True, clear=True)
-            add_motion_set_data(rig_action, set_id, set_generation, arm_id=rl_id, slotted=False)
-            rig_action.use_fake_user = use_fake_user
-
-            # if this is a temporary action, store the action it replaced
-            if temp:
-                rig_action["rl_temp_action"] = old_action.name if old_action else ""
-
-            # add unused fcurves
-            for id in unused_ids:
-                fcurve = slot_curves[id]
-                copy_fcurve_to_channel(fcurve, rig_channel)
-
-            # always keep this
-            keep_actions.append(rig_action)
-
-    # SHAPE KEY ACTIONS
-    #
-    EXCLUDE_KEYS = ["Basis"]
-    SOURCE_MESH_NAMES = ["CC_Base_Body", "CC_Game_Body", "CC_Base_Tongue", "CC_Base_Eye"]
-    if "KEY" in data_curves and rig.type == "ARMATURE":
-        slot_curves = data_curves["KEY"]
-        used_ids = set()
-
-        # determine source key names from source mesh shape keys
-        # (i.e. shape keys from the body/tongue/eyes)
-        source_keys = set()
-        for smn in SOURCE_MESH_NAMES:
-            for obj in utils.get_child_meshes(rig):
-                if obj.name.startswith(smn):
-                    if utils.object_exists_has_shape_keys(obj):
-                        for key in obj.data.shape_keys.key_blocks:
-                            source_keys.add(key.name)
-
-        # if generating a single key action for all meshes
-        if not prefs.action_add_key_slots_per_obj:
-
-            # use a single action for all mesh objects
-            action_name = generate_action_name(rig_id, "K", "ALL", motion_id, motion_prefix)
-            if temp and action_name in bpy.data.actions:
-                key_action = bpy.data.actions[action_name]
-            else:
-                key_action = bpy.data.actions.new(action_name)
-                utils.force_action_name(key_action, action_name)
-
-            # add slot and motion set data
-            add_motion_set_data(key_action, set_id, set_generation, key_id="ALL", arm_id=rl_id, slotted=False)
-            key_slot, key_channel = add_action_slot_channelbag(key_action, "Key", "KEY", reuse=True, clear=True)
-            key_action.use_fake_user = use_fake_user
-
-            # if this is a temporary action, store the action it replaced
-            if temp:
-                key_action["rl_temp_action"] = old_action.name if old_action else ""
-
-            # done id's across all meshes
-            done_ids = set()
-            done_keys = set()
-
-        for obj in utils.get_child_meshes(rig):
-
-            if utils.object_has_shape_keys(obj):
-                obj_id = get_obj_id(obj)
-
-                # if generating key actions per mesh
-                if prefs.action_add_key_slots_per_obj:
-
-                    # generate a specific shape key slot for each mesh object
-                    action_name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
-                    if temp and action_name in bpy.data.actions:
-                        key_action = bpy.data.actions[action_name]
-                    else:
-                        key_action = bpy.data.actions.new(action_name)
-                        utils.force_action_name(key_action, action_name)
-
-                    # add slot and motion set data
-                    key_slot, key_channel = add_action_key_slot_channelbag(key_action, obj, reuse=True, clear=True)
-                    add_motion_set_data(key_action, set_id, set_generation, key_id=obj_id, arm_id=rl_id, slotted=False)
-                    key_action.use_fake_user = use_fake_user
-
-                    # if this is a temporary action, store the action it replaced
-                    if temp:
-                        key_action["rl_temp_action"] = old_action.name if old_action else ""
-
-                    # done id's per mesh
-                    done_ids = set()
-                    done_keys = set()
-
-                has_keys = False
-
-                # determine data paths of all driven shape keys in this mesh
-                driver_paths = set()
-                if obj.data.shape_keys.animation_data:
-                    for driver in obj.data.shape_keys.animation_data.drivers:
-                        driver_paths.add(driver.data_path)
-
-                # for each key curve in the database
-                for id, fcurve in slot_curves.items():
-                    curve_path, index = id
-
-                    # whose data path exists on this object and is not driven
-                    if utils.has_data_path(obj.data.shape_keys, curve_path) and curve_path not in driver_paths:
-                        # this action has keys for this mesh
-                        has_keys = True
-                        # if not already added for this mesh
-                        if id not in done_ids:
-                            fcurve = slot_curves[id]
-                            key_name = utils.get_data_path_object_name(curve_path)
-                            clone = copy_fcurve_to_channel(fcurve, key_channel)
-                            # add fcurve to expression group
-                            group_name = get_shape_key_group_name(key_name)
-                            clone.group = get_channelbag_group(key_channel, group_name)
-                            # store used id's
-                            done_keys.add(key_name)
-                            used_ids.add(id)
-                            done_ids.add(id)
-
-                if prefs.action_add_empty_key_channels and first_frame is not None:
-
-                    # for any shape keys without fcurves that are source shape keys ...
-                    # (i.e. shape keys from the body/tongue/eyes)
-                    for key in obj.data.shape_keys.key_blocks:
-                        if (key.name not in done_keys and
-                            key.name in source_keys and
-                            key.name not in EXCLUDE_KEYS):
-
-                            data_path = f"key_blocks[\"{key.name}\"].value"
-
-                            # that are not driven:
-                            if data_path not in driver_paths:
-
-                                # this action has keys for this mesh
-                                has_keys = True
-
-                                # add a zero single keyframe track
-                                fcurve = key_channel.fcurves.new(data_path)
-                                fcurve.keyframe_points.add(1)
-                                fcurve.keyframe_points.foreach_set('co', [first_frame, 0.0])
-                                reset_fcurve_interpolation(fcurve)
-
-                                # add fcurve to expression group
-                                group_name = get_shape_key_group_name(key.name)
-                                fcurve.group = get_channelbag_group(key_channel, group_name)
-
-                # keep actions that have assigned keys and load onto mesh,
-                # remove actions that have no assigned keys
-                if has_keys:
-                    keep_actions.append(key_action)
-                    utils.safe_set_action(obj.data.shape_keys, key_action, slot=key_slot, create=True)
-                else:
-                    remove_actions.append(key_action)
-                    utils.safe_set_action(obj.data.shape_keys, None)
-
-        # determine unused shape key fcurves
-        unused_ids = set()
-        for id in slot_curves:
-            if id not in used_ids:
-                unused_ids.add(id)
-
-        if unused_ids:
-
-            # generate an action for all unused shape keys
-            action_name = generate_action_name(rig_id, "UK", "UNUSED", motion_id, motion_prefix)
-            if temp and action_name in bpy.data.actions:
-                key_action = bpy.data.actions[action_name]
-            else:
-                key_action = bpy.data.actions.new(action_name)
-                utils.force_action_name(key_action, action_name)
-            key_action["rl_unused_action"] = True
-
-            # add slot and motion set data
-            key_slot, key_channel = add_action_slot_channelbag(key_action, "Unused Keys", "KEY", reuse=True, clear=True)
-            add_motion_set_data(key_action, set_id, set_generation, key_id="UNUSED", arm_id=rl_id, slotted=False)
-            key_action.use_fake_user = use_fake_user
-
-            # if this is a temporary action, store the action it replaced
-            if temp:
-                key_action["rl_temp_action"] = old_action.name if old_action else ""
-
-            # add unused shape key fcurves to action
-            for id in unused_ids:
-                fcurve = slot_curves[id]
-                copy_fcurve_to_channel(fcurve, key_channel)
-
-            # always keep this
-            keep_actions.append(key_action)
-
-    # LIGHT / CAMERA (DATA) ACTIONS
-    #
-    slot_types = ["LIGHT", "CAMERA"]
-    for slot_type in slot_types:
-
-        if slot_type in data_curves:
-
-            if rig.type != slot_type: continue
-
-            slot_curves = data_curves[slot_type]
-            used_ids = set()
-
-            action_name = generate_action_name(rig_id, slot_type[0], "", motion_id, motion_prefix)
-            # if temp, re-use any existing temp action
-            if temp and action_name in bpy.data.actions:
-                data_action = bpy.data.actions[action_name]
-            else:
-                data_action = bpy.data.actions.new(action_name)
-                utils.force_action_name(data_action, action_name)
-            # add slot and motion set data
-            data_slot, data_channel = add_action_data_slot_channelbag(data_action, rig, slot_type=slot_type, reuse=True, clear=True)
-            add_motion_set_data(rig_action, set_id, set_generation, rlx_id=rl_id, slotted=False)
-            data_action.use_fake_user = use_fake_user
-            # if this is a temporary action, store the action it replaced
-            if temp:
-                data_action["rl_temp_action"] = old_action.name if old_action else ""
-
-            # for each fcurve data path in the database
-            for id, fcurve in slot_curves.items():
-                curve_path, index = id
-                # that exist on this rig:
-                if id not in used_ids and utils.has_data_path(rig.data, curve_path):
-                    clone = copy_fcurve_to_channel(fcurve, data_channel)
-                    # add fcurve to Object group
-                    group_name = utils.get_data_path_object_name(curve_path)
-                    clone.group = get_channelbag_group(data_channel, group_name)
-                    # store used id's
-                    used_ids.add(id)
-
-            # keep this slot/channel and load onto rig slot
-            keep_actions.append(data_action)
-            utils.safe_set_action(rig.data, data_action, create=True, slot=data_slot)
-
-            # determine unused fcurves
-            unused_ids = set()
-            for id in slot_curves:
-                if id not in used_ids:
-                    unused_ids.add(id)
-
-            if unused_ids:
-
-                # generate an action for unused bones
-                action_name = generate_action_name(rig_id, "U"+slot_type[0], "", motion_id, motion_prefix)
-                if temp and action_name in bpy.data.actions:
-                    data_action = bpy.data.actions[action_name]
-                else:
-                    data_action = bpy.data.actions.new(action_name)
-                    utils.force_action_name(data_action, action_name)
-                data_action["rl_unused_action"] = True
-
-                # add slot and motion set data
-                data_slot, data_channel = add_action_slot_channelbag(data_action, "Unused Data", slot_type, reuse=True, clear=True)
-                add_motion_set_data(data_action, set_id, set_generation, rlx_id=rl_id, slotted=False)
-                data_action.use_fake_user = use_fake_user
-
-                # if this is a temporary action, store the action it replaced
-                if temp:
-                    data_action["rl_temp_action"] = old_action.name if old_action else ""
-
-                # add unused fcurves
-                for id in unused_ids:
-                    fcurve = slot_curves[id]
-                    copy_fcurve_to_channel(fcurve, data_channel)
-
-                # always keep this slot/channel
-                keep_actions.append(data_action)
-
-    # remove database copies ...
-    remove_actions += database["arm_actions"]
-    remove_actions += database["key_actions"]
-    remove_actions += database["rlx_actions"]
-    if move or not use_new_motion_set:
-        remove_actions += database["source_arm_actions"]
-        remove_actions += database["source_key_actions"]
-        remove_actions += database["source_rlx_actions"]
-    for del_action in remove_actions:
-        if utils.action_exists(del_action) and del_action not in keep_actions:
-            bpy.data.actions.remove(del_action)
-
-    # optional: clean up action key-frames
-    if prefs.action_clean_actions:
-        for action in keep_actions:
-            if utils.action_exists(action):
-                clean_action_keyframes(action, channels=True)
-
-    return rig_action
 
 
 def get_shape_key_group_name(key_name):
@@ -3773,9 +3211,13 @@ def get_shape_key_group_name(key_name):
 def copy_fcurve_to_channel(from_fcurve: bpy.types.FCurve, to_channel, no_frames=False) -> bpy.types.FCurve:
     if from_fcurve and to_channel:
         if utils.B500():
-            to_fcurve: bpy.types.FCurve = to_channel.fcurves.new_from_fcurve(from_fcurve)
-            if no_frames:
-                to_fcurve.keyframe_points.clear()
+            try:
+                to_fcurve: bpy.types.FCurve = to_channel.fcurves.new_from_fcurve(from_fcurve)
+                if no_frames:
+                    to_fcurve.keyframe_points.clear()
+            except:
+                utils.log_error(f"Unable to copy fcurve: {from_fcurve.data_path}({from_fcurve.array_index}) into channel: {to_channel.slot.name_display}")
+                return None
         else:
             data_path = from_fcurve.data_path
             index = from_fcurve.array_index
@@ -3817,10 +3259,6 @@ def refactor_to_slotted_action(objects, actions):
     if utils.B500():
         return actions
 
-    # No slotted actions before Blender 4.4.0
-    if not utils.B440():
-        return actions
-
     combined = []
 
     # ignore empty structures actions for now
@@ -3842,20 +3280,21 @@ def refactor_to_slotted_action(objects, actions):
                 "action": action,
                 "meshes": {},
             }
-    for obj in objects:
-        if utils.object_has_shape_keys(obj):
-            action = utils.safe_get_action(obj.data.shape_keys)
-            if action:
-                if action in actions:
-                    armature = obj.parent
-                    if armature and action and armature.name in data:
-                        meshes = data[armature.name]["meshes"]
-                        meshes[obj.name] = {
-                            "mesh": obj,
-                            "action": action
-                        }
-                else:
-                    utils.log_error(f"Mesh action {action}, not found in actions!")
+    if data:
+        for obj in objects:
+            if utils.object_has_shape_keys(obj):
+                action = utils.safe_get_action(obj.data.shape_keys)
+                if action:
+                    if action in actions:
+                        armature = obj.parent
+                        if armature and action and armature.name in data:
+                            meshes = data[armature.name]["meshes"]
+                            meshes[obj.name] = {
+                                "mesh": obj,
+                                "action": action
+                            }
+                    else:
+                        utils.log_error(f"Mesh action {action}, not found in actions!")
 
 
     combined = []
@@ -3895,17 +3334,18 @@ def refactor_to_slotted_action(objects, actions):
 
 
 def clean_actions(obj):
-    if utils.object_exists_is_camera(obj) or utils.object_exists_is_light(obj):
-        object_action = utils.safe_get_action(obj)
-        data_action = utils.safe_get_action(obj.data)
-        clean_action_keyframes(object_action)
-        clean_action_keyframes(data_action)
-    elif utils.object_exists_is_armature(obj):
-        rig_action = utils.safe_get_action(obj)
-        clean_action_keyframes(rig_action)
-        for child in utils.get_child_meshes(obj):
-            if utils.object_has_shape_keys(obj):
-                key_action = utils.safe_get_action(child)
+    objects = utils.get_child_objects(obj)
+    for o in objects:
+        object_action = utils.safe_get_action(o)
+        if object_action:
+            clean_action_keyframes(object_action)
+        if o.type != "EMPTY" and o.data:
+            data_action = utils.safe_get_action(o.data)
+            if data_action:
+                clean_action_keyframes(data_action)
+        if utils.object_has_shape_keys(o):
+            key_action = utils.safe_get_action(o.data.shape_keys)
+            if key_action:
                 clean_action_keyframes(key_action)
 
 
@@ -4202,33 +3642,35 @@ def target_action(target):
 
 def target_slot(target):
     try:
-        if utils.B440():
-            return target.animation_data.action_slot
+        return target.animation_data.action_slot
     except: ...
     return None
 
 
-def fetch_target_channels(rig, rig_action=None):
-    rig_slot = target_slot(rig)
-    if not rig_action:
-        rig_action = utils.safe_get_action(rig)
-    rig_channelbag = utils.get_action_channelbag(rig_action, slot=rig_slot)
-    rig_channel = (rig_action, rig_slot, rig_channelbag)
+def fetch_target_channels(rig):
+    obj_channels = {}
     key_channels = {}
-    for child in utils.get_child_meshes(rig):
-        if utils.object_exists_has_shape_keys(child):
-            key_slot = target_slot(child.data.shape_keys)
-            key_action = utils.safe_get_action(child.data.shape_keys)
+    data_channels = {}
+    for obj in utils.get_child_objects(rig, include_parent=True, follow_armatures=True):
+        if obj.type == "ARMATURE" or obj.type == "MESH" or obj.type == "EMPTY" or obj.type == "LIGHT" or obj.type == "CAMERA":
+            obj_slot = target_slot(obj)
+            obj_action = utils.safe_get_action(obj)
+            obj_channelbag = utils.get_action_channelbag(obj_action, slot=obj_slot)
+            if obj_action:
+                obj_channels[obj.name] = (obj_action, obj_slot, obj_channelbag)
+        if utils.object_exists_has_shape_keys(obj):
+            key_slot = target_slot(obj.data.shape_keys)
+            key_action = utils.safe_get_action(obj.data.shape_keys)
             key_channelbag = utils.get_action_channelbag(key_action, slot=key_slot)
-            key_channels[child.name] = (key_action, key_slot, key_channelbag)
-    data_slot = target_slot(rig.data)
-    if rig.type == "LIGHT" or rig.type == "CAMERA":
-        data_action = utils.safe_get_action(rig.data)
-    else:
-        data_action = None
-    data_channelbag = utils.get_action_channelbag(data_action, slot=data_slot)
-    data_channel = (data_action, data_slot, data_channelbag)
-    return rig_channel, key_channels, data_channel
+            if key_action:
+                key_channels[obj.name] = (key_action, key_slot, key_channelbag)
+        if obj.type == "LIGHT" or obj.type == "CAMERA":
+            data_slot = target_slot(obj.data)
+            data_action = utils.safe_get_action(obj.data)
+            data_channelbag = utils.get_action_channelbag(data_action, slot=data_slot)
+            if data_action:
+                data_channels[obj.name] = (data_action, data_slot, data_channelbag)
+    return obj_channels, key_channels, data_channels
 
 
 def fetch_key_targets(rig):
@@ -4239,33 +3681,41 @@ def fetch_key_targets(rig):
     return key_targets
 
 
+def fetch_obj_targets(rig):
+    objects = utils.get_child_objects(rig)
+    obj_targets = []
+    for obj in objects:
+        if (utils.object_exists_is_armature(obj) or
+            utils.object_exists_is_empty(obj) or
+            utils.object_exists_is_light(obj) or
+            utils.object_exists_is_camera(obj) or
+            utils.object_exists_is_mesh(obj)):
+            obj_targets.append(obj.name)
+    return obj_targets
+
+
 def mix_motion_set(rig, action_store_id, frame_start, frame_end):
     props = vars.props()
-    stored_main_action, stored_main_slot = props.fetch_stored_rig_channel(action_store_id)
+    stored_main_action, stored_main_slot = props.fetch_stored_object_channels(action_store_id)
     done = False
-    objects = [rig]
-    if utils.object_exists_is_armature(rig):
-        for child in utils.get_child_meshes(rig):
-            if utils.object_has_shape_keys(child):
-                objects.append(child)
-
+    objects = utils.get_child_objects(rig, include_parent=True)
     mix_pairs = []
     for obj in objects:
         action_store = props.get_action_store_for(action_store_id, obj)
-        if utils.object_exists_is_armature(obj):
+        if utils.object_exists(obj):
             if obj.animation_data:
                 mix_pairs.append((obj, action_store, "OBJECT",
                                   target_action(obj),
                                   target_slot(obj),
                                   action_store.object_action if action_store else None,
                                   action_store.object_slot_id if action_store else None))
-        elif utils.object_exists_has_shape_keys(obj):
+        if utils.object_exists_has_shape_keys(obj):
             if obj.data.shape_keys.animation_data:
                 mix_pairs.append((obj, action_store, "KEY",
                                   target_action(obj.data.shape_keys),
                                   target_slot(obj.data.shape_keys),
-                                  action_store.object_action if action_store else None,
-                                  action_store.object_slot_id if action_store else None))
+                                  action_store.key_action if action_store else None,
+                                  action_store.key_slot_id if action_store else None))
         elif utils.object_exists_is_light(obj) or utils.object_exists_is_camera(obj):
             if obj.animation_data:
                 mix_pairs.append((obj, action_store, "OBJECT",
@@ -4282,8 +3732,7 @@ def mix_motion_set(rig, action_store_id, frame_start, frame_end):
 
     for obj, action_store, slot_type, new_action, new_slot, old_action, old_slot_id in mix_pairs:
         if new_action:
-            valid_slot = (not utils.B440() or old_slot_id)
-            if old_action and valid_slot:
+            if old_action and old_slot_id:
                 # mix new action slot over old action slot
                 old_slot = utils.find_action_slot(old_action, slot_id=old_slot_id)
                 mix_actions(new_action, new_slot, old_action, old_slot, frame_start, frame_end)
@@ -4314,66 +3763,12 @@ def shift_motion_frames(motion_action, to_frame):
 
 def add_slot_channels_to_rig_motion(rig, obj, slot_type, action, reuse=False, clear=False):
     prefs = vars.prefs()
-
     is_rig = utils.object_exists_is_armature(rig)
     arm_id = utils.get_rl_id(rig)
-
-    if prefs.use_action_slots():
-
-        # add slot channel for src action slot channel
-        slot, channel = add_action_slot_channelbag(action, obj.name, slot_type, reuse=reuse, clear=clear)
-
-    else:
-
-        if is_rig:
-            # determine motion set info
-            rig_id = get_rig_id(rig)
-            obj_id = get_obj_id(obj)
-            set_id = utils.get_prop(action, "rl_set_id")
-            set_generation = utils.get_prop(action, "rl_set_generation")
-            motion_prefix = get_motion_prefix(action)
-            motion_id = get_motion_id(action)
-            use_fake_user = action.use_fake_user
-
-            # generate a slot channel for the object
-            if set_id:
-                if slot_type == "OBJECT":
-                    action_name = make_armature_action_name(rig_id, motion_id, motion_prefix, slotted=False)
-                elif slot_type == "KEY":
-                    action_name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
-
-        else:
-            set_id = None
-            motion_id = get_motion_id(action, f"{utils.datetimes()}")
-            motion_prefix = get_motion_prefix(action)
-
-            if slot_type == "OBJECT":
-                action_name = generate_action_name(obj.name, "O", "", motion_id, motion_prefix)
-            if slot_type == "LIGHT" or slot_type == "CAMERA":
-                action_name = generate_action_name(obj.name, slot_type[0], "", motion_id, motion_prefix)
-
-        # make a new dst_action for this object
-        if reuse and action_name in bpy.data.actions:
-            action = bpy.data.actions[action_name]
-        else:
-            action = bpy.data.actions.new(action_name)
-            utils.force_action_name(action, action_name)
-        if clear:
-            utils.clear_action(action)
-        action.use_fake_user = use_fake_user
-
-        if set_id:
-            add_motion_set_data(action, set_id, set_generation,
-                                key_id=obj_id, arm_id=arm_id, slotted=False)
-
-        # add slot and motion set data
-        if slot_type == "OBJECT":
-            slot, channel = add_action_ob_slot_channelbag(action, rig, reuse=True, clear=True)
-        elif slot_type == "KEY":
-            slot, channel = add_action_key_slot_channelbag(action, obj, reuse=True, clear=True)
-        elif slot_type == "LIGHT" or slot_type == "CAMERA":
-            slot, channel = add_action_slot_channelbag(action, obj.name, slot_type, reuse=True, clear=True)
-
+    rig_map = get_rig_name_map(rig)
+    # add slot channel for src action slot channel
+    name = generate_action_slot_indexed_base_name(obj, rig_map)
+    slot, channel = add_action_slot_channelbag(action, name, slot_type, reuse=reuse, clear=clear)
     return action, slot, channel
 
 
@@ -4422,18 +3817,18 @@ def finalize_rlx_import(rlx_cache, obj, actions, action_store_id, frame_start=No
         return
 
     if actions:
-        stored_actions = props.fetch_stored_actions(action_store_id)
-        motion_rig_channel, motion_key_channels, motion_data_channel = fetch_target_channels(obj, motion_action)
+        motion_rig_channel, motion_key_channels, motion_data_channel = fetch_target_channels(obj)
         key_targets = []
-        stored_rig_channel = props.fetch_stored_rig_channel(action_store_id)
+        obj_targets = [obj]
+        stored_obj_channels = props.fetch_stored_object_channels(action_store_id)
         stored_key_channels = props.fetch_stored_key_channels(action_store_id)
-        stored_data_channel = props.fetch_stored_data_channel(action_store_id)
+        stored_data_channels = props.fetch_stored_data_channels(action_store_id)
         opts, blend_in_data, blend_out_data, use_masked = get_import_opts(rlx_cache)
         if opts.relative_root or opts.current_root or opts.use_blend or use_masked or overwrite:
             resample_blend(rlx_cache, obj,
                            motion_rig_channel, motion_key_channels, motion_data_channel,
-                           stored_rig_channel, stored_key_channels, stored_data_channel,
-                           key_targets,
+                           stored_obj_channels, stored_key_channels, stored_data_channels,
+                           obj_targets, key_targets,
                            frame_start, frame_end,
                            relative_root=opts.relative_root,
                            current_root=opts.current_root,
@@ -4446,7 +3841,7 @@ def finalize_rlx_import(rlx_cache, obj, actions, action_store_id, frame_start=No
                            overall_strength=opts.blend_strength)
 
         if overwrite:
-            stored_action = props.fetch_stored_rig_action(action_store_id)
+            stored_action = props.fetch_stored_root_action(action_store_id)
             # reload target (stored) motion set
             load_motion_set(obj, stored_action, refactor_rotations=False)
             # delete the source motion set
@@ -4456,12 +3851,6 @@ def finalize_rlx_import(rlx_cache, obj, actions, action_store_id, frame_start=No
         else:
             # Do nothing else
             utils.log_info(f"Loaded new motion set: {motion_action.name}")
-
-        #if action_mode == "BLEND":
-        #    old_action = stored_actions[0]
-        #    utils.log_info(f"Action Mode BLEND: blending motion set: {motion_action.name} over existing motion: {old_action.name}")
-        #    mix_motion_set(obj, action_store_id, frame_start, frame_end)
-        #    utils.delete_actions(actions)
 
         props.delete_action_store(action_store_id)
 
@@ -4499,20 +3888,18 @@ def finalize_motion_import(chr_cache, rig, motion_rig_action, action_store_id,
 
     if motion_rig_action:
         set_id = get_motion_set_ids(motion_rig_action)[0]
-        stored_actions = props.fetch_stored_actions(action_store_id)
-        motion_rig_channel, motion_key_channels, motion_data_channel = fetch_target_channels(rig, motion_rig_action)
+        motion_rig_channels, motion_key_channels, motion_data_channels = fetch_target_channels(rig)
         key_targets = fetch_key_targets(rig)
-        stored_rig_channel = props.fetch_stored_rig_channel(action_store_id)
+        obj_targets = fetch_obj_targets(rig)
+        stored_rig_channels = props.fetch_stored_object_channels(action_store_id)
         stored_key_channels = props.fetch_stored_key_channels(action_store_id)
-        stored_data_channel = props.fetch_stored_data_channel(action_store_id)
-        #masked_bones: list = []
-        #mask_bones(rig, motion_rig_action, motion_rig_slot, masked_bones)
+        stored_data_channels = props.fetch_stored_data_channels(action_store_id)
         opts, blend_in_data, blend_out_data, use_masked = get_import_opts(chr_cache)
         if opts.relative_root or opts.current_root or opts.use_blend or use_masked or overwrite:
             resample_blend(chr_cache, rig,
-                           motion_rig_channel, motion_key_channels, motion_data_channel,
-                           stored_rig_channel, stored_key_channels, stored_data_channel,
-                           key_targets,
+                           motion_rig_channels, motion_key_channels, motion_data_channels,
+                           stored_rig_channels, stored_key_channels, stored_data_channels,
+                           obj_targets, key_targets,
                            frame_start, frame_end,
                            relative_root=opts.relative_root,
                            current_root=opts.current_root,
@@ -4525,7 +3912,7 @@ def finalize_motion_import(chr_cache, rig, motion_rig_action, action_store_id,
                            overall_strength=opts.blend_strength)
 
         if overwrite:
-            stored_rig_action = props.fetch_stored_rig_action(action_store_id)
+            stored_rig_action = props.fetch_stored_root_action(action_store_id)
             # reload target (stored) motion set
             load_motion_set(rig, stored_rig_action, refactor_rotations=False)
             # delete the source motion set
@@ -4535,13 +3922,6 @@ def finalize_motion_import(chr_cache, rig, motion_rig_action, action_store_id,
         else:
             # already loaded, do nothing else
             utils.log_info(f"Loaded new motion set: {motion_rig_action.name} / ({set_id})")
-
-        #if action_mode == "BLEND":
-        #    old_action = stored_actions[0]
-        #    old_set_id = get_motion_set_ids(old_action)[0]
-        #    utils.log_info(f"Action Mode BLEND: blending motion set: {motion_rig_action.name} / ({set_id}) over existing motion: {old_action.name} / ({old_set_id})")
-        #    mix_motion_set(rig, action_store_id, frame_start, frame_end)
-        #    delete_motion_set(set_id)
 
         props.delete_action_store(action_store_id)
 
@@ -4638,14 +4018,29 @@ def add_resampled_bone_curve(bone_name, i: int, target_rot_type: RotationType, c
     return fcurve
 
 
-def get_bone_rotation_type(rig: bpy.types.Object, bone_name):
-    pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
-    if pose_bone.rotation_mode == "QUATERNION":
-        return RotationType.QUATERNION
-    elif pose_bone.rotation_mode == "AXIS_ANGLE":
-        return RotationType.AXIS_ANGLE
-    else:
-        return RotationType.EULER
+def get_rotation_type(rig: bpy.types.Object, bone_name=None):
+    if rig.type != "ARMATURE" or not bone_name or bone_name.startswith("OBJECT:"):
+        return get_obj_rotation_type(rig)
+    if rig and rig.type == "ARMATURE" and bone_name in rig.pose.bones:
+        pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
+        if pose_bone.rotation_mode == "QUATERNION":
+            return RotationType.QUATERNION
+        elif pose_bone.rotation_mode == "AXIS_ANGLE":
+            return RotationType.AXIS_ANGLE
+        else:
+            return RotationType.EULER
+    return RotationType.NONE
+
+
+def get_obj_rotation_type(rig):
+    if rig:
+        if rig.rotation_mode == "QUATERNION":
+            return RotationType.QUATERNION
+        elif rig.rotation_mode == "AXIS_ANGLE":
+            return RotationType.AXIS_ANGLE
+        else:
+            return RotationType.EULER
+    return RotationType.NONE
 
 
 def get_blend_mask_bones(chr_cache):
@@ -4711,9 +4106,9 @@ def remove_key_from_channelbag(channelbag, key_name):
 
 
 def resample_blend(chr_rlx_cache, rig,
-                   motion_rig_channel, motion_key_channels, motion_data_channel,
-                   stored_rig_channel, stored_key_channels, stored_data_channel,
-                   key_targets,
+                   motion_rig_channels, motion_key_channels, motion_data_channels,
+                   stored_rig_channels, stored_key_channels, stored_data_channels,
+                   obj_targets, key_targets,
                    from_frame, to_frame,
                    relative_root=False,
                    current_root=False,
@@ -4739,7 +4134,7 @@ def resample_blend(chr_rlx_cache, rig,
     blend_mask_data = {}
     use_mask_data = False
 
-    if chr_rlx_cache and rig.type == "ARMATURE":
+    if chr_rlx_cache and rig.type == "ARMATURE" or rig.type == "EMPTY":
         blend_mask_bones, use_mask_bone_blend, use_mask_bones = get_blend_mask_bones(chr_rlx_cache)
         blend_mask_keys, use_mask_key_blend, use_mask_keys = get_blend_mask_keys(chr_rlx_cache)
 
@@ -4770,47 +4165,55 @@ def resample_blend(chr_rlx_cache, rig,
 
     processed_fcurves: List[bpy.types.FCurve] = []
 
-    # resample bone tracks
+    # resample object and bone tracks
     #
-    if rig.type == "ARMATURE":
+    for obj_name in obj_targets:
+        #print(f"OBJ: {obj_name}")
+        obj = bpy.data.objects[obj_name]
 
-        if not bone_names:
-            if use_blend or overwrite:
-                bone_names = [ b.name for b in rig.pose.bones ]
-            elif relative_root or current_root:
-                bone_names = [ rig.pose.bones[0].name ]
+        if obj.type == "ARMATURE" or obj.type == "EMPTY" or obj.type == "LIGHT" or obj.type == "CAMERA":
 
-        blend_bone_curves(motion_rig_channel, stored_rig_channel,
-                          from_frame, to_frame,
-                          rig, bone_names, relative_root, current_root,
-                          use_blend, overwrite, overall_strength,
-                          blend_in_frames, blend_out_frames,
-                          blend_in_data, blend_out_data,
-                          use_mask_bones, blend_mask_bones,
-                          processed_fcurves=processed_fcurves)
+            if obj.type == "ARMATURE" and not bone_names:
+                if use_blend or overwrite:
+                    bone_names = [ b.name for b in obj.pose.bones ]
+                elif relative_root or current_root:
+                    bone_names = [ obj.pose.bones[0].name ]
 
-        blend_data_curves(rig, motion_rig_channel, stored_rig_channel,
-                          from_frame, to_frame,
-                          use_blend, overwrite, overall_strength,
-                          blend_in_frames, blend_out_frames,
-                          blend_in_data, blend_out_data,
-                          processed_fcurves=processed_fcurves)
+
+
+            motion_rig_channel = motion_rig_channels.get(obj_name, (None, None, None))
+            stored_rig_channel = stored_rig_channels.get(obj_name, (None, None, None))
+
+            if obj.type == "ARMATURE":
+                blend_bone_curves(motion_rig_channel, stored_rig_channel,
+                                  from_frame, to_frame,
+                                  obj, bone_names, relative_root, current_root,
+                                  use_blend, overwrite, overall_strength,
+                                  blend_in_frames, blend_out_frames,
+                                  blend_in_data, blend_out_data,
+                                  use_mask_bones, blend_mask_bones,
+                                  processed_fcurves=processed_fcurves)
+
+            blend_data_curves(obj, motion_rig_channel, stored_rig_channel,
+                              from_frame, to_frame,
+                              relative_root, current_root,
+                              use_blend, overwrite, overall_strength,
+                              blend_in_frames, blend_out_frames,
+                              blend_in_data, blend_out_data,
+                              use_mask_bones, blend_mask_bones,
+                              processed_fcurves=processed_fcurves)
 
     # resample shape key tracks
     #
-    if rig.type == "ARMATURE":
+    if rig.type == "ARMATURE" or rig.type == "EMPTY":
 
         if not key_names:
             key_names = get_shape_key_names(rig) if (use_blend or overwrite) else []
 
         for obj_name in key_targets:
 
-            motion_key_channel = motion_key_channels[obj_name] \
-                                    if obj_name in motion_key_channels \
-                                    else (None, None, None)
-            stored_key_channel = stored_key_channels[obj_name] \
-                                    if obj_name in stored_key_channels \
-                                    else (None, None, None)
+            motion_key_channel = motion_key_channels.get(obj_name, (None, None, None))
+            stored_key_channel = stored_key_channels.get(obj_name, (None, None, None))
 
             blend_key_curves(motion_key_channel, stored_key_channel,
                              from_frame, to_frame,
@@ -4821,25 +4224,25 @@ def resample_blend(chr_rlx_cache, rig,
                              use_mask_keys, blend_mask_keys,
                              processed_fcurves=processed_fcurves)
 
-    # process data
+    # process data tracks
     #
-    if rig.type == "LIGHT" or rig.type == "CAMERA":
+    for obj_name in obj_targets:
+        obj = bpy.data.objects[obj_name]
 
-        blend_data_curves(rig, motion_rig_channel, stored_rig_channel,
-                          from_frame, to_frame,
-                          use_blend, overwrite, overall_strength,
-                          blend_in_frames, blend_out_frames,
-                          blend_in_data, blend_out_data,
-                          processed_fcurves=processed_fcurves)
+        if obj.type == "LIGHT" or obj.type == "CAMERA":
 
-        blend_data_curves(rig, motion_data_channel, stored_data_channel,
-                          from_frame, to_frame,
-                          use_blend, overwrite, overall_strength,
-                          blend_in_frames, blend_out_frames,
-                          blend_in_data, blend_out_data,
-                          processed_fcurves=processed_fcurves)
+            motion_data_channel = motion_data_channels.get(obj_name, (None, None, None))
+            stored_data_channel = stored_data_channels.get(obj_name, (None, None, None))
+
+            blend_data_curves(obj, motion_data_channel, stored_data_channel,
+                              from_frame, to_frame,
+                              relative_root, current_root,
+                              use_blend, overwrite, overall_strength,
+                              blend_in_frames, blend_out_frames,
+                              blend_in_data, blend_out_data,
+                              False, None,
+                              processed_fcurves=processed_fcurves)
     return
-
 
 def blend_bone_curves(motion_channel, stored_channel,
                       from_frame, to_frame,
@@ -4850,6 +4253,7 @@ def blend_bone_curves(motion_channel, stored_channel,
                       use_mask_bones, blend_mask_bones,
                       processed_fcurves: List[bpy.types.FCurve]=None):
 
+    if motion_channel == (None, None, None) and stored_channel == (None, None, None): return
     motion_action, motion_slot, motion_channelbag = motion_channel
     stored_action, stored_slot, stored_channelbag = stored_channel
 
@@ -4866,53 +4270,89 @@ def blend_bone_curves(motion_channel, stored_channel,
             base_frames.add(i)
 
     root_bone: bpy.types.PoseBone = rig.pose.bones[0]
+    root_matrix = root_bone.matrix
 
-    motion_bone_dict = get_bone_transform_dict(rig, motion_channelbag)
-    stored_bone_dict = get_bone_transform_dict(rig, stored_channelbag)
+    motion_transform_dict = get_transform_dict(rig, motion_channelbag)
+    stored_transform_dict = get_transform_dict(rig, stored_channelbag)
 
     for bone_name in bone_names:
 
         is_root = (bone_name == root_bone.name)
-        motion_transform_set, motion_has_curves = fetch_action_bone_transform_set_dict(motion_bone_dict, bone_name)
-        stored_transform_set, stored_has_curves = fetch_action_bone_transform_set_dict(stored_bone_dict, bone_name)
+        blend_transform_set(motion_channelbag, stored_channelbag,
+                            motion_transform_dict, stored_transform_dict,
+                            rig, bone_name, is_root, root_matrix,
+                            relative_root, current_root,
+                            from_frame, to_frame, base_frames,
+                            use_blend, overwrite, overall_strength,
+                            blend_in_frames, blend_in_data,
+                            blend_out_frames, blend_out_data,
+                            use_mask_bones, blend_mask_bones,
+                            processed_fcurves)
 
-        if not motion_has_curves and not stored_has_curves:
-            continue
 
-        if is_root and relative_root:
-            # relative transformation between from_frame of stored motion and start of new motion
-            stored_start_loc, stored_start_rot, stored_start_sca = evaluate_action_bone_transform_set(stored_transform_set, from_frame)
-            motion_start_loc, motion_start_rot, motion_start_sca = evaluate_action_bone_transform_set(motion_transform_set, 1)
-            MS = utils.make_transform_matrix(stored_start_loc, stored_start_rot, stored_start_sca)
-            MM = utils.make_transform_matrix(motion_start_loc, motion_start_rot, motion_start_sca)
-            MD = MS @ MM.inverted()
-        elif is_root and current_root:
-            # relative transformation between current rig root bone position and start of new motion
-            motion_start_loc, motion_start_rot, motion_start_sca = evaluate_action_bone_transform_set(motion_transform_set, 1)
-            MS = root_bone.matrix.copy()
-            MM = utils.make_transform_matrix(motion_start_loc, motion_start_rot, motion_start_sca)
-            MD = MS @ MM.inverted()
 
-        utils.log_detail(f"Blending motion bone: {bone_name} {from_frame}-{to_frame}")
+def blend_transform_set(motion_channelbag, stored_channelbag,
+                        motion_transform_dict, stored_transform_dict,
+                        rig, bone_name, is_root, root_matrix,
+                        relative_root, current_root,
+                        from_frame, to_frame, base_frames,
+                        use_blend, overwrite, overall_strength,
+                        blend_in_frames, blend_in_data,
+                        blend_out_frames, blend_out_data,
+                        use_mask_bones, blend_mask_bones,
+                        processed_fcurves):
 
-        target_rot_type = get_bone_rotation_type(rig, bone_name)
+    motion_transform_set, motion_has_curves = fetch_action_transform_set_dict(motion_transform_dict, bone_name)
+    stored_transform_set, stored_has_curves = fetch_action_transform_set_dict(stored_transform_dict, bone_name)
 
-        # build a list of motion bone transform fcurves
-        motion_loc_curves, motion_rot_curves, motion_sca_curves, motion_rot_type = motion_transform_set
-        motion_curves = motion_sca_curves + motion_loc_curves + motion_rot_curves
-        # should be 10
-        num_target_curves = 9 if target_rot_type == RotationType.EULER else 10
-        #num_curves = len(motion_curves)
+    if not motion_has_curves and not stored_has_curves:
+        return
 
-        # build a list of stored bone transform fcurves
-        stored_loc_curves, stored_rot_curves, stored_sca_curves, stored_rot_type = stored_transform_set
-        stored_curves = stored_sca_curves + stored_loc_curves + stored_rot_curves
+    if is_root and relative_root:
+        # relative transformation between from_frame of stored motion and start of new motion
+        stored_start_loc, stored_start_rot, stored_start_sca = evaluate_action_transform_set(stored_transform_set, from_frame, def_obj=rig)
+        motion_start_loc, motion_start_rot, motion_start_sca = evaluate_action_transform_set(motion_transform_set, 1, def_obj=rig)
+        MS = utils.make_transform_matrix(stored_start_loc, stored_start_rot, stored_start_sca)
+        MM = utils.make_transform_matrix(motion_start_loc, motion_start_rot, motion_start_sca)
+        MD = MS @ MM.inverted()
+    elif is_root and current_root:
+        # relative transformation between current rig root bone position and start of new motion
+        motion_start_loc, motion_start_rot, motion_start_sca = evaluate_action_transform_set(motion_transform_set, 1, def_obj=rig)
+        MS = root_matrix.copy()
+        MM = utils.make_transform_matrix(motion_start_loc, motion_start_rot, motion_start_sca)
+        MD = MS @ MM.inverted()
 
-        frames = base_frames.copy()
+    utils.log_detail(f"Blending motion bone: {bone_name} {from_frame}-{to_frame}")
 
-        # include all frames from the motion curve
-        fcurve: bpy.types.FCurve = None
-        for fcurve in motion_curves:
+    target_rot_type = get_rotation_type(rig, bone_name)
+
+    # build a list of motion bone transform fcurves
+    motion_loc_curves, motion_rot_curves, motion_sca_curves, motion_rot_type = motion_transform_set
+    motion_curves = motion_sca_curves + motion_loc_curves + motion_rot_curves
+    # should be 10
+    num_target_curves = 9 if target_rot_type == RotationType.EULER else 10
+    #num_curves = len(motion_curves)
+
+    # build a list of stored bone transform fcurves
+    stored_loc_curves, stored_rot_curves, stored_sca_curves, stored_rot_type = stored_transform_set
+    stored_curves = stored_sca_curves + stored_loc_curves + stored_rot_curves
+
+    frames = base_frames.copy()
+
+    # include all frames from the motion curves
+    fcurve: bpy.types.FCurve = None
+    for fcurve in motion_curves:
+        if fcurve:
+            num_points = len(fcurve.keyframe_points)
+            data = [0.0, 0.0] * num_points
+            fcurve.keyframe_points.foreach_get('co', data)
+            for i in range(0, len(data), 2):
+                frame = data[i]
+                frames.add(frame)
+
+    # include all frames from the source curves
+    if use_blend or overwrite:
+        for fcurve in stored_curves:
             if fcurve:
                 num_points = len(fcurve.keyframe_points)
                 data = [0.0, 0.0] * num_points
@@ -4921,125 +4361,117 @@ def blend_bone_curves(motion_channel, stored_channel,
                     frame = data[i]
                     frames.add(frame)
 
-        # include all frames from the source curve
+    # sort the frames in order
+    num_frames = len(frames)
+    sorted_frames = list(frames)
+    sorted_frames.sort()
+    utils.log_detail(f" - {num_frames} resampled frames")
+
+    # generate resampled data lists for the curves in the motion bone transform
+    resampled_data = []
+    for i in range(0, num_target_curves):
+        data = [0.0, 0.0] * num_frames
+        resampled_data.append(data)
+
+    # evaluate the motion transform at each frame ...
+    for f, frame in enumerate(sorted_frames):
+        motion_loc, motion_rot, motion_sca = evaluate_action_transform_set(motion_transform_set, frame, def_obj=rig)
+
+        # apply relative root:
+        if is_root and (relative_root or current_root):
+            MF = utils.make_transform_matrix(motion_loc, motion_rot, motion_sca)
+            MR: Matrix = MD @ MF
+            motion_loc = MR.to_translation()
+            motion_rot = MR.to_quaternion()
+            motion_sca = MR.to_scale()
+
+        # if blending, apply motion blend:
         if use_blend or overwrite:
-            for fcurve in stored_curves:
-                if fcurve:
-                    num_points = len(fcurve.keyframe_points)
-                    data = [0.0, 0.0] * num_points
-                    fcurve.keyframe_points.foreach_get('co', data)
-                    for i in range(0, len(data), 2):
-                        frame = data[i]
-                        frames.add(frame)
-
-        # sort the frames in order
-        num_frames = len(frames)
-        sorted_frames = list(frames)
-        sorted_frames.sort()
-        utils.log_detail(f" - {num_frames} resampled frames")
-
-        # generate resampled data lists for the curves in the motion bone transform
-        resampled_data = []
-        for i in range(0, num_target_curves):
-            data = [0.0, 0.0] * num_frames
-            resampled_data.append(data)
-
-        # evaluate the motion root transform at each frame ...
-        for f, frame in enumerate(sorted_frames):
-            motion_loc, motion_rot, motion_sca = evaluate_action_bone_transform_set(motion_transform_set, frame)
-
-            # apply relative root:
-            if is_root and (relative_root or current_root):
-                MF = utils.make_transform_matrix(motion_loc, motion_rot, motion_sca)
-                MR: Matrix = MD @ MF
-                motion_loc = MR.to_translation()
-                motion_rot = MR.to_quaternion()
-                motion_sca = MR.to_scale()
-
-            # if blending, apply motion blend:
-            if use_blend or overwrite:
-                blend_strength = overall_strength if use_blend else 1.0
-                stored_loc, stored_rot, stored_sca = evaluate_action_bone_transform_set(stored_transform_set, frame)
-                if frame < from_frame or frame > to_frame:
-                    blend_strength = 0
-                elif blend_in_frames > 0 and frame < (from_frame + blend_in_frames):
-                    pos = (frame - from_frame + 1) / (blend_in_frames + 1)
-                    blend_strength *= ui.eval_curve(blend_in_data, pos)
-                elif blend_out_frames > 0 and frame > (to_frame - blend_out_frames):
-                    pos = (frame - to_frame + blend_out_frames) / (blend_out_frames + 1)
-                    blend_strength *= ui.eval_curve(blend_out_data, pos)
-                if use_mask_bones:
-                    if bone_name in blend_mask_bones:
-                        blend_strength *= blend_mask_bones[bone_name]
-                    else:
-                        blend_strength = 0.0
-
-                if blend_strength <= 0:
-                    blend_loc = stored_loc
-                    blend_rot = stored_rot
-                    blend_sca = stored_sca
-                elif blend_strength >= 1:
-                    blend_loc = motion_loc
-                    blend_rot = motion_rot
-                    blend_sca = motion_sca
+            blend_strength = overall_strength if use_blend else 1.0
+            stored_loc, stored_rot, stored_sca = evaluate_action_transform_set(stored_transform_set, frame, def_obj=rig)
+            if frame < from_frame or frame > to_frame:
+                blend_strength = 0
+            elif blend_in_frames > 0 and frame < (from_frame + blend_in_frames):
+                pos = (frame - from_frame + 1) / (blend_in_frames + 1)
+                blend_strength *= ui.eval_curve(blend_in_data, pos)
+            elif blend_out_frames > 0 and frame > (to_frame - blend_out_frames):
+                pos = (frame - to_frame + blend_out_frames) / (blend_out_frames + 1)
+                blend_strength *= ui.eval_curve(blend_out_data, pos)
+            if use_mask_bones:
+                rig_mask_name = f"OBJECT:{rig.name}"
+                if bone_name in blend_mask_bones:
+                    blend_strength *= blend_mask_bones[bone_name]
+                elif rig_mask_name in blend_mask_bones:
+                    blend_strength *= blend_mask_bones[rig_mask_name]
                 else:
-                    blend_loc = stored_loc.lerp(motion_loc, blend_strength)
-                    blend_rot = stored_rot.slerp(motion_rot, blend_strength)
-                    blend_sca = stored_sca.lerp(motion_sca, blend_strength)
+                    blend_strength = 0.0
 
-            # if not blending or overwriting, use the motion transform directly
-            else:
+            if blend_strength <= 0:
+                blend_loc = stored_loc
+                blend_rot = stored_rot
+                blend_sca = stored_sca
+            elif blend_strength >= 1:
                 blend_loc = motion_loc
                 blend_rot = motion_rot
                 blend_sca = motion_sca
+            else:
+                blend_loc = stored_loc.lerp(motion_loc, blend_strength)
+                blend_rot = stored_rot.slerp(motion_rot, blend_strength)
+                blend_sca = stored_sca.lerp(motion_sca, blend_strength)
 
-            transform_data = make_flat_transform(target_rot_type, loc=blend_loc, rot=blend_rot, sca=blend_sca)
-
-            # write frame to the resampled curve data:
-            index = f * 2
-            for i in range(0, num_target_curves):
-                resampled_data[i][index] = frame
-                resampled_data[i][index+1] = transform_data[i]
-
-        if overwrite:
-            # write the resampled curve data back to the stored transform curves:
-            for i in range(0, 10):
-                fcurve = stored_curves[i] if i < len(stored_curves) else None
-                if processed_fcurves:
-                    if fcurve and fcurve in processed_fcurves: continue
-                    processed_fcurves.append(fcurve)
-                # make sure not to delete location and scale curves
-                if fcurve and ((i > 5 and stored_rot_type != target_rot_type) or
-                               (i >= num_target_curves)):
-                    stored_channelbag.fcurves.remove(fcurve)
-                    fcurve = None
-                if i < num_target_curves:
-                    if not fcurve:
-                        fcurve = add_resampled_bone_curve(bone_name, i, target_rot_type, stored_channelbag)
-                    if fcurve:
-                        fcurve.keyframe_points.clear()
-                        fcurve.keyframe_points.add(num_frames)
-                        fcurve.keyframe_points.foreach_set('co', resampled_data[i])
-                        reset_fcurve_interpolation(fcurve)
+        # if not blending or overwriting, use the motion transform directly
         else:
-            # write the resampled curve data back to the motion transform curves:
-            for i in range(0, 10):
-                fcurve = motion_curves[i] if i < len(motion_curves) else None
-                if processed_fcurves:
-                    if fcurve and fcurve in processed_fcurves: continue
-                    processed_fcurves.append(fcurve)
-                if fcurve and ((i > 5 and motion_rot_type != target_rot_type) or
-                               (i >= num_target_curves)):
-                    motion_channelbag.fcurves.remove(fcurve)
-                    fcurve = None
-                if i < num_target_curves:
-                    if not fcurve:
-                        fcurve = add_resampled_bone_curve(bone_name, i, target_rot_type, motion_channelbag)
-                    if fcurve:
-                        fcurve.keyframe_points.clear()
-                        fcurve.keyframe_points.add(num_frames)
-                        fcurve.keyframe_points.foreach_set('co', resampled_data[i])
-                        reset_fcurve_interpolation(fcurve)
+            blend_loc = motion_loc
+            blend_rot = motion_rot
+            blend_sca = motion_sca
+
+        transform_data = make_flat_transform(target_rot_type, loc=blend_loc, rot=blend_rot, sca=blend_sca)
+
+        # write frame to the resampled curve data:
+        index = f * 2
+        for i in range(0, num_target_curves):
+            resampled_data[i][index] = frame
+            resampled_data[i][index+1] = transform_data[i]
+
+    if overwrite:
+        # write the resampled curve data back to the stored transform curves:
+        for i in range(0, 10):
+            fcurve = stored_curves[i] if i < len(stored_curves) else None
+            if processed_fcurves:
+                if fcurve and fcurve in processed_fcurves: continue
+                processed_fcurves.append(fcurve)
+            # make sure not to delete location and scale curves
+            if fcurve and ((i > 5 and stored_rot_type != target_rot_type) or
+                            (i >= num_target_curves)):
+                stored_channelbag.fcurves.remove(fcurve)
+                fcurve = None
+            if i < num_target_curves:
+                if not fcurve:
+                    fcurve = add_resampled_bone_curve(bone_name, i, target_rot_type, stored_channelbag)
+                if fcurve:
+                    fcurve.keyframe_points.clear()
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', resampled_data[i])
+                    reset_fcurve_interpolation(fcurve)
+    else:
+        # write the resampled curve data back to the motion transform curves:
+        for i in range(0, 10):
+            fcurve = motion_curves[i] if i < len(motion_curves) else None
+            if processed_fcurves:
+                if fcurve and fcurve in processed_fcurves: continue
+                processed_fcurves.append(fcurve)
+            if fcurve and ((i > 5 and motion_rot_type != target_rot_type) or
+                            (i >= num_target_curves)):
+                motion_channelbag.fcurves.remove(fcurve)
+                fcurve = None
+            if i < num_target_curves:
+                if not fcurve:
+                    fcurve = add_resampled_bone_curve(bone_name, i, target_rot_type, motion_channelbag)
+                if fcurve:
+                    fcurve.keyframe_points.clear()
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', resampled_data[i])
+                    reset_fcurve_interpolation(fcurve)
 
 
 def blend_key_curves(motion_channel, stored_channel,
@@ -5050,6 +4482,8 @@ def blend_key_curves(motion_channel, stored_channel,
                      blend_in_data, blend_out_data,
                      use_mask_keys, blend_mask_keys,
                      processed_fcurves: List[bpy.types.FCurve]=None):
+
+    if motion_channel == (None, None, None) and stored_channel == (None, None, None): return
 
     motion_action, motion_slot, motion_channelbag = motion_channel
     stored_action, stored_slot, stored_channelbag = stored_channel
@@ -5179,12 +4613,16 @@ def blend_key_curves(motion_channel, stored_channel,
                 reset_fcurve_interpolation(motion_key_curve)
 
 
-def blend_data_curves(rig, motion_channel, stored_channel,
+def blend_data_curves(rig: bpy.types.Object, motion_channel, stored_channel,
                       from_frame, to_frame,
+                      relative_root, current_root,
                       use_blend, overwrite, overall_strength,
                       blend_in_frames, blend_out_frames,
                       blend_in_data, blend_out_data,
+                      use_mask_bones, blend_mask_bones,
                       processed_fcurves: List[bpy.types.FCurve]=None):
+
+    if motion_channel == (None, None, None) and stored_channel == (None, None, None): return
 
     motion_action, motion_slot, motion_channelbag = motion_channel
     stored_action, stored_slot, stored_channelbag = stored_channel
@@ -5202,17 +4640,20 @@ def blend_data_curves(rig, motion_channel, stored_channel,
             base_frames.add(i)
 
     paths = {}
+    skip_paths = ["location", "scale", "rotation_quaternion", "rotation_euler", "rotation_axis_angle"]
     if motion_channelbag:
         for fcurve in motion_channelbag.fcurves:
             if (fcurve.data_path.startswith("pose.bones") or
-                fcurve.data_path.startswith("key_blocks")):
+                fcurve.data_path.startswith("key_blocks") or
+                fcurve.data_path in skip_paths):
                 continue
             path_id = (fcurve.data_path, fcurve.array_index)
             paths[path_id] = [fcurve, None]
     if stored_channelbag:
         for fcurve in stored_channelbag.fcurves:
             if (fcurve.data_path.startswith("pose.bones") or
-                fcurve.data_path.startswith("key_blocks")):
+                fcurve.data_path.startswith("key_blocks") or
+                fcurve.data_path in skip_paths):
                 continue
             path_id = (fcurve.data_path, fcurve.array_index)
             if path_id in paths:
@@ -5334,6 +4775,26 @@ def blend_data_curves(rig, motion_channel, stored_channel,
                 motion_data_curve.keyframe_points.foreach_set('co', resampled_data)
                 reset_fcurve_interpolation(motion_data_curve)
 
+    motion_transform_dict = get_transform_dict(rig, motion_channelbag)
+    stored_transform_dict = get_transform_dict(rig, stored_channelbag)
+
+    if motion_transform_dict or stored_transform_dict:
+
+        rig_transform_name = f"OBJECT:{rig.name}"
+        is_root = True
+        root_matrix = rig.matrix_world
+
+        blend_transform_set(motion_channelbag, stored_channelbag,
+                            motion_transform_dict, stored_transform_dict,
+                            rig, rig_transform_name, is_root, root_matrix,
+                            relative_root, current_root,
+                            from_frame, to_frame, base_frames,
+                            use_blend, overwrite, overall_strength,
+                            blend_in_frames, blend_in_data,
+                            blend_out_frames, blend_out_data,
+                            use_mask_bones, blend_mask_bones,
+                            processed_fcurves)
+
 
 def get_relative_transformation(motion_loc: Vector, motion_rot: Quaternion,
                            stored_loc: Vector, stored_rot: Quaternion):
@@ -5353,33 +4814,24 @@ def fetch_action_key_curve(channelbag, key_name: str):
     return None
 
 
-def get_bone_rotation_type(rig, bone_name):
-    if rig and bone_name in rig.pose.bones:
-        pose_bone = rig.pose.bones[bone_name]
-        if pose_bone.rotation_mode == "QUATERNION":
-            return RotationType.QUATERNION
-        elif pose_bone.rotation_mode == "AXIS_ANGLE":
-            return RotationType.AXIS_ANGLE
-        else:
-            return RotationType.EULER
-    return RotationType.NONE
-
-
-def get_bone_transform_dict(rig, channelbag):
-    curves_by_bone = {}
+def get_transform_dict(rig, channelbag):
+    curves_by_name = {}
+    rig_transform_name = f"OBJECT:{rig.name}"
     if channelbag:
         for fcurve in channelbag.fcurves:
             if fcurve:
                 data_path = fcurve.data_path
                 if data_path.startswith("pose.bones["):
                     bone_name = data_path[12:data_path.find('"', 12)]
-                    if bone_name not in curves_by_bone:
-                        curves_by_bone[bone_name] = []
-                    curves_by_bone[bone_name].append(fcurve)
+                    curves_by_name.setdefault(bone_name, [])
+                    curves_by_name[bone_name].append(fcurve)
+                if data_path == "location" or data_path == "scale" or data_path.startswith("rotation_"):
+                    curves_by_name.setdefault(rig_transform_name, [])
+                    curves_by_name[rig_transform_name].append(fcurve)
 
     # build a dictionary of fcurves for the bones
-    bone_dict = {}
-    for bone_name, fcurves in curves_by_bone.items():
+    transform_dict = {}
+    for bone_name, fcurves in curves_by_name.items():
         loc_curves = [None, None, None]
         rot_curves = [None, None, None, None]
         sca_curves = [None, None, None]
@@ -5395,23 +4847,23 @@ def get_bone_transform_dict(rig, channelbag):
         has_curves = True
         for fcurve in fcurves:
             # location curves
-            if fcurve.data_path.endswith(".location"):
+            if fcurve.data_path.endswith(".location") or fcurve.data_path == "location":
                 loc_curves[fcurve.array_index] = fcurve
             # scale
-            elif fcurve.data_path.endswith(".scale"):
+            elif fcurve.data_path.endswith(".scale") or fcurve.data_path == "scale":
                 sca_curves[fcurve.array_index] = fcurve
             # rotation curvess
-            elif fcurve.data_path.endswith(".rotation_quaternion"):
+            elif fcurve.data_path.endswith(".rotation_quaternion") or fcurve.data_path == "rotation_quaternion":
                 if rot_type == RotationType.NONE: rot_type = RotationType.QUATERNION
                 if rot_types[RotationType.QUATERNION] == 0: num_types += 1
                 rot_types[RotationType.QUATERNION] += 1
                 rot_type_curves[RotationType.QUATERNION].append(fcurve)
-            elif fcurve.data_path.endswith(".rotation_euler"):
+            elif fcurve.data_path.endswith(".rotation_euler") or fcurve.data_path == "rotation_euler":
                 if rot_type == RotationType.NONE: rot_type = RotationType.EULER
                 if rot_types[RotationType.EULER] == 0: num_types += 1
                 rot_types[RotationType.EULER] += 1
                 rot_type_curves[RotationType.EULER].append(fcurve)
-            elif fcurve.data_path.endswith(".rotation_axis_angle"):
+            elif fcurve.data_path.endswith(".rotation_axis_angle") or fcurve.data_path == "rotation_axis_angle":
                 if rot_type == RotationType.NONE: rot_type = RotationType.AXIS_ANGLE
                 if rot_types[RotationType.AXIS_ANGLE] == 0: num_types += 1
                 rot_types[RotationType.AXIS_ANGLE] += 1
@@ -5419,7 +4871,7 @@ def get_bone_transform_dict(rig, channelbag):
         # if there are multiple rotation type fcurves in the action for this bone
         if num_types > 1:
             utils.log_warn(f"Ambiguous rotation curves for bone {bone_name} {rot_types[RotationType.QUATERNION]}/{rot_types[RotationType.EULER]}/{rot_types[RotationType.AXIS_ANGLE]}")
-            rig_rot_type = get_bone_rotation_type(rig, bone_name)
+            rig_rot_type = get_rotation_type(rig, bone_name)
             # choose the curve type that matches the rig pose bone rotation mode (if they exist)
             # otherwise go with the first one we found
             if rot_type != rig_rot_type and rot_types[rig_rot_type] > 0:
@@ -5427,17 +4879,21 @@ def get_bone_transform_dict(rig, channelbag):
                 rot_type = rig_rot_type
             else:
                 utils.log_warn(f" - using first detected rotation type: {rot_type}")
+        elif num_types == 0:
+            utils.log_warn(f"No rotations for: {bone_name}!")
+
         # use only the chosen rotation type fcurves
-        for fcurve in rot_type_curves[rot_type]:
-            rot_curves[fcurve.array_index] = fcurve
+        if rot_type != RotationType.NONE:
+            for fcurve in rot_type_curves[rot_type]:
+                rot_curves[fcurve.array_index] = fcurve
 
         # add to bone transform dictionary
-        bone_dict[bone_name] = (loc_curves, rot_curves, sca_curves, rot_type, has_curves)
+        transform_dict[bone_name] = (loc_curves, rot_curves, sca_curves, rot_type, has_curves)
 
-    return bone_dict
+    return transform_dict
 
 
-def fetch_action_bone_transform_set_dict(bone_dict, bone_name: str):
+def fetch_action_transform_set_dict(bone_dict, bone_name: str):
     if bone_name in bone_dict:
         loc_curves, rot_curves, sca_curves, rot_type, has_curves = bone_dict[bone_name]
     else:
@@ -5483,38 +4939,43 @@ def eval_curve(curve, frame, default=0.0):
         return default
 
 
-def evaluate_action_bone_location(loc_curves, frame) -> Vector:
+def evaluate_action_bone_location(loc_curves, frame, def_obj) -> Vector:
+    defaults = def_obj.location if def_obj else [0,0,0]
     try:
-        loc = Vector( (eval_curve(loc_curves[0], frame),
-                       eval_curve(loc_curves[1], frame),
-                       eval_curve(loc_curves[2], frame)) )
+
+        loc = Vector( (eval_curve(loc_curves[0], frame, default=defaults[0]),
+                       eval_curve(loc_curves[1], frame, default=defaults[1]),
+                       eval_curve(loc_curves[2], frame, default=defaults[2])) )
     except:
-        loc = Vector((0,0,0))
+        loc = Vector(defaults)
     return loc
 
 
-def evaluate_action_bone_rotation(rot_curves, rot_type, frame) -> Quaternion:
+def evaluate_action_bone_rotation(rot_curves, rot_type, frame, def_obj) -> Quaternion:
     if rot_type == RotationType.QUATERNION:
+        defaults = def_obj.rotation_quaternion if def_obj else [1,0,0,0]
         try:
-            rot = Quaternion( (eval_curve(rot_curves[0], frame),
-                               eval_curve(rot_curves[1], frame),
-                               eval_curve(rot_curves[2], frame),
-                               eval_curve(rot_curves[3], frame)) )
+            rot = Quaternion( (eval_curve(rot_curves[0], frame, default=defaults[0]),
+                               eval_curve(rot_curves[1], frame, default=defaults[1]),
+                               eval_curve(rot_curves[2], frame, default=defaults[2]),
+                               eval_curve(rot_curves[3], frame, default=defaults[3])) )
         except:
             rot = Quaternion((1,0,0,0))
     elif rot_type == RotationType.EULER:
+        defaults = def_obj.rotation_euler if def_obj else [0,0,0]
         try:
-            rot = Euler( (eval_curve(rot_curves[0], frame),
-                          eval_curve(rot_curves[1], frame),
-                          eval_curve(rot_curves[2], frame)) ).to_quaternion()
+            rot = Euler( (eval_curve(rot_curves[0], frame, default=defaults[0]),
+                          eval_curve(rot_curves[1], frame, default=defaults[1]),
+                          eval_curve(rot_curves[2], frame, default=defaults[2])) ).to_quaternion()
         except:
             rot = Quaternion((1,0,0,0))
     elif rot_type == RotationType.AXIS_ANGLE:
+        defaults = def_obj.rotation_axis_angle if def_obj else [1,0,0,0]
         try:
-            angle = eval_curve(rot_curves[0], frame)
-            axis = (eval_curve(rot_curves[1], frame),
-                    eval_curve(rot_curves[2], frame),
-                    eval_curve(rot_curves[3], frame))
+            angle = eval_curve(rot_curves[0], frame, default=defaults[0]),
+            axis = (eval_curve(rot_curves[1], frame, default=defaults[1]),
+                    eval_curve(rot_curves[2], frame, default=defaults[2]),
+                    eval_curve(rot_curves[3], frame, default=defaults[3]))
             rot = utils.axis_angle_to_quaternion(axis, angle)
         except:
             rot = Quaternion((1,0,0,0))
@@ -5523,21 +4984,22 @@ def evaluate_action_bone_rotation(rot_curves, rot_type, frame) -> Quaternion:
     return rot
 
 
-def evaluate_action_bone_scale(sca_curves, frame) -> Vector:
+def evaluate_action_bone_scale(sca_curves, frame, def_obj) -> Vector:
     try:
-        sca = Vector( (eval_curve(sca_curves[0], frame, default=1.0),
-                       eval_curve(sca_curves[1], frame, default=1.0),
-                       eval_curve(sca_curves[2], frame, default=1.0)) )
+        defaults = def_obj.scale if def_obj else [1,1,1]
+        sca = Vector( (eval_curve(sca_curves[0], frame, default=defaults[0]),
+                       eval_curve(sca_curves[1], frame, default=defaults[1]),
+                       eval_curve(sca_curves[2], frame, default=defaults[2])) )
     except:
         sca = Vector((1,1,1))
     return sca
 
 
-def evaluate_action_bone_transform_set(transform_set: tuple, frame: int):
+def evaluate_action_transform_set(transform_set: tuple, frame: int, def_obj=None):
     loc_curves, rot_curves, sca_curves, rot_type = transform_set
-    loc = evaluate_action_bone_location(loc_curves, frame)
-    rot = evaluate_action_bone_rotation(rot_curves, rot_type, frame)
-    sca = evaluate_action_bone_scale(sca_curves, frame)
+    loc = evaluate_action_bone_location(loc_curves, frame, def_obj)
+    rot = evaluate_action_bone_rotation(rot_curves, rot_type, frame, def_obj)
+    sca = evaluate_action_bone_scale(sca_curves, frame, def_obj)
     return loc, rot, sca
 
 
@@ -5548,6 +5010,93 @@ def evaluate_action_curve(key_curve: tuple, frame: int, default_value=0.0):
         value = default_value
     return value
 #endregion
+
+
+def get_rig_name_map(root: bpy.types.Object, rename = False):
+    objects = utils.get_child_objects(root, include_parent=True, follow_armatures=True)
+    names = [ o.name for o in objects ]
+    names.sort()
+    count = {}
+    result = {}
+    base_root_name = utils.strip_name(root.name)
+    for name in names:
+        base_name = utils.strip_name(name)
+        count.setdefault(base_name, -1)
+        count[base_name] += 1
+        index = count[base_name]
+        obj = bpy.data.objects[name]
+        obj_slot = data_slot = key_slot = None
+
+        obj_action, obj_slot = utils.safe_get_action_slot(obj)
+        if obj_slot and rename:
+            utils.set_prop(obj_action, "rl_root_name", base_root_name)
+            slot_suffix = "Arm" if obj.type == "ARMATURE" else "Object"
+            obj_slot.name_display = f"{base_name}|{index} ({slot_suffix})"
+
+        if utils.object_has_shape_keys(obj):
+            key_action, key_slot = utils.safe_get_action_slot(obj.data.shape_keys)
+            if key_slot and rename:
+                key_slot.name_display = f"{base_name}|{index} (Key)"
+
+        if obj.type != "EMPTY":
+            data_action, data_slot = utils.safe_get_action_slot(obj.data)
+            if data_slot and rename:
+                data_slot.name_display = f"{base_name}|{index} ({obj.type.capitalize()})"
+
+        type = obj.type
+        result[name] = (base_name, index, obj_action, obj_slot, data_slot, key_slot, type)
+    return result
+
+
+def get_rig_map_base_name_index(rig_map, obj_name):
+    for name in rig_map:
+        if name == obj_name:
+            base_name, index = rig_map[name][:2]
+            return base_name, index
+    return "", -1
+
+
+def get_rig_mapped_action_slots(rig_map, action, obj):
+    base_name, dup_index = get_rig_map_base_name_index(rig_map, obj)
+    channelbags = utils.get_action_channelbags(action)
+    obj_slot = data_slot = key_slot = None
+    for channelbag in channelbags:
+        slot = channelbag.slot
+        type = slot.target_id_type
+        slot_base_name, slot_dup_index = get_slot_base_name_index(slot)
+        if base_name == slot_base_name and dup_index in slot_dup_index:
+            if type == "OBJECT":
+                obj_slot = slot
+            elif type == "KEY":
+                key_slot = slot
+            else:
+                data_slot = slot
+    return obj_slot, data_slot, key_slot
+
+
+def get_first_ob_slot_name_index(action):
+    channelbags = utils.get_action_channelbags(action)
+    for channelbag in channelbags:
+        if channelbag.slot.target_id_type == "OBJECT":
+            return get_slot_base_name_index(channelbag.slot)
+    return "", 0
+
+
+def get_slot_base_name_index(slot):
+    slot_name: str = slot.name_display
+    if "|" in slot_name:
+        c0 = slot_name.index("|")
+        c1 = c2 = c0 + 1
+        while (c2 < len(slot_name) and slot_name[c2].isdigit()):
+            c2 += 1
+        base_name = slot_name[:c0]
+        try:
+            index = int(slot_name[c1:c2])
+        except:
+            index = 0
+        return base_name, index
+    else:
+        return slot_name, 0
 
 
 def get_rig_actions(rig: bpy.types.Object, actions: dict=None) :
@@ -6712,8 +6261,8 @@ class CCICMotionBlend(bpy.types.Operator):
             props.available_bones.clear()
             props.available_keys.clear()
 
-            arm = self.chr_rlx_cache.get_armature()
-            if arm:
+            arm = self.chr_rlx_cache.get_primary_object()
+            if arm and arm.type == "ARMATURE":
                 for bone in arm.data.bones:
                     if self.is_valid_bone(bone):
                         bone_item = props.available_bones.add()
@@ -6729,6 +6278,12 @@ class CCICMotionBlend(bpy.types.Operator):
                 for key in keys:
                     key_item = props.available_keys.add()
                     key_item.name = key
+            elif arm and arm.type == "EMPTY":
+                objects = utils.get_child_objects(arm)
+                for obj in objects:
+                    bone_item = props.available_bones.add()
+                    bone_item.name = "OBJECT:" + obj.name
+
 
     def get_new_motion_name(self):
         name = ""
@@ -6836,9 +6391,7 @@ class CCICMotionPrefs(bpy.types.Operator):
         column.label(text="Preferences:")
         row = column.row()
         grid = row.grid_flow(row_major=True, columns=1)
-        if utils.B440():
-            grid.prop(prefs, "action_use_action_slots")
-            grid.prop(prefs, "action_add_key_slots_per_obj")
+        grid.prop(prefs, "action_add_key_slots_per_obj")
         #grid.prop(prefs, "action_clean_actions")
         grid.prop(prefs, "action_add_empty_key_channels")
         column.separator()

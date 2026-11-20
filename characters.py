@@ -291,7 +291,21 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
         utils.try_select_child_objects(obj)
 
     objects = bpy.context.selected_objects.copy()
-    chr_rig = utils.get_armature_from_objects(objects)
+    roots = utils.get_root_objects(objects)
+    if len(roots) == 0:
+        return
+    if len(roots) > 1 or (roots[0].type != "EMPTY" or roots[0].type != "ARMATURE"):
+        loc = Vector((0,0,0))
+        for root in roots:
+            loc += root.location
+        loc /= len(roots)
+        bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius = 0.5, location=loc)
+        chr_rig = utils.get_active_object()
+        utils.try_select_objects(roots, clear_selection=True)
+        utils.set_active_object(chr_rig)
+        bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+    else:
+        chr_rig = roots[0]
 
     utils.log_info(f"Generic character objects:")
     for obj in objects:
@@ -328,18 +342,14 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
 
     utils.log_info(f"Generic character name: {chr_name}")
 
-    # if no rig: generate one from the objects and empty parent transforms
-    if not chr_rig:
-        utils.log_info(f"Generating Prop Rig...")
-        chr_rig = make_prop_armature(objects)
-
     # now treat the armature as any generic character
-    objects = get_character_objects(chr_rig)
+    objects = utils.get_child_objects(chr_rig, include_parent=True, follow_armatures=True)
 
     utils.log_info(f"Creating Character Data...")
 
     chr_rig.name = chr_name
-    chr_rig.data.name = chr_name
+    if chr_rig.type == "ARMATURE":
+        chr_rig.data.name = chr_name
     chr_cache = props.import_cache.add()
     chr_cache.import_file = ""
     chr_cache.set_name(chr_name)
@@ -352,11 +362,11 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
 
     chr_cache.add_object_cache(chr_rig)
 
-    utils.log_info(f"Adding Character Objects:")
+    utils.log_info(f"Adding Character Objects: {[o.name for o in objects]}")
 
     # add child objects to chr_cache
     for obj in objects:
-        if utils.object_exists_is_mesh(obj):
+        if utils.object_exists_is_mesh(obj) or utils.object_exists_is_armature(obj) or utils.object_exists_is_empty(obj):
             add_object_to_character(chr_cache, obj, reparent=False,
                                     no_materials=not prefs.auto_convert_materials)
 
@@ -381,6 +391,7 @@ def link_or_append_rl_character(op, context, blend_file, link=False):
     utils.log_info("")
     utils.log_info("Link/Append Reallusion Character")
     utils.log_info("--------------------------------")
+    utils.log_info(f"Library: {blend_file}")
 
     # if linking, reload any existing library link for this blend file
     # otherwise it remembers if objects have been previously deleted.
@@ -397,6 +408,11 @@ def link_or_append_rl_character(op, context, blend_file, link=False):
         dst.scenes = src.scenes
         dst.objects = src.objects
 
+    for lib in bpy.data.libraries:
+        if os.path.samefile(lib.filepath, blend_file):
+            current_lib = lib
+            break
+
     ignore = []
     keep = []
 
@@ -404,9 +420,11 @@ def link_or_append_rl_character(op, context, blend_file, link=False):
     src_props = None
     for scene in dst.scenes:
         if "CC3ImportProps" in scene:
-            src_props = scene.CC3ImportProps
-            utils.log_info(f"Found Add-on Import Properties")
-            break
+            try:
+                src_props = scene.CC3ImportProps
+                utils.log_info(f"Found Add-on Import Properties")
+                break
+            except: ...
 
     has_rigid_body = False
 
@@ -463,41 +481,55 @@ def link_or_append_rl_character(op, context, blend_file, link=False):
 
             # TODO remove all actions or keep them? or get all of them?
 
-            # link overrides
+            # link overrides:
+            # link overrides via 'override_create' are a mess, and disconnect the
+            # whole rig from the modifiers, constraints and drivers and parenting,
+            # only the operators used from the UI seem to work.
             if link and False:
                 overrides = {}
                 for obj in objects:
+                    utils.log_info(f"Link Override (Object): {obj.name}")
                     override = obj.override_create(remap_local_usages=True)
+                    if obj.type == "MESH":
+                        utils.log_info(f"Link Override (Mesh): {obj.data.name}")
+                        obj.data.override_create(remap_local_usages=True)
                     if obj == meta_rig:
+                        utils.log_info(f"Link Override (Meta Rig): {obj.name}")
                         meta_rig = override
                     if obj == chr_rig:
+                        utils.log_info(f"Link Override (Rig): {obj.name}")
                         chr_rig = override
                     if obj == src_rig:
+                        utils.log_info(f"Link Override (CC Rig): {obj.name}")
                         src_rig = override
                     overrides[obj] = override
-                for obj in overrides:
-                    override = overrides[obj]
-                    try:
-                        if hasattr(override, "parent"):
-                            if override.parent and override.parent in overrides:
-                                override.parent = overrides[override.parent]
-                    except: ...
-                    if override.type == "MESH":
-                        for mod in override.modifiers:
-                            if mod:
-                                if hasattr(mod, "object") and mod.object in overrides:
-                                    mod.object = overrides[mod.object]
-                    elif override.type == "EMPTY":
-                        con = override.rigid_body_constraint
-                        if con:
-                            if hasattr(con, "target") and con.target in overrides:
-                                con.target = overrides[con.target]
-                            if hasattr(con, "object") and con.object in overrides:
-                                con.object = overrides[con.object]
-                            if hasattr(con, "object1") and con.object1 in overrides:
-                                con.object1 = overrides[con.object1]
-                            if hasattr(con, "object2") and con.object2 in overrides:
-                                con.object2 = overrides[con.object2]
+                if True:
+                    for obj in overrides:
+                        override = overrides[obj]
+                        try:
+                            if hasattr(override, "parent"):
+                                if override.parent and override.parent in overrides:
+                                    parent = overrides[override.parent]
+                                    utils.log_info(f"Reparenting: {obj.name} to {parent.name}")
+                                    override.parent = parent
+                        except: ...
+                        if override.type == "MESH":
+                            for mod in override.modifiers:
+                                if mod:
+                                    if hasattr(mod, "object") and mod.object in overrides:
+                                        utils.log_info(f" - Override modifier object: {obj.name} > {mod.name}")
+                                        mod.object = overrides[mod.object]
+                        elif override.type == "EMPTY":
+                            con = override.rigid_body_constraint
+                            if con:
+                                if hasattr(con, "target") and con.target in overrides:
+                                    con.target = overrides[con.target]
+                                if hasattr(con, "object") and con.object in overrides:
+                                    con.object = overrides[con.object]
+                                if hasattr(con, "object1") and con.object1 in overrides:
+                                    con.object1 = overrides[con.object1]
+                                if hasattr(con, "object2") and con.object2 in overrides:
+                                    con.object2 = overrides[con.object2]
                 objects = list(overrides.values())
 
             # after deciding what to keep, check the character has not already been linked
@@ -548,6 +580,12 @@ def link_or_append_rl_character(op, context, blend_file, link=False):
                             has_rigid_body = True
                             utils.hide_tree(rigid_body_system, hide=True)
 
+    else:
+        # TODO No props in the blend file
+        # Might be an different version of the add-on and it cant read it's props
+        # need to show a warning
+        op.report({'ERROR'}, message="Add-on properties not found in Blend file. Check the versions of the CC/iC Tools used.")
+
     # clean up unused objects
     for obj in dst.objects:
         if obj not in keep:
@@ -556,7 +594,6 @@ def link_or_append_rl_character(op, context, blend_file, link=False):
     # init rigidy body world if needed
     if has_rigid_body:
         rigidbody.init_rigidbody_world()
-
 
 
 def reconnect_rl_character_to_fbx(chr_rig, fbx_path):

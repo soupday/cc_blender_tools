@@ -85,7 +85,7 @@ TEXTURE_TYPES = [
 ]
 
 TEXTURE_RULES = {
-    "SKINSPECDETAIL": "prefs.build_skin_shader_dual_spec",
+    #"SKINSPECDETAIL": "prefs.build_skin_shader_dual_spec",
 }
 
 PBR_TYPES = [
