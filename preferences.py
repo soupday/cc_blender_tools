@@ -141,6 +141,7 @@ def reset_preferences():
     prefs.import_deduplicate = True
     prefs.import_reset_custom_normals = False
     prefs.import_fix_5_1_normals = True
+    prefs.import_validate_mesh = True
     prefs.build_pack_texture_channels = False
     prefs.build_pack_wrinkle_diffuse_roughness = False
     prefs.build_reuse_baked_channel_packs = True
@@ -372,6 +373,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                 description="Reset the custom normals on all imported meshes (can help resolve lighting artifacts)")
     import_fix_5_1_normals: bpy.props.BoolProperty(default=True, name="Fix Blender 5.1 Normals",
                 description="Blender 5.1 introduced an export bug that fails to export custom normals on meshes with shape-keys, this option will remove custom normals from all meshes with shape keys on import")
+    import_validate_mesh: bpy.props.BoolProperty(default=True, name="Validate Mesh on Import",
+                description="Use the FBX import Validate Mesh option. Disabling will allow degenerate or non-manifold meshes to be imported. Disable at own risk")
     import_deduplicate: bpy.props.BoolProperty(default=True, name="De-duplicate Materials",
                 description="Detects and re-uses duplicate textures and consolidates materials with same name, textures and parameters into a single material")
     import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic",
@@ -621,6 +624,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         grid = layout.grid_flow(row_major=True, columns=2)
         grid.prop(self, "import_reset_custom_normals")
         grid.prop(self, "import_fix_5_1_normals")
+        grid.prop(self, "import_validate_mesh")
         grid.prop(self, "import_deduplicate")
         grid.prop(self, "import_auto_convert")
         grid.prop(self, "auto_convert_materials")

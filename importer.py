@@ -1087,7 +1087,8 @@ class CC3Import(bpy.types.Operator):
                                               use_anim=import_anim,
                                               use_custom_normals=not prefs.import_reset_custom_normals,
                                               mtl_name_collision_mode="MAKE_UNIQUE",
-                                              anim_offset=self.start_frame)
+                                              anim_offset=self.start_frame,
+                                              validate_meshes=prefs.import_validate_mesh)
                         #bpy.ops.import_scene.fbx(filepath=filepath,
                         #                         directory=dir,
                         #                         use_anim=import_anim,
@@ -1102,7 +1103,8 @@ class CC3Import(bpy.types.Operator):
                                               directory=dir,
                                               use_anim=import_anim,
                                               use_custom_normals=not prefs.import_reset_custom_normals,
-                                              anim_offset=self.start_frame)
+                                              anim_offset=self.start_frame,
+                                              validate_meshes=prefs.import_validate_mesh)
                         #bpy.ops.import_scene.fbx(filepath=filepath,
                         #                         directory=dir,
                         #                         use_anim=import_anim,
@@ -2000,13 +2002,15 @@ class CC3ImportAnimations(bpy.types.Operator):
                                   use_anim=True,
                                   use_custom_normals=False,
                                   mtl_name_collision_mode="MAKE_UNIQUE",
-                                  anim_offset=self.start_frame)
+                                  anim_offset=self.start_frame,
+                                  validate_meshes=prefs.import_validate_mesh)
         else:
             bpy.ops.wm.fbx_import(filepath=path,
                                   directory=dir,
                                   use_anim=True,
                                   use_custom_normals=False,
-                                  anim_offset=self.start_frame)
+                                  anim_offset=self.start_frame,
+                                  validate_meshes=prefs.import_validate_mesh)
         #bpy.ops.import_scene.fbx(filepath=path,
         #                         directory=dir,
         #                         use_anim=True,
